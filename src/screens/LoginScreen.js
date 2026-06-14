@@ -15,6 +15,7 @@ export default function LoginScreen() {
   // 1. Setup the Google Request
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: '220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com', // PASTE YOUR ID HERE
+androidClientId: '220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com',
   });
 
   // 2. Listen for Google's Answer
