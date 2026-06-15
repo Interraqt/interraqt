@@ -1,14 +1,9 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { auth, db } from '../config/firebase'; // 1. Added db
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore'; // 2. Added Firestore functions
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Ionicons, AntDesign } from '@expo/vector-icons';
-
-GoogleSignin.configure({
-  webClientId: '220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com',
-});
+import { auth, db } from '../config/firebase'; 
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore'; 
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen({ navigation }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,7 +11,7 @@ export default function LoginScreen({ navigation }) {
   
   // Form State
   const [name, setName] = useState('');
-  const [username, setUsername] = useState(''); // 3. Added username state
+  const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,39 +45,6 @@ export default function LoginScreen({ navigation }) {
       }
     } catch (error) {
       Alert.alert("Authentication Error", error.message);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const idToken = userInfo?.data?.idToken || userInfo?.idToken;
-      
-      if (idToken) {
-        const credential = GoogleAuthProvider.credential(idToken);
-        const userCredential = await signInWithCredential(auth, credential);
-        const user = userCredential.user;
-
-        // Check if user already exists in Database
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        
-        if (!userDoc.exists()) {
-          // First time logging in with Google? Create a profile!
-          await setDoc(doc(db, "users", user.uid), {
-            uid: user.uid,
-            name: user.displayName || '',
-            username: user.email.split('@')[0].toLowerCase(), 
-            phone: user.phoneNumber || '',
-            email: user.email.toLowerCase(),
-            createdAt: new Date().toISOString()
-          });
-        }
-
-        navigation.replace('Home');
-      }
-    } catch (error) {
-      Alert.alert("Google Login Error", error?.message || "Something went wrong");
     }
   };
 
@@ -159,17 +121,6 @@ export default function LoginScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-            <AntDesign name="google" size={22} color="#DB4437" />
-            <Text style={styles.googleButtonText}>Google</Text>
-          </TouchableOpacity>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -194,9 +145,4 @@ const styles = StyleSheet.create({
   switchModeBtn: { marginTop: 24, alignItems: 'center' },
   switchModeText: { color: '#666666', fontSize: 15 },
   switchModeTextBold: { color: '#000000', fontWeight: 'bold' },
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 32 },
-  divider: { flex: 1, height: 1, backgroundColor: '#EAEAEA' },
-  dividerText: { marginHorizontal: 16, color: '#999999', fontSize: 14 },
-  googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EAEAEA', borderRadius: 12, height: 56, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  googleButtonText: { color: '#111111', fontSize: 16, fontWeight: '600', marginLeft: 12 },
 });
