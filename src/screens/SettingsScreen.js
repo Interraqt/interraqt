@@ -1,36 +1,36 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, db } from '../config/firebase';
-import { signOut, deleteUser, updatePassword } from 'firebase/auth';
+import { signOut, deleteUser, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { Feather } from '@expo/vector-icons';
 
 export default function SettingsScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [loadingAction, setLoadingAction] = useState(null);
 
-  const handlePasswordChange = () => {
-    Alert.prompt(
-      "Change Password",
-      "Enter your new password below (minimum 6 characters):",
+  const handlePasswordChange = async () => {
+    Alert.alert(
+      "Reset Password",
+      "We will send a password reset link to your email address.",
       [
         { text: "Cancel", style: "cancel" },
         { 
-          text: "Save", 
-          onPress: async (newPassword) => {
-            if (newPassword.length < 6) return Alert.alert("Error", "Password must be at least 6 characters.");
+          text: "Send Link", 
+          onPress: async () => {
             setLoadingAction('password');
             try {
-              await updatePassword(auth.currentUser, newPassword);
-              Alert.alert("Success", "Your password has been updated.");
+              await sendPasswordResetEmail(auth, auth.currentUser.email);
+              Alert.alert("Sent!", "Check your inbox for the reset link.");
             } catch (error) {
-              Alert.alert("Authentication Required", "For security, please log out and log back in before changing your password.");
+              Alert.alert("Error", error.message);
             } finally {
               setLoadingAction(null);
             }
           } 
         }
-      ],
-      "secure-text"
+      ]
     );
   };
 
@@ -56,7 +56,7 @@ export default function SettingsScreen({ navigation }) {
             await deleteUser(user); 
             navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
           } catch (error) {
-            Alert.alert("Action Required", "For security, please log out and log back in before deleting your account.");
+            Alert.alert("Action Required", "Please log out and log back in before deleting your account.");
             setLoadingAction(null);
           }
         } 
@@ -65,8 +65,8 @@ export default function SettingsScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Feather name="arrow-left" size={24} color="#000" />
         </TouchableOpacity>
@@ -75,7 +75,6 @@ export default function SettingsScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        
         <Text style={styles.sectionTitle}>Security</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.row} onPress={handlePasswordChange} disabled={loadingAction === 'password'}>
@@ -96,9 +95,7 @@ export default function SettingsScreen({ navigation }) {
             </View>
             {loadingAction === 'logout' ? <ActivityIndicator size="small" color="#000" /> : <Feather name="chevron-right" size={20} color="#ccc" />}
           </TouchableOpacity>
-          
           <View style={styles.divider} />
-
           <TouchableOpacity style={styles.row} onPress={handleDeleteAccount} disabled={loadingAction === 'delete'}>
             <View style={styles.rowLeft}>
               <Feather name="trash-2" size={20} color="#FF3B30" />
@@ -107,22 +104,21 @@ export default function SettingsScreen({ navigation }) {
             {loadingAction === 'delete' ? <ActivityIndicator size="small" color="#FF3B30" /> : <Feather name="chevron-right" size={20} color="#FF3B30" opacity={0.5} />}
           </TouchableOpacity>
         </View>
-
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20, borderBottomWidth: 1, borderColor: '#EAEAEA' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderColor: '#F0F0F0' },
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#000' },
   content: { padding: 20 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#888', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4, letterSpacing: 1 },
-  card: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#EAEAEA', overflow: 'hidden', marginBottom: 32 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#999', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4, letterSpacing: 1 },
+  card: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', overflow: 'hidden', marginBottom: 32 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   rowLeft: { flexDirection: 'row', alignItems: 'center' },
-  rowText: { fontSize: 16, fontWeight: '500', color: '#000', marginLeft: 12 },
-  divider: { height: 1, backgroundColor: '#EAEAEA', marginLeft: 48 },
+  rowText: { fontSize: 16, fontWeight: '600', color: '#000', marginLeft: 12 },
+  divider: { height: 1, backgroundColor: '#F0F0F0', marginLeft: 48 },
 });
