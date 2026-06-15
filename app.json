@@ -14,7 +14,13 @@
     },
     "web": {},
     "plugins": [
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dbb180d3-4627-4e1d-aba6-72740e577535"
+      }
+    }
   }
 }
