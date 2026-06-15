@@ -13,9 +13,7 @@
       "package": "com.interraqt.app"
     },
     "web": {},
-    "plugins": [
-      "expo-web-browser"   
-    ],
+    "plugins": [],
     "extra": {
       "eas": {
         "projectId": "dbb180d3-4627-4e1d-aba6-72740e577535"
