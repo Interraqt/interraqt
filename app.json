@@ -15,15 +15,6 @@
     "web": {},
     "plugins": [
       "expo-web-browser"
-<<<<<<< HEAD
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "dbb180d3-4627-4e1d-aba6-72740e577535"
-      }
-    }
-=======
     ]
->>>>>>> 7413aeb880178e31188927a2e744f3eaaa6e7ccd
   }
 }
