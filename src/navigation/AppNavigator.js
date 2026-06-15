@@ -1,10 +1,11 @@
 import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs'; 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { View, Text } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 // Import Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -13,34 +14,74 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 
-const ExploreScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center'}}><Text style={{fontSize: 20, fontWeight: 'bold'}}>Explore</Text></View>;
-const VideoScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center'}}><Text style={{fontSize: 20, fontWeight: 'bold'}}>Video</Text></View>;
+const ExploreScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA'}}><Text style={{marginTop: 100, textAlign: 'center', fontSize: 20}}>Explore</Text></View>;
+const VideoScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA'}}><Text style={{marginTop: 100, textAlign: 'center', fontSize: 20}}>Video</Text></View>;
 
 const Stack = createNativeStackNavigator();
 const Tab = createMaterialTopTabNavigator();
 
-function MainTabs() {
+// --- CUSTOM LIQUID GLASS TAB BAR ---
+function GlassTabBar({ state, descriptors, navigation, position }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   
+  // Math for the sliding bubble
+  const TAB_BAR_WIDTH = width - 32; // 16px margin on left and right
+  const TAB_WIDTH = TAB_BAR_WIDTH / 4; // 4 tabs
+
+  // Animates the bubble exactly to the current tab
+  const translateX = position.interpolate({
+    inputRange: [0, 1, 2, 3],
+    outputRange: [0, TAB_WIDTH, TAB_WIDTH * 2, TAB_WIDTH * 3],
+  });
+
+  return (
+    <View style={[styles.tabBarContainer, { bottom: insets.bottom > 0 ? insets.bottom : 20 }]}>
+      <BlurView intensity={80} tint="light" style={styles.glassBackground}>
+        
+        {/* THE SLIDING HIGHLIGHT BUBBLE */}
+        <Animated.View style={[styles.slidingBubble, { transform: [{ translateX }] }]}>
+          {/* This inner view creates the padding so it NEVER touches the edges! */}
+          <View style={styles.bubbleInner} /> 
+        </Animated.View>
+
+        {/* THE ICONS AND TEXT */}
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const label = options.title !== undefined ? options.title : route.name;
+          const isFocused = state.index === index;
+
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          let iconName = 'home';
+          if (route.name === 'ExploreTab') iconName = 'search';
+          if (route.name === 'VideoTab') iconName = 'video';
+          if (route.name === 'ProfileTab') iconName = 'user';
+
+          return (
+            <TouchableOpacity key={index} onPress={onPress} style={styles.tabItem}>
+              <Feather name={iconName} size={22} color={isFocused ? '#000' : '#8E8E93'} style={{ marginBottom: 4 }} />
+              <Text style={[styles.tabLabel, { color: isFocused ? '#000' : '#8E8E93' }]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+
+      </BlurView>
+    </View>
+  );
+}
+
+function MainTabs() {
   return (
     <Tab.Navigator
       tabBarPosition="bottom" 
-      screenOptions={({ route }) => ({
-        tabBarShowLabel: true,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize', marginTop: 2 },
-        tabBarActiveTintColor: '#000', 
-        tabBarInactiveTintColor: '#8E8E93', 
-        tabBarIndicatorStyle: { backgroundColor: '#EAEAEA', height: '80%', top: '10%', borderRadius: 100 },
-        tabBarStyle: { 
-          position: 'absolute', bottom: insets.bottom > 0 ? insets.bottom : 16,
-          left: 16, right: 16, backgroundColor: '#FFF', borderRadius: 40, height: 65,
-          shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 16, elevation: 10,
-        },
-        tabBarIcon: ({ color, focused }) => {
-          let iconName = route.name === 'HomeTab' ? 'home' : route.name === 'ExploreTab' ? 'search' : route.name === 'VideoTab' ? 'video' : 'user';
-          return <Feather name={iconName} size={22} color={color} style={{ transform: [{ scale: focused ? 1.1 : 1 }] }} />;
-        },
-      })}
+      swipeEnabled={true} // Enables Instagram-style swiping between screens!
+      tabBar={(props) => <GlassTabBar {...props} />} // Uses our custom Apple Glass bar
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="ExploreTab" component={ExploreScreen} options={{ title: 'Explore' }} />
@@ -55,6 +96,7 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
+        {/* FADE fixes the sudden blinking when logging in */}
         <Stack.Screen name="Home" component={MainTabs} options={{ animation: 'fade' }} /> 
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_bottom' }} />
@@ -62,3 +104,54 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarContainer: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    height: 70,
+    borderRadius: 35,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  glassBackground: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.65)', // High opacity white for Apple look
+    borderRadius: 35,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    overflow: 'hidden',
+  },
+  slidingBubble: {
+    position: 'absolute',
+    width: '25%', // Exactly 1/4th of the bar
+    height: '100%',
+    paddingHorizontal: 8, // FIX: Keeps it away from neighbors
+    paddingVertical: 10,  // FIX: Keeps it away from top/bottom edges
+  },
+  bubbleInner: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 100, // Perfect pill shape inside the tab
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tabItem: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1, // Ensures text sits above the sliding bubble
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  }
+});
