@@ -72,7 +72,7 @@ export default function LoginScreen({ navigation }) {
           {/* Header Section */}
           <View style={styles.header}>
             <Text style={styles.logoText}>Interraqt</Text>
-            <Text style={styles.subtitle}>{isLogin ? 'Welcome back.' : 'Create an account.'}</Text>
+            <Text style={styles.subtitle}>{isLogin ? 'Welcome to Interraqt!' : 'Create an account.'}</Text>
           </View>
 
           {/* Form Section */}
