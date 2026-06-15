@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, LayoutAnimation, UIManager } from 'react-native';
 import { auth, db } from '../config/firebase'; 
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore'; 
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons'; // Modern Lucide-style icons
+
+// Enable fluid layout animations for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function LoginScreen({ navigation }) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Visual feedback state
   
   // Form State
   const [name, setName] = useState('');
@@ -16,22 +22,30 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const toggleMode = () => {
+    // Smooth animation when switching between Login and Sign Up
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsLogin(!isLogin);
+  };
+
   const handleAuth = async () => {
     if (!email || !password) return Alert.alert("Hold on", "Please fill in your email and password.");
     
+    setIsLoading(true); // Start loading spinner
+    
     try {
       if (isLogin) {
-        // --- LOGIN ---
         await signInWithEmailAndPassword(auth, email, password);
         navigation.replace('Home');
       } else {
-        // --- SIGN UP & SAVE PROFILE ---
-        if (!name || !username) return Alert.alert("Required", "Please enter a Name and Username.");
+        if (!name || !username) {
+          setIsLoading(false);
+          return Alert.alert("Required", "Please enter a Name and Username.");
+        }
         
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Save extra details to Firestore Database
         await setDoc(doc(db, "users", user.uid), {
           uid: user.uid,
           name: name,
@@ -45,6 +59,7 @@ export default function LoginScreen({ navigation }) {
       }
     } catch (error) {
       Alert.alert("Authentication Error", error.message);
+      setIsLoading(false); // Stop loading if there's an error
     }
   };
 
@@ -64,56 +79,66 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
           <View style={styles.header}>
+            <View style={styles.iconWrapper}>
+              <Feather name="zap" size={32} color="#0056b3" />
+            </View>
             <Text style={styles.logoText}>Interraqt</Text>
-            <Text style={styles.subtitle}>{isLogin ? 'Welcome back.' : 'Create an account.'}</Text>
+            <Text style={styles.subtitle}>{isLogin ? 'Welcome back.' : 'Create your account.'}</Text>
           </View>
 
           <View style={styles.formContainer}>
             
-            {/* Show these only on Sign Up */}
             {!isLogin && (
-              <>
+              <View style={styles.expandedInputs}>
                 <View style={styles.inputBox}>
-                  <Ionicons name="person-outline" size={20} color="#888" style={styles.icon} />
-                  <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} autoCapitalize="words" />
+                  <Feather name="user" size={20} color="#888" style={styles.icon} />
+                  <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} autoCapitalize="words" editable={!isLoading} />
                 </View>
 
                 <View style={styles.inputBox}>
-                  <Ionicons name="at-outline" size={20} color="#888" style={styles.icon} />
-                  <TextInput style={styles.input} placeholder="Username" value={username} onChangeText={setUsername} autoCapitalize="none" />
+                  <Feather name="at-sign" size={20} color="#888" style={styles.icon} />
+                  <TextInput style={styles.input} placeholder="Username" value={username} onChangeText={setUsername} autoCapitalize="none" editable={!isLoading} />
                 </View>
 
                 <View style={styles.inputBox}>
-                  <Ionicons name="call-outline" size={20} color="#888" style={styles.icon} />
-                  <TextInput style={styles.input} placeholder="Phone Number (Optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+                  <Feather name="phone" size={20} color="#888" style={styles.icon} />
+                  <TextInput style={styles.input} placeholder="Phone Number (Optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" editable={!isLoading} />
                 </View>
-              </>
+              </View>
             )}
 
             <View style={styles.inputBox}>
-              <Ionicons name="mail-outline" size={20} color="#888" style={styles.icon} />
-              <TextInput style={styles.input} placeholder="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+              <Feather name="mail" size={20} color="#888" style={styles.icon} />
+              <TextInput style={styles.input} placeholder="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" editable={!isLoading} />
             </View>
 
             <View style={styles.inputBox}>
-              <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.icon} />
-              <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#888" />
+              <Feather name="lock" size={20} color="#888" style={styles.icon} />
+              <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!isLoading} />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon} disabled={isLoading}>
+                <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#888" />
               </TouchableOpacity>
             </View>
 
             {isLogin && (
-              <TouchableOpacity onPress={handleResetPassword} style={styles.forgotPassword}>
+              <TouchableOpacity onPress={handleResetPassword} style={styles.forgotPassword} disabled={isLoading}>
                 <Text style={styles.forgotPasswordText}>Forgot password?</Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleAuth}>
-              <Text style={styles.primaryButtonText}>{isLogin ? 'Log In' : 'Sign Up'}</Text>
+            <TouchableOpacity 
+              style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]} 
+              onPress={handleAuth}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.primaryButtonText}>{isLogin ? 'Log In' : 'Sign Up'}</Text>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.switchModeBtn} onPress={() => setIsLogin(!isLogin)}>
+            <TouchableOpacity style={styles.switchModeBtn} onPress={toggleMode} disabled={isLoading}>
               <Text style={styles.switchModeText}>
                 {isLogin ? "Don't have an account? " : "Already have an account? "}
                 <Text style={styles.switchModeTextBold}>{isLogin ? 'Sign up' : 'Log in'}</Text>
@@ -128,21 +153,24 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFA' },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center', paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 28, justifyContent: 'center', paddingBottom: 40 },
   header: { marginTop: 60, marginBottom: 40 },
-  logoText: { fontSize: 40, fontWeight: '900', color: '#111111', letterSpacing: -1 },
-  subtitle: { fontSize: 18, color: '#666666', marginTop: 8 },
+  iconWrapper: { width: 56, height: 56, backgroundColor: '#EFF6FF', borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  logoText: { fontSize: 36, fontWeight: '900', color: '#0F172A', letterSpacing: -1 },
+  subtitle: { fontSize: 16, color: '#64748B', marginTop: 8 },
   formContainer: { width: '100%' },
-  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#EAEAEA', borderRadius: 12, marginBottom: 16, paddingHorizontal: 16, height: 56, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 4, elevation: 1 },
+  expandedInputs: { overflow: 'hidden' },
+  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 16, marginBottom: 16, paddingHorizontal: 16, height: 56, shadowColor: '#64748B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
   icon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, color: '#333333' },
+  input: { flex: 1, fontSize: 16, color: '#0F172A' },
   eyeIcon: { padding: 8 },
   forgotPassword: { alignSelf: 'flex-end', marginBottom: 24 },
   forgotPasswordText: { color: '#0056b3', fontSize: 14, fontWeight: '600' },
-  primaryButton: { backgroundColor: '#000000', borderRadius: 12, height: 56, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3, marginTop: 8 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  primaryButton: { backgroundColor: '#0F172A', borderRadius: 16, height: 56, justifyContent: 'center', alignItems: 'center', shadowColor: '#0F172A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 4, marginTop: 8 },
+  primaryButtonDisabled: { backgroundColor: '#475569', shadowOpacity: 0 },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   switchModeBtn: { marginTop: 24, alignItems: 'center' },
-  switchModeText: { color: '#666666', fontSize: 15 },
-  switchModeTextBold: { color: '#000000', fontWeight: 'bold' },
+  switchModeText: { color: '#64748B', fontSize: 15 },
+  switchModeTextBold: { color: '#0F172A', fontWeight: 'bold' },
 });
