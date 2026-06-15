@@ -5,33 +5,25 @@
     "scheme": "interraqt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "package": "com.interraqt.app",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      }
+      "package": "com.interraqt.app"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": {},
     "plugins": [
       "expo-web-browser"
+<<<<<<< HEAD
     ],
     "extra": {
       "eas": {
         "projectId": "dbb180d3-4627-4e1d-aba6-72740e577535"
       }
     }
+=======
+    ]
+>>>>>>> 7413aeb880178e31188927a2e744f3eaaa6e7ccd
   }
 }
