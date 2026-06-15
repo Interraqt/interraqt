@@ -1,34 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { auth } from '../config/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-// This tells the browser to close after the user logs in
-WebBrowser.maybeCompleteAuthSession();
+// 1. Configure Native Google Sign-In using your Web Client ID
+GoogleSignin.configure({
+  webClientId: '220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com',
+});
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // 1. Setup the Google Request
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: '220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com', // PASTE YOUR ID HERE
-androidClientId: '220258442080-hbe0quqpbjbq3p8et63bjet7aofia14f.apps.googleusercontent.com',
-  });
-
-  // 2. Listen for Google's Answer
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
+  // 2. The New Native Login Function
+  const handleGoogleLogin = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
       
-      signInWithCredential(auth, credential)
-        .then(() => Alert.alert("Success", "Welcome to Interraqt via Google!"))
-        .catch((error) => Alert.alert("Google Login Error", error.message));
+      // Capture the token securely
+      const idToken = userInfo?.data?.idToken || userInfo?.idToken;
+      
+      if (idToken) {
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+        Alert.alert("Success", "Welcome to Interraqt via Google!");
+      }
+    } catch (error) {
+      Alert.alert("Google Login Error", error?.message || "Something went wrong");
     }
-  }, [response]);
+  };
 
   const handleSignUp = async () => {
     if (!email || !password) return Alert.alert("Hold on", "Please enter an email and password.");
@@ -78,12 +80,8 @@ androidClientId: '220258442080-hbe0quqpbjbq3p8et63bjet7aofia14f.apps.googleuserc
           <View style={styles.divider} />
         </View>
 
-        {/* Updated Google Button */}
-        <TouchableOpacity 
-          style={styles.googleButton} 
-          disabled={!request} 
-          onPress={() => promptAsync()}
-        >
+        {/* Updated Native Google Button */}
+        <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
           <Text style={styles.googleButtonText}>Continue with Google</Text>
         </TouchableOpacity>
       </View>
