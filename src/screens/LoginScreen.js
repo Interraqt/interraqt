@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { auth } from '../config/firebase';
+import { auth, db } from '../config/firebase'; // 1. Added db
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore'; // 2. Added Firestore functions
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { Ionicons, AntDesign } from '@expo/vector-icons'; // Using Expo's built-in icons
+import { Ionicons, AntDesign } from '@expo/vector-icons';
 
 GoogleSignin.configure({
   webClientId: '220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com',
 });
 
 export default function LoginScreen({ navigation }) {
-  const [isLogin, setIsLogin] = useState(true); // Toggles between Login and Sign Up
+  const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   
   // Form State
   const [name, setName] = useState('');
+  const [username, setUsername] = useState(''); // 3. Added username state
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,14 +26,27 @@ export default function LoginScreen({ navigation }) {
     
     try {
       if (isLogin) {
-        // LOGIN
+        // --- LOGIN ---
         await signInWithEmailAndPassword(auth, email, password);
-        navigation.replace('Home'); // Send to Home Screen
+        navigation.replace('Home');
       } else {
-        // SIGN UP
-        await createUserWithEmailAndPassword(auth, email, password);
-        // Note: We will save the Name and Phone to Firestore in the next step!
-        navigation.replace('Home'); // Send to Home Screen
+        // --- SIGN UP & SAVE PROFILE ---
+        if (!name || !username) return Alert.alert("Required", "Please enter a Name and Username.");
+        
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Save extra details to Firestore Database
+        await setDoc(doc(db, "users", user.uid), {
+          uid: user.uid,
+          name: name,
+          username: username.toLowerCase().replace(/\s/g, ''),
+          phone: phone,
+          email: email.toLowerCase(),
+          createdAt: new Date().toISOString()
+        });
+
+        navigation.replace('Home');
       }
     } catch (error) {
       Alert.alert("Authentication Error", error.message);
@@ -46,8 +61,25 @@ export default function LoginScreen({ navigation }) {
       
       if (idToken) {
         const credential = GoogleAuthProvider.credential(idToken);
-        await signInWithCredential(auth, credential);
-        navigation.replace('Home'); // Send to Home Screen
+        const userCredential = await signInWithCredential(auth, credential);
+        const user = userCredential.user;
+
+        // Check if user already exists in Database
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        
+        if (!userDoc.exists()) {
+          // First time logging in with Google? Create a profile!
+          await setDoc(doc(db, "users", user.uid), {
+            uid: user.uid,
+            name: user.displayName || '',
+            username: user.email.split('@')[0].toLowerCase(), 
+            phone: user.phoneNumber || '',
+            email: user.email.toLowerCase(),
+            createdAt: new Date().toISOString()
+          });
+        }
+
+        navigation.replace('Home');
       }
     } catch (error) {
       Alert.alert("Google Login Error", error?.message || "Something went wrong");
@@ -69,13 +101,11 @@ export default function LoginScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Header Section */}
           <View style={styles.header}>
             <Text style={styles.logoText}>Interraqt</Text>
-            <Text style={styles.subtitle}>{isLogin ? 'Welcome to Interraqt!' : 'Create an account.'}</Text>
+            <Text style={styles.subtitle}>{isLogin ? 'Welcome back.' : 'Create an account.'}</Text>
           </View>
 
-          {/* Form Section */}
           <View style={styles.formContainer}>
             
             {/* Show these only on Sign Up */}
@@ -87,63 +117,48 @@ export default function LoginScreen({ navigation }) {
                 </View>
 
                 <View style={styles.inputBox}>
+                  <Ionicons name="at-outline" size={20} color="#888" style={styles.icon} />
+                  <TextInput style={styles.input} placeholder="Username" value={username} onChangeText={setUsername} autoCapitalize="none" />
+                </View>
+
+                <View style={styles.inputBox}>
                   <Ionicons name="call-outline" size={20} color="#888" style={styles.icon} />
                   <TextInput style={styles.input} placeholder="Phone Number (Optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
                 </View>
               </>
             )}
 
-            {/* Email / Username Field */}
             <View style={styles.inputBox}>
               <Ionicons name="mail-outline" size={20} color="#888" style={styles.icon} />
-              <TextInput 
-                style={styles.input} 
-                placeholder={isLogin ? "Email or Username" : "Email Address"} 
-                value={email} 
-                onChangeText={setEmail} 
-                keyboardType="email-address" 
-                autoCapitalize="none" 
-              />
+              <TextInput style={styles.input} placeholder="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
             </View>
 
-            {/* Password Field with Eye Toggle */}
             <View style={styles.inputBox}>
               <Ionicons name="lock-closed-outline" size={20} color="#888" style={styles.icon} />
-              <TextInput 
-                style={styles.input} 
-                placeholder="Password" 
-                value={password} 
-                onChangeText={setPassword} 
-                secureTextEntry={!showPassword} 
-              />
+              <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                 <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#888" />
               </TouchableOpacity>
             </View>
 
-            {/* Forgot Password */}
             {isLogin && (
               <TouchableOpacity onPress={handleResetPassword} style={styles.forgotPassword}>
                 <Text style={styles.forgotPasswordText}>Forgot password?</Text>
               </TouchableOpacity>
             )}
 
-            {/* Main Action Button */}
             <TouchableOpacity style={styles.primaryButton} onPress={handleAuth}>
               <Text style={styles.primaryButtonText}>{isLogin ? 'Log In' : 'Sign Up'}</Text>
             </TouchableOpacity>
 
-            {/* Toggle Login/Signup */}
             <TouchableOpacity style={styles.switchModeBtn} onPress={() => setIsLogin(!isLogin)}>
               <Text style={styles.switchModeText}>
                 {isLogin ? "Don't have an account? " : "Already have an account? "}
                 <Text style={styles.switchModeTextBold}>{isLogin ? 'Sign up' : 'Log in'}</Text>
               </Text>
             </TouchableOpacity>
-
           </View>
 
-          {/* Social Login */}
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
             <Text style={styles.dividerText}>or continue with</Text>
