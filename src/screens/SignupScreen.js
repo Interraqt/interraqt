@@ -6,8 +6,17 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore'; 
 import { Feather } from '@expo/vector-icons'; 
 
+// 1. Import the font hook and specific font style
+import { useFonts, TaiHeritagePro_700Bold } from '@expo-google-fonts/tai-heritage-pro';
+
 export default function SignupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  
+  // 2. Load the font
+  let [fontsLoaded] = useFonts({
+    TaiHeritagePro_700Bold,
+  });
+
   const [isLoading, setIsLoading] = useState(false); 
   
   const [name, setName] = useState('');
@@ -16,6 +25,9 @@ export default function SignupScreen({ navigation }) {
   const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 3. Wait for the font to load before rendering the screen
+  if (!fontsLoaded) return null;
 
   const handleSignUp = async () => {
     if (!email || !password || !name || !username) {
@@ -112,7 +124,10 @@ const styles = StyleSheet.create({
   centerWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
   
   headerTitles: { alignItems: 'center', marginBottom: 32 },
-  brandTitle: { fontSize: 34, fontWeight: '900', color: '#000000', letterSpacing: -1.5 },
+  
+  // 4. Updated font styles for the editorial aesthetic
+  brandTitle: { fontFamily: 'TaiHeritagePro_700Bold', fontSize: 48, color: '#000000' },
+  
   subtitleText: { fontSize: 16, color: '#666666', fontWeight: '600', marginTop: 8 },
   
   formContainer: { width: '100%' },
@@ -126,5 +141,5 @@ const styles = StyleSheet.create({
   
   footer: { alignItems: 'center', paddingVertical: 20 },
   footerText: { color: '#666666', fontSize: 15, fontWeight: '600' },
-  footerTextBlue: { color: '#007AFF', fontWeight: '800' }, // Apple Blue Accent
+  footerTextBlue: { color: '#007AFF', fontWeight: '800' }, 
 });
