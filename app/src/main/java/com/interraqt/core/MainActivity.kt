@@ -3,15 +3,17 @@ package com.interraqt.core
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
 import com.interraqt.core.navigation.BottomNavigationBar
-import com.interraqt.core.navigation.Screen
 import com.interraqt.core.screens.*
 
 class MainActivity : ComponentActivity() {
@@ -23,23 +25,41 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InterraqtApp() {
-    val navController = rememberNavController()
-    
+    // 5 Pages for our 5 Tabs
+    val pagerState = rememberPagerState(pageCount = { 5 })
+    val coroutineScope = rememberCoroutineScope()
+
     Scaffold(
-        bottomBar = { BottomNavigationBar(navController = navController) }
+        bottomBar = { 
+            BottomNavigationBar(
+                selectedIndex = pagerState.currentPage,
+                onTabSelected = { index ->
+                    // Animates the swipe smoothly when an icon is tapped
+                    coroutineScope.launch {
+                        pagerState.animateScrollToPage(index)
+                    }
+                }
+            ) 
+        }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable(Screen.Home.route) { HomeScreen() }
-            composable(Screen.Chat.route) { ChatScreen() }
-            composable(Screen.Explore.route) { ExploreScreen() }
-            composable(Screen.Video.route) { VideoScreen() }
-            composable(Screen.Profile.route) { ProfileScreen() }
+        // The Swiping Engine
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+                .background(Color.White)
+        ) { page ->
+            when (page) {
+                0 -> HomeScreen()
+                1 -> ChatScreen()
+                2 -> ExploreScreen()
+                3 -> VideoScreen()
+                4 -> ProfileScreen()
+            }
         }
     }
 }
