@@ -3,6 +3,7 @@ package com.interraqt.core
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge // This is the new Google library we are importing
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,6 +20,11 @@ import com.interraqt.core.screens.*
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // This single command forces the app to draw perfectly edge-to-edge, 
+        // making the black status bar transparent and modern.
+        enableEdgeToEdge()
+        
         setContent {
             InterraqtApp()
         }
@@ -28,7 +34,6 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InterraqtApp() {
-    // 5 Pages for our 5 Tabs
     val pagerState = rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
@@ -37,7 +42,6 @@ fun InterraqtApp() {
             BottomNavigationBar(
                 selectedIndex = pagerState.currentPage,
                 onTabSelected = { index ->
-                    // Animates the swipe smoothly when an icon is tapped
                     coroutineScope.launch {
                         pagerState.animateScrollToPage(index)
                     }
@@ -45,7 +49,6 @@ fun InterraqtApp() {
             ) 
         }
     ) { innerPadding ->
-        // The Swiping Engine
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
