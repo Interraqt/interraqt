@@ -9,11 +9,12 @@ import { BlurView } from 'expo-blur';
 
 // Import Screens
 import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen'; // <-- Added Signup Screen
+import SignupScreen from '../screens/SignupScreen'; 
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import CreatePostScreen from '../screens/CreatePostScreen'; // <-- Added Create Post Screen
 
 const ExploreScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA'}}><Text style={{marginTop: 100, textAlign: 'center', fontSize: 20}}>Explore</Text></View>;
 const VideoScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA'}}><Text style={{marginTop: 100, textAlign: 'center', fontSize: 20}}>Video</Text></View>;
@@ -81,8 +82,8 @@ function MainTabs() {
   return (
     <Tab.Navigator
       tabBarPosition="bottom" 
-      swipeEnabled={true} // Enables Instagram-style swiping between screens!
-      tabBar={(props) => <GlassTabBar {...props} />} // Uses our custom Apple Glass bar
+      swipeEnabled={true} 
+      tabBar={(props) => <GlassTabBar {...props} />} 
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="ExploreTab" component={ExploreScreen} options={{ title: 'Explore' }} />
@@ -97,14 +98,13 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
-        
-        {/* <-- ADDED: Signup Screen Route with slide animation --> */}
         <Stack.Screen name="Signup" component={SignupScreen} options={{ animation: 'slide_from_right' }} /> 
-        
-        {/* FADE fixes the sudden blinking when logging in */}
         <Stack.Screen name="Home" component={MainTabs} options={{ animation: 'fade' }} /> 
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_bottom' }} />
+        
+        {/* <-- ADDED: Create Post Screen with slide up animation --> */}
+        <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ animation: 'slide_from_bottom' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
