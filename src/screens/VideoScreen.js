@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Image, ActivityIndicator, Share, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, FlatList, Dimensions, TouchableOpacity, Image, ActivityIndicator, Share, Platform } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
@@ -12,12 +12,27 @@ import LikeButton from '../components/LikeButton';
 import SaveButton from '../components/SaveButton';
 import CommentModal from '../components/CommentModal';
 
-// INDIVIDUAL VIDEO COMPONENT
-const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onOpenComments, onOpenOptions, windowHeight }) => {
+// Get exact screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// --------------------------------------------------------------------------
+// INDIVIDUAL REEL COMPONENT
+// --------------------------------------------------------------------------
+const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onOpenComments, onOpenOptions }) => {
   const insets = useSafeAreaInsets();
   const [isManualPause, setIsManualPause] = useState(false);
+  const videoRef = useRef(null);
   
+  // Video should ONLY play if: screen is focused, it's the active index, and not manually paused
   const isPlaying = isFocused && index === activeVideoIndex && !isManualPause;
+
+  // Fix Android video sizing issue when pausing/playing
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPlaying) videoRef.current.playAsync();
+      else videoRef.current.pauseAsync();
+    }
+  }, [isPlaying]);
 
   const handleShare = async () => {
     try { await Share.share({ message: `Watch this reel on Interraqt!`, url: item.imageUrl }); } 
@@ -25,40 +40,45 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
   };
 
   return (
-    // FORCES EXACT SCREEN HEIGHT SO ONLY ONE FITS AT A TIME
-    <View style={[styles.videoContainer, { height: windowHeight }]}>
+    // STRICT HEIGHT FOR PERFECT SNAPPING
+    <View style={[styles.videoContainer, { height: SCREEN_HEIGHT, width: SCREEN_WIDTH }]}>
       
+      {/* TAP TO PAUSE WRAPPER */}
       <TouchableOpacity 
         activeOpacity={1} 
         onPress={() => setIsManualPause(!isManualPause)} 
         style={[styles.videoWrapper, isCommentOpen && styles.videoMini]}
       >
         <Video
+          ref={videoRef}
           source={{ uri: item.imageUrl }}
           style={StyleSheet.absoluteFillObject}
-          // CONTAIN: Centers squares with black background, fits 9:16 perfectly
-          resizeMode={ResizeMode.CONTAIN} 
+          resizeMode={ResizeMode.CONTAIN} // Centers squares, fills 9:16
           isLooping
           shouldPlay={isPlaying}
         />
+        {/* BIG PLAY ICON WHEN PAUSED */}
         {isManualPause && (
           <View style={styles.pauseOverlay}>
-            <Feather name="play" size={60} color="rgba(255,255,255,0.8)" />
+            <Feather name="play" size={70} color="rgba(255,255,255,0.9)" />
           </View>
         )}
       </TouchableOpacity>
 
+      {/* OVERLAYS: Hide when comments are open for mini-player effect */}
       {!isCommentOpen && (
         <>
-          <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + 110 }]}>
+          {/* BOTTOM LEFT INFO (Avoids bottom tab bar) */}
+          <View style={[styles.bottomInfo, { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 90 : 110 }]}>
             <View style={styles.userInfo}>
               <Image source={{ uri: item.user?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
               <Text style={styles.username}>{item.user?.username}</Text>
             </View>
-            <Text style={styles.caption} numberOfLines={2}>{item.caption}</Text>
+            <Text style={styles.caption} numberOfLines={3}>{item.caption}</Text>
           </View>
 
-          <View style={[styles.rightActions, { paddingBottom: insets.bottom + 110 }]}>
+          {/* BOTTOM RIGHT ACTIONS */}
+          <View style={[styles.rightActions, { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 90 : 110 }]}>
             <LikeButton post={item} isLight={true} />
             
             <TouchableOpacity style={styles.actionIconVertical} onPress={onOpenComments}>
@@ -82,20 +102,23 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
   );
 };
 
+// --------------------------------------------------------------------------
+// MAIN SCREEN
+// --------------------------------------------------------------------------
 export default function VideoScreen() {
   const isFocused = useIsFocused(); 
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions(); // Dynamically gets exact screen height
   
   const [videos, setVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
 
+  // Modals
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [activeCommentPostId, setActiveCommentPostId] = useState(null);
-  
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
 
+  // Fetch Videos
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -107,23 +130,29 @@ export default function VideoScreen() {
     return () => unsubscribe();
   }, []);
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+  // Viewability Config - How much of the video must be on screen to trigger play
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) setActiveVideoIndex(viewableItems[0].index);
   }).current;
 
-  if (isLoading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#FFF" /></View>;
+  // CRITICAL: Tells FlatList EXACTLY how tall each item is for flawless snapping
+  const getItemLayout = (data, index) => ({
+    length: SCREEN_HEIGHT,
+    offset: SCREEN_HEIGHT * index,
+    index,
+  });
+
+  if (isLoading) {
+    return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#FFF" /></View>;
+  }
 
   return (
     <View style={styles.container}>
+      {/* FULL SCREEN FLATLIST */}
       <FlatList
         data={videos}
         keyExtractor={(item) => item.id}
-        pagingEnabled // This natively handles 1-by-1 snapping perfectly without snapToInterval
-        showsVerticalScrollIndicator={false}
-        decelerationRate="fast"
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
         renderItem={({ item, index }) => (
           <ReelItem 
             item={item} 
@@ -136,17 +165,30 @@ export default function VideoScreen() {
               setCommentModalVisible(true);
             }}
             onOpenOptions={() => setOptionsModalVisible(true)}
-            windowHeight={windowHeight} // Pass dynamic height down
           />
         )}
+        pagingEnabled={true}
+        showsVerticalScrollIndicator={false}
+        decelerationRate="fast"
+        disableIntervalMomentum={true} // Stops user from scrolling past multiple videos at once
+        snapToInterval={SCREEN_HEIGHT}
+        snapToAlignment="start"
+        getItemLayout={getItemLayout}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'} // Memory optimization for Android
         ListEmptyComponent={
-          <View style={[styles.emptyContainer, { height: windowHeight }]}>
+          <View style={[styles.emptyContainer, { height: SCREEN_HEIGHT }]}>
             <Feather name="video-off" size={48} color="#666" />
             <Text style={styles.emptyText}>No videos yet.</Text>
           </View>
         }
       />
 
+      {/* COMMENTS MODAL */}
       <CommentModal 
         isVisible={commentModalVisible} 
         onClose={() => setCommentModalVisible(false)} 
@@ -154,6 +196,7 @@ export default function VideoScreen() {
         isFromVideo={true} 
       />
 
+      {/* OPTIONS MODAL */}
       <Modal
         isVisible={optionsModalVisible}
         onBackdropPress={() => setOptionsModalVisible(false)} 
@@ -170,27 +213,22 @@ export default function VideoScreen() {
               <Feather name="link" size={20} color="#000" style={styles.menuIcon} />
               <Text style={styles.menuText}>Copy link</Text>
             </TouchableOpacity>
-            
             <TouchableOpacity style={styles.menuItem}>
               <Feather name="send" size={20} color="#000" style={styles.menuIcon} />
               <Text style={styles.menuText}>Share</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem}>
               <Feather name="eye" size={20} color="#000" style={styles.menuIcon} />
               <Text style={styles.menuText}>Interested</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem}>
               <Feather name="eye-off" size={20} color="#000" style={styles.menuIcon} />
               <Text style={styles.menuText}>Not interested</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem}>
               <Feather name="info" size={20} color="#000" style={styles.menuIcon} />
               <Text style={styles.menuText}>Account info</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]}>
               <Feather name="alert-triangle" size={20} color="#FF3B30" style={styles.menuIcon} />
               <Text style={[styles.menuText, { color: '#FF3B30' }]}>Report</Text>
@@ -206,21 +244,24 @@ export default function VideoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', width: SCREEN_WIDTH },
   emptyText: { color: '#666', fontSize: 16, marginTop: 12, fontWeight: '600' },
   
-  videoContainer: { width: '100%', backgroundColor: '#000', position: 'relative' },
-  videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' }, // Center aligns square videos
-  videoMini: { transform: [{ scale: 0.8 }, { translateY: -120 }], borderRadius: 20, overflow: 'hidden' }, 
+  videoContainer: { backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
+  videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' }, 
+  
+  // Mini player scales down the video gracefully when comments are open
+  videoMini: { transform: [{ scale: 0.8 }, { translateY: -150 }], borderRadius: 20, overflow: 'hidden' }, 
+  
   pauseOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   
-  bottomInfo: { position: 'absolute', bottom: 0, left: 16, width: '75%', zIndex: 10 },
+  bottomInfo: { position: 'absolute', left: 16, width: '75%', zIndex: 10, bottom: 0 },
   userInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   avatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#FFF', marginRight: 10 },
   username: { color: '#FFF', fontSize: 16, fontWeight: '800', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   caption: { color: '#FFF', fontSize: 14, fontWeight: '500', lineHeight: 20, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
 
-  rightActions: { position: 'absolute', bottom: 0, right: 16, alignItems: 'center', zIndex: 10 },
+  rightActions: { position: 'absolute', right: 16, alignItems: 'center', zIndex: 10, bottom: 0 },
   actionIconVertical: { alignItems: 'center', marginBottom: 20 },
   actionText: { color: '#FFF', fontSize: 14, fontWeight: '700', marginTop: 4, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
 
