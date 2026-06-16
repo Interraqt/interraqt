@@ -4,10 +4,9 @@ import { Feather } from '@expo/vector-icons';
 import { auth, db } from '../config/firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
-export default function SaveButton({ post }) {
+export default function SaveButton({ post, isLight = false }) {
   const currentUserId = auth.currentUser?.uid;
-  // We track saved posts inside the User's document
-  const [saved, setSaved] = useState(false); // For now, starts false. We can load real state later.
+  const [saved, setSaved] = useState(false);
 
   const toggleSave = async () => {
     if (!currentUserId) return;
@@ -20,18 +19,21 @@ export default function SaveButton({ post }) {
       });
     } catch (error) {
       console.error("Error saving post", error);
-      setSaved(saved); // Revert
+      setSaved(saved); 
     }
   };
 
+  const iconColor = isLight ? "#FFFFFF" : "#000000";
+
   return (
-    <TouchableOpacity onPress={toggleSave} style={styles.actionRight}>
-      <Feather name="bookmark" size={24} color={saved ? "#000" : "#000"} style={saved && styles.filledBookmark} />
+    <TouchableOpacity onPress={toggleSave} style={[styles.actionRight, isLight && styles.verticalIcon]}>
+      <Feather name="bookmark" size={isLight ? 32 : 24} color={iconColor} style={saved && styles.filledBookmark} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   actionRight: { paddingLeft: 4 },
+  verticalIcon: { paddingLeft: 0, marginBottom: 20 },
   filledBookmark: { fill: '#000' }
 });
