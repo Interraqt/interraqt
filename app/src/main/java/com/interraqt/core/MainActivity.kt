@@ -3,9 +3,10 @@ package com.interraqt.core
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge // This is the new Google library we are importing
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -20,11 +21,7 @@ import com.interraqt.core.screens.*
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        // This single command forces the app to draw perfectly edge-to-edge, 
-        // making the black status bar transparent and modern.
         enableEdgeToEdge()
-        
         setContent {
             InterraqtApp()
         }
@@ -37,7 +34,12 @@ fun InterraqtApp() {
     val pagerState = rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
+    // Detect system theme for the entire app background
+    val isDark = isSystemInDarkTheme()
+    val bgColor = if (isDark) Color.Black else Color.White
+
     Scaffold(
+        containerColor = bgColor, // Applies theme to the space behind the navigation bar
         bottomBar = { 
             BottomNavigationBar(
                 selectedIndex = pagerState.currentPage,
@@ -54,7 +56,7 @@ fun InterraqtApp() {
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .background(Color.White)
+                .background(bgColor)
         ) { page ->
             when (page) {
                 0 -> HomeScreen()
