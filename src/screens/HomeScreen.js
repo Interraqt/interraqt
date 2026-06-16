@@ -1,51 +1,44 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity, Modal, Dimensions, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity, Modal, Dimensions, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useFonts, TaiHeritagePro_700Bold } from '@expo-google-fonts/tai-heritage-pro';
+import { db } from '../config/firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
-// Premium High-Res Mock Data
-const MOCK_POSTS = [
-  {
-    id: '1',
-    user: { name: 'Hardik Kalal', username: 'hardikkalal', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80' },
-    image: 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?q=80&w=1000',
-    caption: 'Exploring the new fluid design systems. The combination of stark white and deep blacks creates such a powerful contrast. 🖤✨',
-    likes: '1,294',
-    comments: '48',
-    time: '2 hours ago'
-  },
-  {
-    id: '2',
-    user: { name: 'Tech Insider', username: 'techinsider', avatar: 'https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?w=400&q=80' },
-    image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000',
-    caption: 'Abstract forms and digital brutalism. What are your thoughts on the current state of mobile UI?',
-    likes: '8,432',
-    comments: '192',
-    time: '5 hours ago'
-  },
-  {
-    id: '3',
-    user: { name: 'Design Daily', username: 'designdaily', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80' },
-    image: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000',
-    caption: 'Less is always more. Stripping away the noise to focus purely on the content and typography.',
-    likes: '4,011',
-    comments: '88',
-    time: '12 hours ago'
-  }
-];
-
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  
+  // State for real data and UI interaction
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
 
-  // Load the premium logo font
   let [fontsLoaded] = useFonts({
     TaiHeritagePro_700Bold,
   });
+
+  // REAL-TIME FIREBASE LISTENER
+  useEffect(() => {
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetchedPosts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setPosts(fetchedPosts);
+      setIsLoading(false);
+    }, (error) => {
+      console.log("Error fetching posts:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
+  }, []);
 
   const openMenu = (post) => {
     setSelectedPost(post);
@@ -54,14 +47,13 @@ export default function HomeScreen() {
 
   const renderPost = ({ item }) => (
     <View style={styles.postContainer}>
-      
-      {/* POST HEADER */}
       <View style={styles.postHeader}>
         <View style={styles.userInfoContainer}>
-          <Image source={{ uri: item.user.avatar }} style={styles.avatar} />
+          {/* Fallback to a default avatar if none exists */}
+          <Image source={{ uri: item.user?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
           <View style={styles.userTextContainer}>
-            <Text style={styles.username}>{item.user.username}</Text>
-            <Text style={styles.name}>{item.user.name}</Text>
+            <Text style={styles.username}>{item.user?.username}</Text>
+            <Text style={styles.name}>{item.user?.name}</Text>
           </View>
         </View>
         <TouchableOpacity style={styles.moreButton} onPress={() => openMenu(item)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
@@ -69,10 +61,11 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* FULL SCREEN IMAGE (4:5 Aspect Ratio) */}
-      <Image source={{ uri: item.image }} style={styles.postImage} />
+      {/* Conditionally render image if it's a photo post */}
+      {item.imageUrl && (
+        <Image source={{ uri: item.imageUrl }} style={styles.postImage} />
+      )}
 
-      {/* ACTION BAR */}
       <View style={styles.actionBar}>
         <View style={styles.actionLeft}>
           <TouchableOpacity style={styles.actionIcon}>
@@ -90,19 +83,27 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* LIKES & CAPTION */}
       <View style={styles.contentArea}>
-        <Text style={styles.likesText}>{item.likes} likes</Text>
+        <Text style={styles.likesText}>{item.likesCount || 0} likes</Text>
         <Text style={styles.captionText}>
-          <Text style={styles.captionUsername}>{item.user.username} </Text>
+          <Text style={styles.captionUsername}>{item.user?.username} </Text>
           {item.caption}
         </Text>
-        <TouchableOpacity>
-          <Text style={styles.viewCommentsText}>View all {item.comments} comments</Text>
-        </TouchableOpacity>
-        <Text style={styles.timeText}>{item.time}</Text>
+        {item.commentsCount > 0 && (
+          <TouchableOpacity>
+            <Text style={styles.viewCommentsText}>View all {item.commentsCount} comments</Text>
+          </TouchableOpacity>
+        )}
       </View>
+    </View>
+  );
 
+  // Empty State Component for when there are no posts yet
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <Feather name="camera" size={48} color="#E0E0E0" style={{ marginBottom: 16 }} />
+      <Text style={styles.emptyTitle}>No Posts Yet</Text>
+      <Text style={styles.emptySubtitle}>When people post, they will appear here.</Text>
     </View>
   );
 
@@ -111,31 +112,34 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       
-      {/* TOP NAVIGATION HEADER */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Interraqt</Text>
       </View>
 
-      {/* MAIN FEED */}
-      <FlatList
-        data={MOCK_POSTS}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPost}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }} // Space for bottom tab bar
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={posts.length === 0 ? { flex: 1 } : { paddingBottom: 120 }}
+          ListEmptyComponent={renderEmptyState}
+        />
+      )}
 
-      {/* BOTTOM SHEET MODAL (Threads Style) */}
+      {/* BOTTOM SHEET MODAL */}
       <Modal visible={modalVisible} transparent={true} animationType="fade">
         <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { paddingBottom: insets.bottom || 20 }]}>
                 
-                {/* Drag Handle */}
                 <View style={styles.dragHandle} />
 
-                {/* Menu Options */}
                 <View style={styles.menuGroup}>
                   <TouchableOpacity style={styles.menuItem}>
                     <Text style={styles.menuText}>Copy link</Text>
@@ -187,14 +191,17 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   
-  // Header
   header: { height: 50, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 0.5, borderBottomColor: '#EFEFEF', backgroundColor: '#FFF' },
   headerTitle: { fontFamily: 'TaiHeritagePro_700Bold', fontSize: 28, color: '#000', marginTop: -4 },
   
-  // Post Container
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#000', marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, color: '#666', textAlign: 'center' },
+  
   postContainer: { marginBottom: 20 },
   
-  // Post Header
   postHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   userInfoContainer: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFEFEF', marginRight: 10 },
@@ -203,24 +210,19 @@ const styles = StyleSheet.create({
   name: { fontSize: 12, color: '#666', marginTop: 1 },
   moreButton: { padding: 4 },
   
-  // Post Image (4:5 Aspect Ratio for professional feel)
   postImage: { width: width, height: width * 1.25, backgroundColor: '#FAFAFA', resizeMode: 'cover' },
   
-  // Action Bar (Likes, Comments, Share)
   actionBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   actionLeft: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   actionIcon: { paddingRight: 4 },
   actionRight: { paddingLeft: 4 },
   
-  // Content Area (Captions, likes count)
   contentArea: { paddingHorizontal: 16 },
   likesText: { fontSize: 14, fontWeight: '700', color: '#000', marginBottom: 6 },
   captionText: { fontSize: 14, color: '#000', lineHeight: 20, marginBottom: 6 },
   captionUsername: { fontWeight: '700' },
   viewCommentsText: { fontSize: 14, color: '#666', marginBottom: 6 },
-  timeText: { fontSize: 12, color: '#999', marginTop: 2 },
 
-  // --- MODAL / BOTTOM SHEET STYLES ---
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, paddingHorizontal: 16, paddingBottom: 40 },
   dragHandle: { width: 40, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
