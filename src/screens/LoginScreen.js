@@ -65,38 +65,40 @@ export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 60 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom || 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           
-          <View style={styles.header}>
-            <Feather name="aperture" size={48} color="#000" style={{ marginBottom: 24 }} />
-            <Text style={styles.titleText}>Log in</Text>
-            <Text style={styles.subtitleText}>Welcome back to Interraqt.</Text>
-          </View>
+          {/* DEAD CENTER WRAPPER */}
+          <View style={styles.centerWrapper}>
+            
+            <Text style={styles.brandTitle}>Interraqt</Text>
 
-          <View style={styles.formContainer}>
-            <View style={styles.inputWrapper}>
-              <TextInput style={styles.input} placeholder="Email, Username, or Mobile" placeholderTextColor="#A0A0A0" value={identifier} onChangeText={setIdentifier} autoCapitalize="none" editable={!isLoading} />
-            </View>
+            <View style={styles.formContainer}>
+              <View style={styles.inputWrapper}>
+                <TextInput style={styles.input} placeholder="Email, Username, or Mobile" placeholderTextColor="#A0A0A0" value={identifier} onChangeText={setIdentifier} autoCapitalize="none" editable={!isLoading} />
+              </View>
 
-            <View style={styles.inputWrapper}>
-              <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#A0A0A0" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!isLoading} />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon} disabled={isLoading}>
-                <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#666" />
+              <View style={styles.inputWrapper}>
+                <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#A0A0A0" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} editable={!isLoading} />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon} disabled={isLoading}>
+                  <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#999" />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={styles.forgotPassword} onPress={handleResetPassword} disabled={isLoading}>
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.primaryButton} onPress={handleLogin} disabled={isLoading}>
+                {isLoading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.primaryButtonText}>Log in</Text>}
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.forgotPassword} onPress={handleResetPassword} disabled={isLoading}>
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin} disabled={isLoading}>
-              {isLoading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.primaryButtonText}>Log in</Text>}
-            </TouchableOpacity>
           </View>
 
+          {/* BOTTOM FOOTER */}
           <View style={styles.footer}>
             <TouchableOpacity onPress={() => navigation.navigate('Signup')} disabled={isLoading}>
-              <Text style={styles.footerText}>Don't have an account? <Text style={styles.footerTextBold}>Sign up</Text></Text>
+              <Text style={styles.footerText}>Don't have an account? <Text style={styles.footerTextBlue}>Sign up</Text></Text>
             </TouchableOpacity>
           </View>
 
@@ -108,19 +110,25 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
-  header: { marginBottom: 40, alignItems: 'flex-start' },
-  titleText: { fontSize: 36, fontWeight: '900', color: '#000000', letterSpacing: -1.2, marginBottom: 8 },
-  subtitleText: { fontSize: 16, color: '#666666', fontWeight: '500' },
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, justifyContent: 'space-between' },
+  
+  centerWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
+  
+  brandTitle: { fontSize: 34, fontWeight: '900', color: '#000000', letterSpacing: -1.5, marginBottom: 40 },
+  
   formContainer: { width: '100%' },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#EFEFEF', borderRadius: 16, marginBottom: 16, height: 60 },
-  input: { flex: 1, fontSize: 16, color: '#000000', paddingHorizontal: 20, fontWeight: '500' },
-  eyeIcon: { paddingHorizontal: 20 },
-  forgotPassword: { alignSelf: 'flex-start', marginBottom: 32, paddingVertical: 8 },
+  
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 12, marginBottom: 16, height: 56 },
+  input: { flex: 1, fontSize: 16, color: '#000000', paddingHorizontal: 16, fontWeight: '500' },
+  eyeIcon: { paddingHorizontal: 16 },
+  
+  forgotPassword: { alignSelf: 'center', marginBottom: 32, paddingVertical: 8 },
   forgotPasswordText: { color: '#000000', fontSize: 14, fontWeight: '700' },
-  primaryButton: { backgroundColor: '#000000', borderRadius: 100, height: 60, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  
+  primaryButton: { backgroundColor: '#000000', borderRadius: 100, height: 56, justifyContent: 'center', alignItems: 'center' },
   primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  footer: { marginTop: 'auto', paddingTop: 40, alignItems: 'center' },
-  footerText: { color: '#666666', fontSize: 15, fontWeight: '500' },
-  footerTextBold: { color: '#000000', fontWeight: '800' },
+  
+  footer: { alignItems: 'center', paddingVertical: 20 },
+  footerText: { color: '#666666', fontSize: 15, fontWeight: '600' },
+  footerTextBlue: { color: '#007AFF', fontWeight: '800' }, // Apple Blue Accent
 });
