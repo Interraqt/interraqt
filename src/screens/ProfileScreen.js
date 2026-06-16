@@ -11,7 +11,7 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // onSnapshot automatically updates the screen if you change your name!
+    // onSnapshot automatically updates the screen if you change your name or avatar!
     const unsubscribe = onSnapshot(doc(db, 'users', auth.currentUser.uid), (docSnap) => {
       if (docSnap.exists()) setUserData(docSnap.data());
       setLoading(false);
@@ -25,15 +25,28 @@ export default function ProfileScreen({ navigation }) {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.headerTitle}>{userData?.username}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.menuBtn}>
-          <View style={styles.menuLine} />
-          <View style={[styles.menuLine, { width: 14 }]} />
-        </TouchableOpacity>
+        
+        {/* NEW: Action Icons Container */}
+        <View style={styles.headerIcons}>
+          
+          {/* Create Post Button */}
+          <TouchableOpacity onPress={() => navigation.navigate('CreatePost')} style={styles.iconBtn}>
+            <Feather name="plus-square" size={24} color="#000" />
+          </TouchableOpacity>
+
+          {/* Settings / Menu Button */}
+          <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconBtn}>
+            <View style={styles.menuLine} />
+            <View style={[styles.menuLine, { width: 14 }]} />
+          </TouchableOpacity>
+          
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={true} showsVerticalScrollIndicator={false}>
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
+          {/* Uses real user avatar if available, otherwise falls back to blank placeholder */}
+          <Image source={{ uri: userData?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
         </View>
 
         <Text style={styles.name}>{userData?.name || 'Full Name'}</Text>
@@ -52,7 +65,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#FFF' },
   headerTitle: { color: '#000', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  menuBtn: { alignItems: 'flex-end', justifyContent: 'center', paddingVertical: 8, paddingLeft: 8 },
+  
+  // Updated header icon styles
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: { paddingVertical: 8, paddingLeft: 20, justifyContent: 'center', alignItems: 'flex-end' },
+  
   menuLine: { width: 22, height: 2.5, backgroundColor: '#000', borderRadius: 2, marginBottom: 5 },
   
   scrollContent: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 40 },
