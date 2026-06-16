@@ -6,12 +6,24 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { collection, query, where, getDocs } from 'firebase/firestore'; 
 import { Feather } from '@expo/vector-icons'; 
 
+// 1. Import the font hook and specific font style
+import { useFonts, TaiHeritagePro_700Bold } from '@expo-google-fonts/tai-heritage-pro';
+
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  
+  // 2. Load the font
+  let [fontsLoaded] = useFonts({
+    TaiHeritagePro_700Bold,
+  });
+
   const [isLoading, setIsLoading] = useState(false); 
   const [identifier, setIdentifier] = useState(''); 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 3. Wait for the font to load before rendering the screen
+  if (!fontsLoaded) return null; 
 
   const handleLogin = async () => {
     if (!identifier || !password) return Alert.alert("Required", "Please fill in all fields.");
@@ -67,7 +79,6 @@ export default function LoginScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom || 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           
-          {/* DEAD CENTER WRAPPER */}
           <View style={styles.centerWrapper}>
             
             <Text style={styles.brandTitle}>Interraqt</Text>
@@ -95,7 +106,6 @@ export default function LoginScreen({ navigation }) {
 
           </View>
 
-          {/* BOTTOM FOOTER */}
           <View style={styles.footer}>
             <TouchableOpacity onPress={() => navigation.navigate('Signup')} disabled={isLoading}>
               <Text style={styles.footerText}>Don't have an account? <Text style={styles.footerTextBlue}>Sign up</Text></Text>
@@ -114,7 +124,8 @@ const styles = StyleSheet.create({
   
   centerWrapper: { flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' },
   
-  brandTitle: { fontSize: 34, fontWeight: '900', color: '#000000', letterSpacing: -1.5, marginBottom: 40 },
+  // 4. Updated font styles for the editorial aesthetic
+  brandTitle: { fontFamily: 'TaiHeritagePro_700Bold', fontSize: 48, color: '#000000', marginBottom: 40 },
   
   formContainer: { width: '100%' },
   
@@ -130,5 +141,5 @@ const styles = StyleSheet.create({
   
   footer: { alignItems: 'center', paddingVertical: 20 },
   footerText: { color: '#666666', fontSize: 15, fontWeight: '600' },
-  footerTextBlue: { color: '#007AFF', fontWeight: '800' }, // Apple Blue Accent
+  footerTextBlue: { color: '#007AFF', fontWeight: '800' }, 
 });
