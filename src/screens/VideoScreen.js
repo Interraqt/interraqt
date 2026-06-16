@@ -12,13 +12,12 @@ import LikeButton from '../components/LikeButton';
 import SaveButton from '../components/SaveButton';
 import CommentModal from '../components/CommentModal';
 
-// Get exact screen dimensions
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // --------------------------------------------------------------------------
 // INDIVIDUAL REEL COMPONENT
 // --------------------------------------------------------------------------
-const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onOpenComments, onOpenOptions }) => {
+const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onOpenComments, onOpenOptions, feedHeight }) => {
   const insets = useSafeAreaInsets();
   const [isManualPause, setIsManualPause] = useState(false);
   const videoRef = useRef(null);
@@ -26,11 +25,14 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
   // Video should ONLY play if: screen is focused, it's the active index, and not manually paused
   const isPlaying = isFocused && index === activeVideoIndex && !isManualPause;
 
-  // Fix Android video sizing issue when pausing/playing
+  // Manual control to force Android/iOS to respect pause state
   useEffect(() => {
     if (videoRef.current) {
-      if (isPlaying) videoRef.current.playAsync();
-      else videoRef.current.pauseAsync();
+      if (isPlaying) {
+        videoRef.current.playAsync();
+      } else {
+        videoRef.current.pauseAsync();
+      }
     }
   }, [isPlaying]);
 
@@ -40,8 +42,8 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
   };
 
   return (
-    // STRICT HEIGHT FOR PERFECT SNAPPING
-    <View style={[styles.videoContainer, { height: SCREEN_HEIGHT, width: SCREEN_WIDTH }]}>
+    // STRICT EXACT HEIGHT FOR PERFECT SNAPPING
+    <View style={[styles.videoContainer, { height: feedHeight, width: SCREEN_WIDTH }]}>
       
       {/* TAP TO PAUSE WRAPPER */}
       <TouchableOpacity 
@@ -53,7 +55,8 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
           ref={videoRef}
           source={{ uri: item.imageUrl }}
           style={StyleSheet.absoluteFillObject}
-          resizeMode={ResizeMode.CONTAIN} // Centers squares, fills 9:16
+          // CONTAIN: Centers squares with black borders, fits 9:16 perfectly
+          resizeMode={ResizeMode.CONTAIN} 
           isLooping
           shouldPlay={isPlaying}
         />
@@ -65,11 +68,11 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
         )}
       </TouchableOpacity>
 
-      {/* OVERLAYS: Hide when comments are open for mini-player effect */}
+      {/* OVERLAYS: Hide when comments are open */}
       {!isCommentOpen && (
         <>
-          {/* BOTTOM LEFT INFO (Avoids bottom tab bar) */}
-          <View style={[styles.bottomInfo, { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 90 : 110 }]}>
+          {/* BOTTOM LEFT INFO (Pushed up to avoid your floating tab bar) */}
+          <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + 90 }]}>
             <View style={styles.userInfo}>
               <Image source={{ uri: item.user?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
               <Text style={styles.username}>{item.user?.username}</Text>
@@ -78,7 +81,7 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
           </View>
 
           {/* BOTTOM RIGHT ACTIONS */}
-          <View style={[styles.rightActions, { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 90 : 110 }]}>
+          <View style={[styles.rightActions, { paddingBottom: insets.bottom + 90 }]}>
             <LikeButton post={item} isLight={true} />
             
             <TouchableOpacity style={styles.actionIconVertical} onPress={onOpenComments}>
@@ -112,6 +115,9 @@ export default function VideoScreen() {
   const [videos, setVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+  
+  // THE FIX: Exact container pixel measurement
+  const [feedHeight, setFeedHeight] = useState(0);
 
   // Modals
   const [commentModalVisible, setCommentModalVisible] = useState(false);
@@ -130,63 +136,68 @@ export default function VideoScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Viewability Config - How much of the video must be on screen to trigger play
+  // Viewability Config
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) setActiveVideoIndex(viewableItems[0].index);
   }).current;
-
-  // CRITICAL: Tells FlatList EXACTLY how tall each item is for flawless snapping
-  const getItemLayout = (data, index) => ({
-    length: SCREEN_HEIGHT,
-    offset: SCREEN_HEIGHT * index,
-    index,
-  });
 
   if (isLoading) {
     return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#FFF" /></View>;
   }
 
   return (
-    <View style={styles.container}>
-      {/* FULL SCREEN FLATLIST */}
-      <FlatList
-        data={videos}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <ReelItem 
-            item={item} 
-            index={index} 
-            activeVideoIndex={activeVideoIndex} 
-            isFocused={isFocused} 
-            isCommentOpen={commentModalVisible && activeCommentPostId === item.id}
-            onOpenComments={() => {
-              setActiveCommentPostId(item.id);
-              setCommentModalVisible(true);
-            }}
-            onOpenOptions={() => setOptionsModalVisible(true)}
-          />
-        )}
-        pagingEnabled={true}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="fast"
-        disableIntervalMomentum={true} // Stops user from scrolling past multiple videos at once
-        snapToInterval={SCREEN_HEIGHT}
-        snapToAlignment="start"
-        getItemLayout={getItemLayout}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        initialNumToRender={3}
-        maxToRenderPerBatch={3}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS === 'android'} // Memory optimization for Android
-        ListEmptyComponent={
-          <View style={[styles.emptyContainer, { height: SCREEN_HEIGHT }]}>
-            <Feather name="video-off" size={48} color="#666" />
-            <Text style={styles.emptyText}>No videos yet.</Text>
-          </View>
-        }
-      />
+    // onLayout calculates the EXACT screen height on the user's specific Android/iOS device
+    <View 
+      style={styles.container} 
+      onLayout={(e) => setFeedHeight(e.nativeEvent.layout.height)}
+    >
+      {/* Wait until we know the exact pixel height before rendering the list */}
+      {feedHeight > 0 && (
+        <FlatList
+          data={videos}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => (
+            <ReelItem 
+              item={item} 
+              index={index} 
+              activeVideoIndex={activeVideoIndex} 
+              isFocused={isFocused} 
+              isCommentOpen={commentModalVisible && activeCommentPostId === item.id}
+              onOpenComments={() => {
+                setActiveCommentPostId(item.id);
+                setCommentModalVisible(true);
+              }}
+              onOpenOptions={() => setOptionsModalVisible(true)}
+              feedHeight={feedHeight} // Passing exact height to the video item
+            />
+          )}
+          pagingEnabled={true}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="fast"
+          disableIntervalMomentum={true} 
+          snapToInterval={feedHeight}
+          snapToAlignment="start"
+          // getItemLayout forces FlatList math to be completely flawless
+          getItemLayout={(data, index) => ({
+            length: feedHeight,
+            offset: feedHeight * index,
+            index,
+          })}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          ListEmptyComponent={
+            <View style={[styles.emptyContainer, { height: feedHeight }]}>
+              <Feather name="video-off" size={48} color="#666" />
+              <Text style={styles.emptyText}>No videos yet.</Text>
+            </View>
+          }
+        />
+      )}
 
       {/* COMMENTS MODAL */}
       <CommentModal 
@@ -244,13 +255,12 @@ export default function VideoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', width: SCREEN_WIDTH },
+  emptyContainer: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', width: SCREEN_WIDTH },
   emptyText: { color: '#666', fontSize: 16, marginTop: 12, fontWeight: '600' },
   
   videoContainer: { backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
   videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' }, 
   
-  // Mini player scales down the video gracefully when comments are open
   videoMini: { transform: [{ scale: 0.8 }, { translateY: -150 }], borderRadius: 20, overflow: 'hidden' }, 
   
   pauseOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
