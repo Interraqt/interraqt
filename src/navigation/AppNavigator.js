@@ -14,10 +14,10 @@ import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
-import CreatePostScreen from '../screens/CreatePostScreen'; // <-- Added Create Post Screen
+import CreatePostScreen from '../screens/CreatePostScreen'; 
+import VideoScreen from '../screens/VideoScreen'; // <-- ADDED: Real Video Screen Import
 
 const ExploreScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA'}}><Text style={{marginTop: 100, textAlign: 'center', fontSize: 20}}>Explore</Text></View>;
-const VideoScreen = () => <View style={{flex: 1, backgroundColor: '#FAFAFA'}}><Text style={{marginTop: 100, textAlign: 'center', fontSize: 20}}>Video</Text></View>;
 
 const Stack = createNativeStackNavigator();
 const Tab = createMaterialTopTabNavigator();
@@ -102,8 +102,6 @@ export default function AppNavigator() {
         <Stack.Screen name="Home" component={MainTabs} options={{ animation: 'fade' }} /> 
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ animation: 'slide_from_bottom' }} />
-        
-        {/* <-- ADDED: Create Post Screen with slide up animation --> */}
         <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ animation: 'slide_from_bottom' }} />
       </Stack.Navigator>
     </NavigationContainer>
