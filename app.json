@@ -2,6 +2,7 @@
   "expo": {
     "name": "Interraqt",
     "slug": "interraqt",
+    "jsEngine": "hermes",
     "scheme": "interraqt",
     "version": "1.0.0",
     "orientation": "portrait",
