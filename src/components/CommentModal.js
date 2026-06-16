@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, db } from '../config/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 
-export default function CommentModal({ isVisible, onClose, postId }) {
+export default function CommentModal({ isVisible, onClose, postId, isFromVideo = false }) {
   const insets = useSafeAreaInsets();
   
   const [comments, setComments] = useState([]);
@@ -61,7 +61,8 @@ export default function CommentModal({ isVisible, onClose, postId }) {
       swipeDirection={['down']}
       propagateSwipe={true} 
       avoidKeyboard={true}
-      backdropOpacity={0} // <-- SET TO 0 SO VIDEO IS VISIBLE
+      // THE FIX: Dims on Home Screen, Transparent on Video Screen
+      backdropOpacity={isFromVideo ? 0 : 0.5} 
       style={styles.modalStyle}
     >
       <View style={[styles.modalContent, { paddingBottom: insets.bottom || 20 }]}>
@@ -111,7 +112,7 @@ export default function CommentModal({ isVisible, onClose, postId }) {
 
 const styles = StyleSheet.create({
   modalStyle: { justifyContent: 'flex-end', margin: 0 },
-  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, height: '55%', shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 10 }, // Half screen height + shadow
+  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, height: '55%', shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 10 },
   dragHandle: { width: 40, height: 4, backgroundColor: '#CCC', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#000', textAlign: 'center', marginBottom: 12 },
   divider: { height: 1, backgroundColor: '#EFEFEF', width: '100%', marginBottom: 8 },
