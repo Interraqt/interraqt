@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, Dimensions, TouchableOpacity, Image, ActivityIndicator, Share, Platform } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, TouchableOpacity, Image, ActivityIndicator, Share, Platform } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import Modal from 'react-native-modal';
+import PagerView from 'react-native-pager-view'; // <-- THE NATIVE ENGINE
 import { db } from '../config/firebase';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
@@ -12,12 +13,12 @@ import LikeButton from '../components/LikeButton';
 import SaveButton from '../components/SaveButton';
 import CommentModal from '../components/CommentModal';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // --------------------------------------------------------------------------
 // INDIVIDUAL REEL COMPONENT
 // --------------------------------------------------------------------------
-const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onOpenComments, onOpenOptions, feedHeight }) => {
+const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onOpenComments, onOpenOptions }) => {
   const insets = useSafeAreaInsets();
   const [isManualPause, setIsManualPause] = useState(false);
   const videoRef = useRef(null);
@@ -25,14 +26,11 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
   // Video should ONLY play if: screen is focused, it's the active index, and not manually paused
   const isPlaying = isFocused && index === activeVideoIndex && !isManualPause;
 
-  // Manual control to force Android/iOS to respect pause state
+  // Manual control to force Native Video players to respect state
   useEffect(() => {
     if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.playAsync();
-      } else {
-        videoRef.current.pauseAsync();
-      }
+      if (isPlaying) videoRef.current.playAsync();
+      else videoRef.current.pauseAsync();
     }
   }, [isPlaying]);
 
@@ -42,8 +40,7 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
   };
 
   return (
-    // STRICT EXACT HEIGHT FOR PERFECT SNAPPING
-    <View style={[styles.videoContainer, { height: feedHeight, width: SCREEN_WIDTH }]}>
+    <View style={styles.videoContainer}>
       
       {/* TAP TO PAUSE WRAPPER */}
       <TouchableOpacity 
@@ -55,8 +52,7 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
           ref={videoRef}
           source={{ uri: item.imageUrl }}
           style={StyleSheet.absoluteFillObject}
-          // CONTAIN: Centers squares with black borders, fits 9:16 perfectly
-          resizeMode={ResizeMode.CONTAIN} 
+          resizeMode={ResizeMode.CONTAIN} // Native sizing: squares have black borders, 9:16 fills screen
           isLooping
           shouldPlay={isPlaying}
         />
@@ -68,11 +64,11 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
         )}
       </TouchableOpacity>
 
-      {/* OVERLAYS: Hide when comments are open */}
+      {/* OVERLAYS: Hide when comments are open for mini-player effect */}
       {!isCommentOpen && (
         <>
-          {/* BOTTOM LEFT INFO (Pushed up to avoid your floating tab bar) */}
-          <View style={[styles.bottomInfo, { paddingBottom: insets.bottom + 90 }]}>
+          {/* BOTTOM LEFT INFO (Avoids bottom tab bar) */}
+          <View style={[styles.bottomInfo, { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 90 : 110 }]}>
             <View style={styles.userInfo}>
               <Image source={{ uri: item.user?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
               <Text style={styles.username}>{item.user?.username}</Text>
@@ -81,7 +77,7 @@ const ReelItem = ({ item, index, activeVideoIndex, isFocused, isCommentOpen, onO
           </View>
 
           {/* BOTTOM RIGHT ACTIONS */}
-          <View style={[styles.rightActions, { paddingBottom: insets.bottom + 90 }]}>
+          <View style={[styles.rightActions, { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 90 : 110 }]}>
             <LikeButton post={item} isLight={true} />
             
             <TouchableOpacity style={styles.actionIconVertical} onPress={onOpenComments}>
@@ -115,9 +111,6 @@ export default function VideoScreen() {
   const [videos, setVideos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
-  
-  // THE FIX: Exact container pixel measurement
-  const [feedHeight, setFeedHeight] = useState(0);
 
   // Modals
   const [commentModalVisible, setCommentModalVisible] = useState(false);
@@ -136,67 +129,46 @@ export default function VideoScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Viewability Config
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) setActiveVideoIndex(viewableItems[0].index);
-  }).current;
-
   if (isLoading) {
     return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#FFF" /></View>;
   }
 
   return (
-    // onLayout calculates the EXACT screen height on the user's specific Android/iOS device
-    <View 
-      style={styles.container} 
-      onLayout={(e) => setFeedHeight(e.nativeEvent.layout.height)}
-    >
-      {/* Wait until we know the exact pixel height before rendering the list */}
-      {feedHeight > 0 && (
-        <FlatList
-          data={videos}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <ReelItem 
-              item={item} 
-              index={index} 
-              activeVideoIndex={activeVideoIndex} 
-              isFocused={isFocused} 
-              isCommentOpen={commentModalVisible && activeCommentPostId === item.id}
-              onOpenComments={() => {
-                setActiveCommentPostId(item.id);
-                setCommentModalVisible(true);
-              }}
-              onOpenOptions={() => setOptionsModalVisible(true)}
-              feedHeight={feedHeight} // Passing exact height to the video item
-            />
-          )}
-          pagingEnabled={true}
-          showsVerticalScrollIndicator={false}
-          decelerationRate="fast"
-          disableIntervalMomentum={true} 
-          snapToInterval={feedHeight}
-          snapToAlignment="start"
-          // getItemLayout forces FlatList math to be completely flawless
-          getItemLayout={(data, index) => ({
-            length: feedHeight,
-            offset: feedHeight * index,
-            index,
-          })}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
-          ListEmptyComponent={
-            <View style={[styles.emptyContainer, { height: feedHeight }]}>
-              <Feather name="video-off" size={48} color="#666" />
-              <Text style={styles.emptyText}>No videos yet.</Text>
+    <View style={styles.container}>
+      
+      {/* NATIVE PAGER VIEW
+        This hooks directly into Swift/Kotlin. It is physically impossible to see two pages at once.
+      */}
+      {videos.length > 0 ? (
+        <PagerView 
+          style={styles.pagerView} 
+          initialPage={0} 
+          orientation="vertical" // Swipes up and down natively
+          onPageSelected={(e) => setActiveVideoIndex(e.nativeEvent.position)}
+          overdrag={true}
+        >
+          {videos.map((item, index) => (
+            <View key={item.id} style={styles.page}>
+              <ReelItem 
+                item={item} 
+                index={index} 
+                activeVideoIndex={activeVideoIndex} 
+                isFocused={isFocused} 
+                isCommentOpen={commentModalVisible && activeCommentPostId === item.id}
+                onOpenComments={() => {
+                  setActiveCommentPostId(item.id);
+                  setCommentModalVisible(true);
+                }}
+                onOpenOptions={() => setOptionsModalVisible(true)}
+              />
             </View>
-          }
-        />
+          ))}
+        </PagerView>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Feather name="video-off" size={48} color="#666" />
+          <Text style={styles.emptyText}>No videos yet.</Text>
+        </View>
       )}
 
       {/* COMMENTS MODAL */}
@@ -255,12 +227,16 @@ export default function VideoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
-  emptyContainer: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', width: SCREEN_WIDTH },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   emptyText: { color: '#666', fontSize: 16, marginTop: 12, fontWeight: '600' },
   
-  videoContainer: { backgroundColor: '#000', position: 'relative', overflow: 'hidden' },
+  pagerView: { flex: 1 },
+  page: { flex: 1, backgroundColor: '#000' },
+  
+  videoContainer: { flex: 1, backgroundColor: '#000', position: 'relative' },
   videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' }, 
   
+  // Mini player scales down the video gracefully when comments are open
   videoMini: { transform: [{ scale: 0.8 }, { translateY: -150 }], borderRadius: 20, overflow: 'hidden' }, 
   
   pauseOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
