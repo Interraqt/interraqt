@@ -9,6 +9,7 @@ import { BlurView } from 'expo-blur';
 
 // Import Screens
 import LoginScreen from '../screens/LoginScreen';
+import SignupScreen from '../screens/SignupScreen'; // <-- Added Signup Screen
 import HomeScreen from '../screens/HomeScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -96,6 +97,10 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
+        
+        {/* <-- ADDED: Signup Screen Route with slide animation --> */}
+        <Stack.Screen name="Signup" component={SignupScreen} options={{ animation: 'slide_from_right' }} /> 
+        
         {/* FADE fixes the sudden blinking when logging in */}
         <Stack.Screen name="Home" component={MainTabs} options={{ animation: 'fade' }} /> 
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
@@ -121,7 +126,7 @@ const styles = StyleSheet.create({
   glassBackground: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.65)', // High opacity white for Apple look
+    backgroundColor: 'rgba(255, 255, 255, 0.65)', 
     borderRadius: 35,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.8)',
@@ -129,15 +134,15 @@ const styles = StyleSheet.create({
   },
   slidingBubble: {
     position: 'absolute',
-    width: '25%', // Exactly 1/4th of the bar
+    width: '25%', 
     height: '100%',
-    paddingHorizontal: 8, // FIX: Keeps it away from neighbors
-    paddingVertical: 10,  // FIX: Keeps it away from top/bottom edges
+    paddingHorizontal: 8, 
+    paddingVertical: 10,  
   },
   bubbleInner: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 100, // Perfect pill shape inside the tab
+    borderRadius: 100, 
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -148,7 +153,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1, // Ensures text sits above the sliding bubble
+    zIndex: 1, 
   },
   tabLabel: {
     fontSize: 11,
