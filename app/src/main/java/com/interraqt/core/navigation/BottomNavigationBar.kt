@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,8 +32,6 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             containerColor = Color.Transparent,
             contentColor = contentColor,
             tonalElevation = 0.dp,
-            // 1. Removed the horizontal padding that was causing the highlight pill to clip.
-            // 2. Dropped the height significantly to eliminate the dead white space on top.
             modifier = Modifier.height(66.dp)
         ) {
             items.forEachIndexed { index, screen ->
@@ -44,8 +43,9 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                             animationSpec = tween(durationMillis = 300),
                             label = "IconAnimation"
                         ) { activeIcon ->
+                            // Custom Painter Resource cleanly handles custom XML icons
                             Icon(
-                                imageVector = activeIcon, 
+                                painter = painterResource(id = activeIcon), 
                                 contentDescription = screen.title,
                                 modifier = Modifier.size(26.dp) 
                             ) 
