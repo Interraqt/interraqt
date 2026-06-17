@@ -1,12 +1,12 @@
 package com.interraqt.core.navigation
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.sp
 fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     val items = listOf(Screen.Home, Screen.Chat, Screen.Explore, Screen.Video, Screen.Profile)
     
-    // 1. Detect Phone's Default Theme Instantly
+    // Theme Support kept intact
     val isDark = isSystemInDarkTheme()
     val barColor = if (isDark) Color(0xFF1A1A1A) else Color.White
     val contentColor = if (isDark) Color.White else Color.Black
@@ -24,17 +24,16 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     val indicatorColor = if (isDark) Color(0xFF333333) else Color(0xFFE0E0E0)
 
     Surface(
-        color = Color.Transparent, // Let the main app background show through the padding
-        modifier = Modifier
-            .padding(start = 12.dp, end = 12.dp, bottom = 4.dp) // Left/right breathing room + lowered lift
+        color = barColor,
+        shadowElevation = 8.dp
     ) {
         NavigationBar(
             containerColor = barColor,
             contentColor = contentColor,
-            tonalElevation = 8.dp,
+            tonalElevation = 0.dp,
             modifier = Modifier
-                .clip(RoundedCornerShape(24.dp)) // This curves the outer edges to create a "Floating Dock" look
-                .height(80.dp)
+                .padding(bottom = 12.dp) // Keeps it safe from bottom curved edges
+                .height(84.dp) // Restored to the proper size
         ) {
             items.forEachIndexed { index, screen ->
                 val isSelected = selectedIndex == index
