@@ -3,16 +3,14 @@ package com.interraqt.core.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val title: String, val selectedIcon: ImageVector, val unselectedIcon: ImageVector) {
-    // Modern Home and Chat
-    object Home : Screen("Home", Icons.Rounded.Home, Icons.Outlined.Home)
-    object Chat : Screen("Chat", Icons.Rounded.Send, Icons.Outlined.Send)
-    
-    // Restored to your favorite high-contrast icons
+    // Matched to your Flaticon references
+    object Home : Screen("Home", Icons.Filled.Home, Icons.Outlined.Home)
+    object Chat : Screen("Chat", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline)
     object Explore : Screen("Explore", Icons.Filled.Search, Icons.Outlined.Search)
-    object Video : Screen("Video", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircleOutline)
-    object Profile : Screen("Profile", Icons.Filled.Person, Icons.Outlined.Person)
+    // Left Video untouched as you requested
+    object Video : Screen("Video", Icons.Filled.PlayArrow, Icons.Outlined.PlayCircleOutline)
+    object Profile : Screen("Profile", Icons.Filled.AccountCircle, Icons.Outlined.AccountCircle)
 }
