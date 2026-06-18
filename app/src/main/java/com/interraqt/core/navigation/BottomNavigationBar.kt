@@ -38,7 +38,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
         color = barColor,
         shadowElevation = 16.dp,
         // 1. Increased slightly from 68 to 70 to make room for the downward push
-        modifier = Modifier.height(68.dp) 
+        modifier = Modifier.height(64.dp) 
     ) {
         BoxWithConstraints(
             modifier = Modifier
