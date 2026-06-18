@@ -57,14 +57,18 @@ fun RootNavigation() {
             onNavigateToLogin = { currentScreen = AppScreen.Login },
             onSignupSuccess = { currentScreen = AppScreen.Main }
         )
-        AppScreen.Main -> InterraqtApp() // This is your secure main feed!
+        // 🚨 ADDED: We tell the Main feed what to do if a logout happens
+        AppScreen.Main -> InterraqtApp(
+            onLogout = { currentScreen = AppScreen.Login } 
+        ) 
     }
 }
 
-// 4. Your existing app structure remains completely untouched and safe below
+// 4. Your existing app structure remains perfectly intact below
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun InterraqtApp() {
+// 🚨 ADDED: The Main feed now accepts the logout command
+fun InterraqtApp(onLogout: () -> Unit) { 
     val pagerState = rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
@@ -96,7 +100,8 @@ fun InterraqtApp() {
                 1 -> ChatScreen()
                 2 -> ExploreScreen()
                 3 -> VideoScreen()
-                4 -> ProfileScreen()
+                // 🚨 ADDED: We plug the logout cable directly into the Profile Screen
+                4 -> ProfileScreen(onLogout = onLogout) 
             }
         }
     }
