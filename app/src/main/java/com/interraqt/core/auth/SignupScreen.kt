@@ -9,8 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,7 +30,6 @@ import com.google.firebase.auth.FirebaseAuth
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
-    // 1. Removed Full Name and Mobile Number from the state
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -43,6 +40,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
 
+    // The physical system swipe-back gesture remains fully active!
     BackHandler { onNavigateToLogin() }
 
     val isDark = isSystemInDarkTheme()
@@ -55,23 +53,20 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .imePadding() // This powers the lift-up physics!
-                .verticalScroll(rememberScrollState())
+                .padding(24.dp)
+                .imePadding() // Powers the lift-up physics
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally // Perfectly centers the titles
         ) {
-            // 2. Pushed the arrow down slightly from 16.dp to 32.dp
-            IconButton(
-                onClick = onNavigateToLogin,
-                modifier = Modifier.padding(top = 32.dp, bottom = 8.dp)
-            ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
-            }
+            
+            // 1. This top invisible spacer acts like a spring, pushing everything into the center!
+            Spacer(modifier = Modifier.weight(1f))
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Text("Interraqt", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
-                Text("Create new account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 32.dp))
-            }
+            // Titles
+            Text("Interraqt", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
+            Text("Create new account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 40.dp))
 
+            // Username Field
             OutlinedTextField(
                 value = username, onValueChange = { username = it }, label = { Text("Username") },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -82,6 +77,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 singleLine = true
             )
 
+            // Email Field
             OutlinedTextField(
                 value = email, onValueChange = { email = it }, label = { Text("Email ID") },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -92,6 +88,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 singleLine = true
             )
 
+            // Password Field
             OutlinedTextField(
                 value = password, onValueChange = { password = it }, label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
@@ -103,12 +100,12 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 singleLine = true
             )
 
+            // Button
             Button(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
                     
-                    // Added a check to ensure Username is also filled out before submitting
                     if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
                         Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
@@ -136,14 +133,15 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 }
             }
 
+            // 2. This bottom invisible spacer pushes against the top one, holding the UI in the middle!
             Spacer(modifier = Modifier.weight(1f))
 
+            // Anchored to the bottom
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, top = 16.dp),
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Already have an account? ", color = textColor)
+                Text("Already have an account?", color = textColor)
                 TextButton(onClick = onNavigateToLogin) {
                     Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold)
                 }
