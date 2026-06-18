@@ -62,9 +62,14 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
             // 1. This top invisible spacer acts like a spring, pushing everything into the center!
             Spacer(modifier = Modifier.weight(1f))
 
-            // Titles
-            Text("Interraqt", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
-            Text("Create new account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 40.dp))
+            // Title (Matched exactly to LoginScreen)
+            Text(
+                text = "Interraqt",
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = textColor,
+                modifier = Modifier.padding(bottom = 40.dp)
+            )
 
             // Username Field
             OutlinedTextField(
