@@ -26,16 +26,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
-    var identifier by remember { mutableStateOf("") }
+    var identifier by remember { mutableStateOf("") } 
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val context = LocalContext.current
-    val auth = FirebaseAuth.getInstance()
+    val context = LocalContext.current // Used for popup error messages
+    val auth = FirebaseAuth.getInstance() // Real Firebase Engine
 
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color.White
@@ -43,128 +44,143 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0F0F0)
     val primaryBlue = Color(0xFF0B57D0)
 
-    Scaffold(
-        containerColor = bgColor,
-        modifier = Modifier.fillMaxSize(),
-        // Anchors the signup text perfectly at the bottom with a larger font
-        bottomBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding()
-                    .padding(bottom = 32.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Don't have an account? ", color = textColor, fontSize = 15.sp)
-                TextButton(onClick = onNavigateToSignup) {
-                    Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-            }
-        }
-    ) { innerPadding ->
+    Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
-                .padding(horizontal = 24.dp)
+                .padding(24.dp)
+                .imePadding() 
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(100.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             Text(
                 text = "Interraqt",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = textColor,
-                modifier = Modifier.padding(bottom = 60.dp)
+                modifier = Modifier.padding(bottom = 40.dp)
             )
 
-            // This fixes the white label rectangle bug by forcing the label background to match the box!
-            MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(surface = fieldColor)) {
-                OutlinedTextField(
-                    value = identifier,
-                    onValueChange = { identifier = it },
-                    label = { Text("Email (or Username/Mobile)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = fieldColor,
-                        unfocusedContainerColor = fieldColor,
-                        focusedIndicatorColor = primaryBlue,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = textColor,
-                        unfocusedTextColor = textColor
-                    ),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                    singleLine = true
-                )
+            OutlinedTextField(
+                value = identifier,
+                onValueChange = { identifier = it },
+                label = { Text("Email, Username, or Mobile") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp), 
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    containerColor = fieldColor,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor
+                ),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
+                singleLine = true
+            )
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = fieldColor,
-                        unfocusedContainerColor = fieldColor,
-                        focusedIndicatorColor = primaryBlue,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = textColor,
-                        unfocusedTextColor = textColor
-                    ),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
-                    singleLine = true
-                )
-            }
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    containerColor = fieldColor,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor
+                ),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences, 
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                    }
+                ),
+                singleLine = true
+            )
 
-            // Real Firebase Forgot Password
+            // REAL Forgot Password Logic
             TextButton(
-                onClick = {
+                onClick = { 
                     if (identifier.isEmpty()) {
-                        Toast.makeText(context, "Enter your email in the top box first", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Please enter your email in the top field first", Toast.LENGTH_LONG).show()
                     } else {
                         auth.sendPasswordResetEmail(identifier).addOnCompleteListener { task ->
-                            if (task.isSuccessful) Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show()
-                            else Toast.makeText(context, task.exception?.message, Toast.LENGTH_LONG).show()
+                            if (task.isSuccessful) {
+                                Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, task.exception?.localizedMessage ?: "Error", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 },
                 modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
             ) {
-                Text("Forgot password?", color = primaryBlue, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                Text("Forgot password?", color = primaryBlue, fontWeight = FontWeight.Medium)
             }
 
-            // Real Firebase Login
+            // REAL Login Logic
             Button(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
+                    
                     if (identifier.isEmpty() || password.isEmpty()) {
-                        Toast.makeText(context, "Please enter email and password", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+                    
                     isLoading = true
                     auth.signInWithEmailAndPassword(identifier, password)
                         .addOnCompleteListener { task ->
                             isLoading = false
-                            if (task.isSuccessful) onLoginSuccess()
-                            else Toast.makeText(context, task.exception?.message ?: "Login failed", Toast.LENGTH_LONG).show()
+                            if (task.isSuccessful) {
+                                onLoginSuccess()
+                            } else {
+                                Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show()
+                            }
                         }
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
-                if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                else Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Row(
+                modifier = Modifier.padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Don't have an account? ", color = textColor)
+                TextButton(onClick = onNavigateToSignup) {
+                    Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
