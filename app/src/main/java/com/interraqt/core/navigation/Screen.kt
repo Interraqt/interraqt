@@ -1,11 +1,14 @@
 package com.interraqt.core.navigation
 
-import com.interraqt.core.R
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.ui.graphics.vector.ImageVector
 
-sealed class Screen(val title: String, val selectedIcon: Int, val unselectedIcon: Int) {
-    object Home : Screen("Home", R.drawable.ic_home_filled, R.drawable.ic_home_outline)
-    object Chat : Screen("Chat", R.drawable.ic_chat_filled, R.drawable.ic_chat_outline)
-    object Explore : Screen("Explore", R.drawable.ic_explore_filled, R.drawable.ic_explore_outline)
-    object Video : Screen("Video", R.drawable.ic_video_filled, R.drawable.ic_video_outline)
-    object Profile : Screen("Profile", R.drawable.ic_profile_filled, R.drawable.ic_profile_outline)
+sealed class Screen(val title: String, val selectedIcon: ImageVector, val unselectedIcon: ImageVector) {
+    object Home : Screen("Home", Icons.Filled.Home, Icons.Outlined.Home)
+    object Chat : Screen("Chat", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline)
+    object Explore : Screen("Explore", Icons.Filled.Search, Icons.Outlined.Search)
+    object Video : Screen("Video", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircleOutline)
+    object Profile : Screen("Profile", Icons.Filled.AccountCircle, Icons.Outlined.AccountCircle)
 }
