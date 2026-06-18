@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding // Added padding import
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.*
@@ -25,22 +24,21 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     val unselectedColor = if (isDark) Color.Gray else Color.DarkGray
     
     // The High-Contrast Blue Theme
-    val activeContentColor = if (isDark) Color(0xFF8AB4F8) else Color(0xFF0B57D0) // Bright Blue (Dark Mode) / Deep Blue (Light Mode)
-    val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) // Navy Pill (Dark Mode) / Light Blue Pill (Light Mode)
+    val activeContentColor = if (isDark) Color(0xFF8AB4F8) else Color(0xFF0B57D0) 
+    val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) 
 
     Surface(
         color = barColor,
         shadowElevation = 16.dp,
-        modifier = Modifier.height(62.dp) // 1. Moved height here so the background stays 62.dp
+        modifier = Modifier.height(66.dp) // 1. Restored safe height so the pill doesn't clip
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
             contentColor = activeContentColor,
-            tonalElevation = 0.dp,
-            modifier = Modifier.padding(top = 8.dp) // 2. Pushes the icons, text, and pill down by 8 pixels
+            tonalElevation = 0.dp
+            // 2. REMOVED the padding(top = 8.dp) that was slicing the pill flat!
         ) {
             
-            // 1. Invisible block perfectly preserves your inward spacing
             Spacer(modifier = Modifier.width(10.dp))
 
             items.forEachIndexed { index, screen ->
@@ -70,7 +68,6 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                     onClick = { onTabSelected(index) },
                     alwaysShowLabel = true,
                     colors = NavigationBarItemDefaults.colors(
-                        // Color theme applied to the highlight pill and active icon
                         selectedIconColor = activeContentColor,
                         selectedTextColor = activeContentColor,
                         indicatorColor = indicatorColor,
@@ -80,7 +77,6 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                 )
             }
             
-            // 2. Invisible block perfectly preserves your inward spacing
             Spacer(modifier = Modifier.width(10.dp))
             
         }
