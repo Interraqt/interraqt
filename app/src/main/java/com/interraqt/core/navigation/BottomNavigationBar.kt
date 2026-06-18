@@ -18,16 +18,12 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     val items = listOf(Screen.Home, Screen.Chat, Screen.Explore, Screen.Video, Screen.Profile)
     
     val isDark = isSystemInDarkTheme()
-    
-    // Background Colors
     val barColor = if (isDark) Color(0xFF1A1A1A) else Color.White
+    val unselectedColor = if (isDark) Color.Gray else Color.DarkGray
     
-    // Custom High-Contrast Blue Theme for the Active Tab
-    val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) // The Light/Deep Blue Pill
-    val selectedContentColor = if (isDark) Color(0xFFC2E7FF) else Color(0xFF0B57D0) // The Colored Filled Icon & Text
-    
-    // Unselected Tab Colors (Clean Gray)
-    val unselectedContentColor = if (isDark) Color.Gray else Color.DarkGray
+    // The New High-Contrast Blue Theme
+    val activeContentColor = if (isDark) Color(0xFF8AB4F8) else Color(0xFF0B57D0) // Bright Blue in dark mode, Deep Blue in light mode
+    val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) // Dark navy pill in dark mode, Light Blue pill in light mode
 
     Surface(
         color = barColor,
@@ -35,10 +31,9 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
-            contentColor = unselectedContentColor,
+            contentColor = activeContentColor,
             tonalElevation = 0.dp,
-            // Height dropped to 58.dp to remove dead space and sit lower
-            modifier = Modifier.height(58.dp) 
+            modifier = Modifier.height(66.dp) // Kept original perfect height
         ) {
             items.forEachIndexed { index, screen ->
                 val isSelected = selectedIndex == index
@@ -67,11 +62,11 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                     onClick = { onTabSelected(index) },
                     alwaysShowLabel = true,
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = selectedContentColor, // Applies deep blue to active icon
-                        unselectedIconColor = unselectedContentColor,
-                        selectedTextColor = selectedContentColor, // Applies deep blue to active text
-                        unselectedTextColor = unselectedContentColor,
-                        indicatorColor = indicatorColor // Applies light blue to the pill
+                        selectedIconColor = activeContentColor,
+                        selectedTextColor = activeContentColor,
+                        indicatorColor = indicatorColor,
+                        unselectedIconColor = unselectedColor,
+                        unselectedTextColor = unselectedColor
                     )
                 )
             }
