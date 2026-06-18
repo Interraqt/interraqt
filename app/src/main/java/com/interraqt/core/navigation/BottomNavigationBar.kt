@@ -44,7 +44,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 // 2. The tiny inward squeeze from the left and right edges
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 7.dp)
                 // The Custom Gesture Interceptor
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -91,7 +91,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             // 3. We manually draw the Sliding Blue Pill (Pushed down from 5.dp to 8.dp)
             Box(
                 modifier = Modifier
-                    .offset(x = pillXOffset, y = 8.dp) 
+                    .offset(x = pillXOffset, y = 10.dp) 
                     .size(width = 64.dp, height = 32.dp)
                     .background(indicatorColor, shape = CircleShape)
             )
@@ -108,7 +108,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                             .width(tabWidth)
                             .fillMaxHeight()
                             // Pushed downward slightly from 6.dp to 9.dp to match the pill
-                            .padding(top = 9.dp), 
+                            .padding(top = 11.dp), 
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Crossfade(
