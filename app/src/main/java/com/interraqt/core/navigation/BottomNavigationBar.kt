@@ -32,14 +32,14 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
         color = barColor,
         shadowElevation = 16.dp,
         // 1. Increased height from 66 to 74 to create safe space for the padding
-        modifier = Modifier.height(62.dp) 
+        modifier = Modifier.height(70.dp) 
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
             contentColor = activeContentColor,
             tonalElevation = 0.dp,
             // 2. Added the top padding to push the icons and pill downward
-            modifier = Modifier.padding(top = 12.dp) 
+            modifier = Modifier.padding(top = 11.dp) 
         ) {
             
             Spacer(modifier = Modifier.width(10.dp))
