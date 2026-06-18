@@ -177,7 +177,7 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 modifier = Modifier.padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Don't have an account? ", color = textColor)
+                Text("Don't have an account?", color = textColor)
                 TextButton(onClick = onNavigateToSignup) {
                     Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold)
                 }
