@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
     var name by remember { mutableStateOf("") }
@@ -51,105 +52,121 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
     val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0F0F0)
     val primaryBlue = Color(0xFF0B57D0)
 
-    Scaffold(
-        containerColor = bgColor,
-        // Pins the arrow to the absolute top, pushed down safely below the battery/status bar
-        topBar = {
+    Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+        ) {
             IconButton(
                 onClick = onNavigateToLogin,
-                modifier = Modifier.statusBarsPadding().padding(top = 8.dp, start = 8.dp)
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
             }
-        },
-        bottomBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().imePadding().padding(bottom = 32.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Already have an account? ", color = textColor, fontSize = 15.sp)
-                TextButton(onClick = onNavigateToLogin) {
-                    Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-            }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Interraqt", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = textColor, modifier = Modifier.padding(bottom = 40.dp))
-            
-            // "Create account" moved down above the inputs
-            Text("Create account", fontSize = 18.sp, color = Color.Gray, modifier = Modifier.align(Alignment.Start).padding(bottom = 16.dp, start = 8.dp))
 
-            // The Theme wrapper that fixes the label rectangle bug
-            MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(surface = fieldColor)) {
-                OutlinedTextField(
-                    value = name, onValueChange = { name = it }, label = { Text("Full Name") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(focusedContainerColor = fieldColor, unfocusedContainerColor = fieldColor, focusedIndicatorColor = primaryBlue, unfocusedIndicatorColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = username, onValueChange = { username = it }, label = { Text("Username") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(focusedContainerColor = fieldColor, unfocusedContainerColor = fieldColor, focusedIndicatorColor = primaryBlue, unfocusedIndicatorColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = email, onValueChange = { email = it }, label = { Text("Email ID") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(focusedContainerColor = fieldColor, unfocusedContainerColor = fieldColor, focusedIndicatorColor = primaryBlue, unfocusedIndicatorColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = phone, onValueChange = { phone = it }, label = { Text("Mobile Number (Optional)") },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(focusedContainerColor = fieldColor, unfocusedContainerColor = fieldColor, focusedIndicatorColor = primaryBlue, unfocusedIndicatorColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }), singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = password, onValueChange = { password = it }, label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), shape = RoundedCornerShape(24.dp),
-                    colors = TextFieldDefaults.colors(focusedContainerColor = fieldColor, unfocusedContainerColor = fieldColor, focusedIndicatorColor = primaryBlue, unfocusedIndicatorColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }), singleLine = true
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text("Interraqt", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
+                Text("Create account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 32.dp))
             }
 
-            // Real Firebase Signup
+            OutlinedTextField(
+                value = name, onValueChange = { name = it }, label = { Text("Full Name") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = username, onValueChange = { username = it }, label = { Text("Username") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = email, onValueChange = { email = it }, label = { Text("Email ID") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = phone, onValueChange = { phone = it }, label = { Text("Mobile Number (Optional)") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = password, onValueChange = { password = it }, label = { Text("Password") },
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
+                singleLine = true
+            )
+
+            // REAL Signup Logic
             Button(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
-                    if (email.isEmpty() || password.isEmpty() || name.isEmpty() || username.isEmpty()) {
-                        Toast.makeText(context, "Please fill out all required fields", Toast.LENGTH_SHORT).show()
+                    
+                    if (email.isEmpty() || password.isEmpty()) {
+                        Toast.makeText(context, "Email and Password are required", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+
                     isLoading = true
                     auth.createUserWithEmailAndPassword(email, password)
                         .addOnCompleteListener { task ->
                             isLoading = false
-                            if (task.isSuccessful) onSignupSuccess()
-                            else Toast.makeText(context, task.exception?.message ?: "Signup failed", Toast.LENGTH_LONG).show()
+                            if (task.isSuccessful) {
+                                onSignupSuccess()
+                            } else {
+                                Toast.makeText(context, task.exception?.localizedMessage ?: "Signup Failed", Toast.LENGTH_LONG).show()
+                            }
                         }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
-                if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                else Text("Sign Up", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Sign Up", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp, top = 16.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Already have an account? ", color = textColor)
+                TextButton(onClick = onNavigateToLogin) {
+                    Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
