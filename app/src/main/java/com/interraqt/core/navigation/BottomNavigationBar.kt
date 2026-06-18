@@ -37,11 +37,14 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     Surface(
         color = barColor,
         shadowElevation = 16.dp,
-        modifier = Modifier.height(68.dp) 
+        // 1. Increased slightly from 68 to 70 to make room for the downward push
+        modifier = Modifier.height(70.dp) 
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                // 2. The tiny inward squeeze from the left and right edges
+                .padding(horizontal = 8.dp)
                 // The Custom Gesture Interceptor
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -85,15 +88,15 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                 label = "PillAnimation"
             )
 
-            // 1. We manually draw the Sliding Blue Pill
+            // 3. We manually draw the Sliding Blue Pill (Pushed down from 5.dp to 8.dp)
             Box(
                 modifier = Modifier
-                    .offset(x = pillXOffset, y = 5.dp) // Mathematically centered behind the icon
+                    .offset(x = pillXOffset, y = 8.dp) 
                     .size(width = 64.dp, height = 32.dp)
                     .background(indicatorColor, shape = CircleShape)
             )
 
-            // 2. We draw the Icons and Text floating on top
+            // 4. We draw the Icons and Text floating on top
             Row(modifier = Modifier.fillMaxSize()) {
                 items.forEachIndexed { index, screen ->
                     // Make the icon active instantly as the pill slides under it
@@ -104,7 +107,8 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                         modifier = Modifier
                             .width(tabWidth)
                             .fillMaxHeight()
-                            .padding(top = 6.dp), 
+                            // Pushed downward slightly from 6.dp to 9.dp to match the pill
+                            .padding(top = 9.dp), 
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Crossfade(
