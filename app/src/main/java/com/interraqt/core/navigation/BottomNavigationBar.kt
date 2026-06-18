@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding // Added padding import
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.*
@@ -29,13 +30,14 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
 
     Surface(
         color = barColor,
-        shadowElevation = 16.dp
+        shadowElevation = 16.dp,
+        modifier = Modifier.height(62.dp) // 1. Moved height here so the background stays 62.dp
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
             contentColor = activeContentColor,
             tonalElevation = 0.dp,
-            modifier = Modifier.height(62.dp)
+            modifier = Modifier.padding(top = 8.dp) // 2. Pushes the icons, text, and pill down by 8 pixels
         ) {
             
             // 1. Invisible block perfectly preserves your inward spacing
