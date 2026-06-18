@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding // Ensure this is imported
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.*
@@ -30,13 +31,15 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     Surface(
         color = barColor,
         shadowElevation = 16.dp,
-        modifier = Modifier.height(66.dp) // 1. Restored safe height so the pill doesn't clip
+        // 1. Increased height from 66 to 74 to create safe space for the padding
+        modifier = Modifier.height(74.dp) 
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
             contentColor = activeContentColor,
-            tonalElevation = 0.dp
-            // 2. REMOVED the padding(top = 8.dp) that was slicing the pill flat!
+            tonalElevation = 0.dp,
+            // 2. Added the top padding to push the icons and pill downward
+            modifier = Modifier.padding(top = 8.dp) 
         ) {
             
             Spacer(modifier = Modifier.width(10.dp))
