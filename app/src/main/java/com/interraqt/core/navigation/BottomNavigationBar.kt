@@ -3,8 +3,10 @@ package com.interraqt.core.navigation
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Spacer // Imported Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width // Imported Width
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -31,8 +33,12 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             containerColor = Color.Transparent,
             contentColor = contentColor,
             tonalElevation = 0.dp,
-            modifier = Modifier.height(66.dp) // Keeps the top tight so the pill doesn't clip
+            modifier = Modifier.height(66.dp)
         ) {
+            
+            // 1. Invisible block on the far left to push Home inward
+            Spacer(modifier = Modifier.width(12.dp))
+
             items.forEachIndexed { index, screen ->
                 val isSelected = selectedIndex == index
                 NavigationBarItem(
@@ -68,6 +74,10 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                     )
                 )
             }
+            
+            // 2. Invisible block on the far right to push Profile inward
+            Spacer(modifier = Modifier.width(12.dp))
+            
         }
     }
 }
