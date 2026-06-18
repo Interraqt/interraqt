@@ -9,7 +9,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.interraqt.core"
+        applicationId = "com.interraqt"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
