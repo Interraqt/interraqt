@@ -39,7 +39,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
         ) {
             
             // 1. Invisible block perfectly preserves your inward spacing
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             items.forEachIndexed { index, screen ->
                 val isSelected = selectedIndex == index
@@ -79,7 +79,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             }
             
             // 2. Invisible block perfectly preserves your inward spacing
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             
         }
     }
