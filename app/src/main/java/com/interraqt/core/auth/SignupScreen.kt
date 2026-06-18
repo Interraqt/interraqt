@@ -69,7 +69,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
 
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text("Interraqt", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
-                Text("Create account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 32.dp))
+                Text("Create new account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 32.dp))
             }
 
             OutlinedTextField(
@@ -163,7 +163,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Already have an account? ", color = textColor)
+                Text("Already have an account?", color = textColor)
                 TextButton(onClick = onNavigateToLogin) {
                     Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold)
                 }
