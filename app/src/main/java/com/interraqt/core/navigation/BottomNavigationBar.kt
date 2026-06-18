@@ -9,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,7 +31,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             containerColor = Color.Transparent,
             contentColor = contentColor,
             tonalElevation = 0.dp,
-            modifier = Modifier.height(66.dp)
+            modifier = Modifier.height(66.dp) // Keeps the top tight so the pill doesn't clip
         ) {
             items.forEachIndexed { index, screen ->
                 val isSelected = selectedIndex == index
@@ -43,9 +42,8 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                             animationSpec = tween(durationMillis = 300),
                             label = "IconAnimation"
                         ) { activeIcon ->
-                            // Custom Painter Resource cleanly handles custom XML icons
                             Icon(
-                                painter = painterResource(id = activeIcon), 
+                                imageVector = activeIcon, 
                                 contentDescription = screen.title,
                                 modifier = Modifier.size(26.dp) 
                             ) 
