@@ -32,10 +32,9 @@ import com.google.firebase.auth.FirebaseAuth
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
-    var name by remember { mutableStateOf("") }
+    // 1. Removed Full Name and Mobile Number from the state
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -57,12 +56,13 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
-                .imePadding()
+                .imePadding() // This powers the lift-up physics!
                 .verticalScroll(rememberScrollState())
         ) {
+            // 2. Pushed the arrow down slightly from 16.dp to 32.dp
             IconButton(
                 onClick = onNavigateToLogin,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                modifier = Modifier.padding(top = 32.dp, bottom = 8.dp)
             ) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
             }
@@ -71,16 +71,6 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 Text("Interraqt", fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
                 Text("Create new account", fontSize = 16.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp, bottom = 32.dp))
             }
-
-            OutlinedTextField(
-                value = name, onValueChange = { name = it }, label = { Text("Full Name") },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                singleLine = true
-            )
 
             OutlinedTextField(
                 value = username, onValueChange = { username = it }, label = { Text("Username") },
@@ -103,16 +93,6 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
             )
 
             OutlinedTextField(
-                value = phone, onValueChange = { phone = it }, label = { Text("Mobile Number (Optional)") },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                singleLine = true
-            )
-
-            OutlinedTextField(
                 value = password, onValueChange = { password = it }, label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
@@ -123,14 +103,14 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 singleLine = true
             )
 
-            // REAL Signup Logic
             Button(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
                     
-                    if (email.isEmpty() || password.isEmpty()) {
-                        Toast.makeText(context, "Email and Password are required", Toast.LENGTH_SHORT).show()
+                    // Added a check to ensure Username is also filled out before submitting
+                    if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                        Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
 
@@ -163,7 +143,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Already have an account?", color = textColor)
+                Text("Already have an account? ", color = textColor)
                 TextButton(onClick = onNavigateToLogin) {
                     Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold)
                 }
