@@ -1,83 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, ActivityIndicator, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { auth, db } from '../config/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { Feather } from '@expo/vector-icons'; 
+package com.interraqt.core.screens
 
-export default function ProfileScreen({ navigation }) {
-  const insets = useSafeAreaInsets(); 
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
 
-  useEffect(() => {
-    // onSnapshot automatically updates the screen if you change your name or avatar!
-    const unsubscribe = onSnapshot(doc(db, 'users', auth.currentUser.uid), (docSnap) => {
-      if (docSnap.exists()) setUserData(docSnap.data());
-      setLoading(false);
-    });
-    return unsubscribe;
-  }, []);
+@Composable
+fun ProfileScreen(onLogout: () -> Unit) {
+    val isDark = isSystemInDarkTheme()
+    val bgColor = if (isDark) Color.Black else Color.White
+    val textColor = if (isDark) Color.White else Color.Black
+    val redColor = Color(0xFFD32F2F)
 
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#000" /></View>;
+    Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Profile",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                modifier = Modifier.padding(top = 24.dp, bottom = 32.dp)
+            )
 
-  return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Text style={styles.headerTitle}>{userData?.username}</Text>
-        
-        {/* NEW: Action Icons Container */}
-        <View style={styles.headerIcons}>
-          
-          {/* Create Post Button */}
-          <TouchableOpacity onPress={() => navigation.navigate('CreatePost')} style={styles.iconBtn}>
-            <Feather name="plus-square" size={24} color="#000" />
-          </TouchableOpacity>
+            Spacer(modifier = Modifier.weight(1f))
 
-          {/* Settings / Menu Button */}
-          <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.iconBtn}>
-            <View style={styles.menuLine} />
-            <View style={[styles.menuLine, { width: 14 }]} />
-          </TouchableOpacity>
-          
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} bounces={true} showsVerticalScrollIndicator={false}>
-        <View style={styles.avatarContainer}>
-          {/* Uses real user avatar if available, otherwise falls back to blank placeholder */}
-          <Image source={{ uri: userData?.avatar || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.avatar} />
-        </View>
-
-        <Text style={styles.name}>{userData?.name || 'Full Name'}</Text>
-        <Text style={styles.bio}>Building something awesome! 🚀</Text>
-
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('EditProfile')}>
-          <Text style={styles.primaryBtnText}>Edit Profile</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
-  );
+            // REAL Logout Button that signals the Bouncer
+            Button(
+                onClick = { 
+                    FirebaseAuth.getInstance().signOut()
+                    onLogout() // Instantly teleports you back to the LoginScreen
+                },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = redColor.copy(alpha = 0.1f), 
+                    contentColor = redColor
+                )
+            ) {
+                Text("Log Out", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
+            }
+        }
+    }
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
-  container: { flex: 1, backgroundColor: '#FFF' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, backgroundColor: '#FFF' },
-  headerTitle: { color: '#000', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  
-  // Updated header icon styles
-  headerIcons: { flexDirection: 'row', alignItems: 'center' },
-  iconBtn: { paddingVertical: 8, paddingLeft: 20, justifyContent: 'center', alignItems: 'flex-end' },
-  
-  menuLine: { width: 22, height: 2.5, backgroundColor: '#000', borderRadius: 2, marginBottom: 5 },
-  
-  scrollContent: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 40 },
-  avatarContainer: { marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5 },
-  avatar: { width: 110, height: 110, borderRadius: 55, borderWidth: 1, borderColor: '#F0F0F0' },
-  name: { fontSize: 24, fontWeight: '900', color: '#000', letterSpacing: -0.5 },
-  bio: { fontSize: 15, color: '#666', marginTop: 8, marginBottom: 32, fontWeight: '500' },
-
-  primaryBtn: { width: '100%', backgroundColor: '#000', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
-});
