@@ -32,7 +32,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
         color = barColor,
         shadowElevation = 16.dp,
         // 1. Increased height from 66 to 74 to create safe space for the padding
-        modifier = Modifier.height(70.dp) 
+        modifier = Modifier.height(66.dp) 
     ) {
         NavigationBar(
             containerColor = Color.Transparent,
