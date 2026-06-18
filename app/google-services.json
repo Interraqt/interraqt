@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "220258442080",
+    "project_id": "interraqt-45338",
+    "storage_bucket": "interraqt-45338.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:220258442080:android:2170e923c1b1263f80dc05",
+        "android_client_info": {
+          "package_name": "com.interraqt"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBP1e_1PDfGyo5aV4OU1IQWnxUhbw11vhg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "220258442080-jevharg3d1m9qmfm3trn5fpao7a9seht.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
