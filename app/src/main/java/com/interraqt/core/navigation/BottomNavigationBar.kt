@@ -1,17 +1,21 @@
 package com.interraqt.core.navigation
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,61 +31,104 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     val activeContentColor = if (isDark) Color(0xFF8AB4F8) else Color(0xFF0B57D0) 
     val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) 
 
+    // This state secretly tracks your finger during the swipe
+    var currentDragIndex by remember { mutableStateOf<Int?>(null) }
+
     Surface(
         color = barColor,
         shadowElevation = 16.dp,
-        // 1. Tightened the overall height from 70 to 68 to reduce dead space
         modifier = Modifier.height(68.dp) 
     ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            contentColor = activeContentColor,
-            tonalElevation = 0.dp,
-            // 2. Slashed the heavy 11.dp padding down to 4.dp to remove the void above the pill
-            modifier = Modifier.padding(top = 4.dp) 
-        ) {
-            
-            Spacer(modifier = Modifier.width(10.dp))
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                // The Custom Gesture Interceptor
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        val tabWidthPx = size.width / 5f
+                        
+                        // Instantly calculate which tab you touched
+                        var dragIndex = (down.position.x / tabWidthPx).toInt().coerceIn(0, 4)
+                        currentDragIndex = dragIndex
 
-            items.forEachIndexed { index, screen ->
-                val isSelected = selectedIndex == index
-                NavigationBarItem(
-                    icon = { 
+                        var isTracking = true
+                        while (isTracking) {
+                            // Track your finger as it slides left or right
+                            val event = awaitPointerEvent()
+                            val pos = event.changes.firstOrNull()?.position?.x ?: 0f
+                            
+                            dragIndex = (pos / tabWidthPx).toInt().coerceIn(0, 4)
+                            currentDragIndex = dragIndex
+
+                            // Detect when you lift your finger off the glass
+                            if (event.changes.all { !it.pressed }) {
+                                isTracking = false
+                            }
+                        }
+
+                        // Fire the screen switch only when you let go
+                        onTabSelected(dragIndex)
+                        currentDragIndex = null
+                    }
+                }
+        ) {
+            val tabWidth = maxWidth / 5
+            
+            // If dragging, follow the finger. If not, park on the selected tab.
+            val targetIndex = currentDragIndex ?: selectedIndex
+
+            // The butter-smooth sliding math for the blue pill
+            val pillXOffset by animateDpAsState(
+                targetValue = (tabWidth * targetIndex) + (tabWidth / 2) - 32.dp,
+                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                label = "PillAnimation"
+            )
+
+            // 1. We manually draw the Sliding Blue Pill
+            Box(
+                modifier = Modifier
+                    .offset(x = pillXOffset, y = 5.dp) // Mathematically centered behind the icon
+                    .size(width = 64.dp, height = 32.dp)
+                    .background(indicatorColor, shape = CircleShape)
+            )
+
+            // 2. We draw the Icons and Text floating on top
+            Row(modifier = Modifier.fillMaxSize()) {
+                items.forEachIndexed { index, screen ->
+                    // Make the icon active instantly as the pill slides under it
+                    val isHovered = targetIndex == index 
+                    val contentColor = if (isHovered) activeContentColor else unselectedColor
+
+                    Column(
+                        modifier = Modifier
+                            .width(tabWidth)
+                            .fillMaxHeight()
+                            .padding(top = 6.dp), 
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Crossfade(
-                            targetState = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
-                            animationSpec = tween(durationMillis = 300),
+                            targetState = if (isHovered) screen.selectedIcon else screen.unselectedIcon,
+                            animationSpec = tween(durationMillis = 200),
                             label = "IconAnimation"
                         ) { activeIcon ->
                             Icon(
                                 imageVector = activeIcon, 
                                 contentDescription = screen.title,
-                                // 3. Increased icon from 26 to 30 so it fills the blue pill perfectly
-                                modifier = Modifier.size(30.dp) 
+                                modifier = Modifier.size(30.dp),
+                                tint = contentColor
                             ) 
                         }
-                    },
-                    label = {
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = screen.title,
                             fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            fontWeight = if (isHovered) FontWeight.Bold else FontWeight.Medium,
+                            color = contentColor
                         )
-                    },
-                    selected = isSelected,
-                    onClick = { onTabSelected(index) },
-                    alwaysShowLabel = true,
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = activeContentColor,
-                        selectedTextColor = activeContentColor,
-                        indicatorColor = indicatorColor,
-                        unselectedIconColor = unselectedColor,
-                        unselectedTextColor = unselectedColor
-                    )
-                )
+                    }
+                }
             }
-            
-            Spacer(modifier = Modifier.width(10.dp))
-            
         }
     }
 }
