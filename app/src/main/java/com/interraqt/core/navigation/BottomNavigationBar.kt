@@ -35,7 +35,7 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
             containerColor = Color.Transparent,
             contentColor = activeContentColor,
             tonalElevation = 0.dp,
-            modifier = Modifier.height(66.dp)
+            modifier = Modifier.height(62.dp)
         ) {
             
             // 1. Invisible block perfectly preserves your inward spacing
