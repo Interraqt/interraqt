@@ -26,18 +26,23 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     
     val isDark = isSystemInDarkTheme()
     
-    // 🚨 PERFECTLY MATCHED to the app's White Smoke / Elevated Dark Grey
-    val barColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    // 🚨 GLOBAL PREMIUM THEME COLORS 🚨
+    // Seamless background matching the rest of the app
+    val barColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
     
-    val unselectedColor = if (isDark) Color.Gray else Color.DarkGray
-    val activeContentColor = if (isDark) Color(0xFF8AB4F8) else Color(0xFF0B57D0) 
-    val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) 
+    // Unselected icons use the premium sub-text color
+    val unselectedColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
+    
+    // Active icons are stark white/black for maximum crispness
+    val activeContentColor = if (isDark) Color.White else Color.Black 
+    
+    // Sliding pill uses the "Elevated Slate" surface color (or Light Glass in Light Mode)
+    val indicatorColor = if (isDark) Color(0xFF161C24) else Color.Black.copy(alpha = 0.05f) 
 
     var currentDragIndex by remember { mutableStateOf<Int?>(null) }
 
     Surface(
         color = barColor,
-        // 🚨 Removed the shadow to make it a seamless extension of the screen
         shadowElevation = 0.dp,
         modifier = Modifier.height(61.dp) 
     ) {
