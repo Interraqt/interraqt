@@ -11,6 +11,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,23 +30,27 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     var identifier by remember { mutableStateOf("") } 
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) } // Controls the Eye Icon
     var isLoading by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current 
+    
     val auth = FirebaseAuth.getInstance() 
+    val firestore = FirebaseFirestore.getInstance() // Added Firestore Database
 
-    // Used to completely remove the ripple tap highlight
     val interactionSource = remember { MutableInteractionSource() }
 
     val isDark = isSystemInDarkTheme()
@@ -84,7 +91,8 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
             OutlinedTextField(
                 value = identifier,
                 onValueChange = { identifier = it },
-                label = { Text("Email, Username, or Mobile") },
+                // Removed "Mobile"
+                label = { Text("Email or Username") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp), 
                 colors = TextFieldDefaults.outlinedTextFieldColors(
@@ -108,7 +116,15 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Password") },
-                visualTransformation = PasswordVisualTransformation(),
+                // Changes dots to text when the eye is clicked
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                // The Eye Icon Button
+                trailingIcon = {
+                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = "Toggle Password", tint = if (isDark) Color.Gray else Color.DarkGray)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
@@ -139,7 +155,8 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 },
                 modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
             ) {
-                Text("Forgot password?", color = primaryBlue, fontWeight = FontWeight.Medium)
+                // Fixed Forgot Password Color for Dark Mode
+                Text("Forgot password?", color = if (isDark) Color.White else primaryBlue, fontWeight = FontWeight.Medium)
             }
 
             Button(
@@ -150,11 +167,39 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                         Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+                    
                     isLoading = true
-                    auth.signInWithEmailAndPassword(identifier, password).addOnCompleteListener { task ->
-                        isLoading = false
-                        if (task.isSuccessful) { onLoginSuccess() } 
-                        else { Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show() }
+                    val trimmedIdentifier = identifier.trim()
+
+                    // Smart Login Router: Checks if user typed an Email or a Username
+                    if (trimmedIdentifier.contains("@")) {
+                        // 1. Standard Email Login
+                        auth.signInWithEmailAndPassword(trimmedIdentifier, password).addOnCompleteListener { task ->
+                            isLoading = false
+                            if (task.isSuccessful) { onLoginSuccess() } 
+                            else { Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show() }
+                        }
+                    } else {
+                        // 2. Username Login via Firestore Database
+                        firestore.collection("users").whereEqualTo("username", trimmedIdentifier.lowercase())
+                            .get()
+                            .addOnSuccessListener { documents ->
+                                if (!documents.isEmpty) {
+                                    val linkedEmail = documents.documents[0].getString("email") ?: ""
+                                    auth.signInWithEmailAndPassword(linkedEmail, password).addOnCompleteListener { task ->
+                                        isLoading = false
+                                        if (task.isSuccessful) { onLoginSuccess() } 
+                                        else { Toast.makeText(context, "Incorrect Password", Toast.LENGTH_LONG).show() }
+                                    }
+                                } else {
+                                    isLoading = false
+                                    Toast.makeText(context, "Username not found", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            .addOnFailureListener {
+                                isLoading = false
+                                Toast.makeText(context, "Database Error", Toast.LENGTH_SHORT).show()
+                            }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -173,7 +218,7 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(
                         interactionSource = interactionSource,
-                        indication = null, // 🚨 Completely removes the grey highlight box
+                        indication = null, 
                         onClick = { onNavigateToSignup() }
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp), 
