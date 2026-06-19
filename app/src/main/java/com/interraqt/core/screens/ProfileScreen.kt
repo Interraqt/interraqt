@@ -20,36 +20,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onNavigateToSettings: () -> Unit) {
+fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) { // 🚨 Receives instant username
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val primaryBlue = Color(0xFF0B57D0)
 
-    val auth = FirebaseAuth.getInstance()
-    val firestore = FirebaseFirestore.getInstance()
-    val currentUser = auth.currentUser
-
     var showUploadSheet by remember { mutableStateOf(false) }
-    var currentUsername by remember { mutableStateOf("...") }
-    
-    LaunchedEffect(currentUser) {
-        currentUser?.uid?.let { uid ->
-            firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
-                currentUsername = doc.getString("username") ?: "Unknown"
-            }
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
-        // 🚨 TOP BAR FIX: Pushed left/right and lifted safely below status bar!
+        // 🚨 Double padding fixed. This now sits perfectly below the icons!
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -58,7 +43,7 @@ fun ProfileScreen(onNavigateToSettings: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("@$currentUsername", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
+            Text("@$username", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
             
             IconButton(onClick = onNavigateToSettings) {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.End) {
