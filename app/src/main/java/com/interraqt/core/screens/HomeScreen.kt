@@ -25,10 +25,10 @@ fun HomeScreen() {
     val textColor = if (isDark) Color.White else Color.Black
     val cardColor = if (isDark) Color(0xFF1E1E1E) else Color.White
 
-    // The Feather Fade Gradient: Transparent at the very top, solid Black right below it
+    // 🚨 Tightened the gradient so it only affects the very top edge!
     val topFadingEdge = Brush.verticalGradient(
         0f to Color.Transparent,
-        0.15f to Color.Black, 
+        0.05f to Color.Black, 
         1f to Color.Black
     )
 
@@ -41,13 +41,13 @@ fun HomeScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
-                // 🚨 The Graphics Layer that powers the feather effect
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
                     drawContent()
                     drawRect(brush = topFadingEdge, blendMode = BlendMode.DstIn)
                 },
-            contentPadding = PaddingValues(top = 80.dp, bottom = 100.dp)
+            // Adjusted padding to look better with the new fade
+            contentPadding = PaddingValues(top = 40.dp, bottom = 100.dp) 
         ) {
             item {
                 Text(
@@ -58,7 +58,6 @@ fun HomeScreen() {
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
             }
-            // Dummy posts so you can see the scrolling feather effect!
             items(15) { index ->
                 Surface(
                     color = cardColor,
