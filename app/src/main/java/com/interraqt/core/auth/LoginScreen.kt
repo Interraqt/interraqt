@@ -3,6 +3,7 @@ package com.interraqt.core.auth
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -42,17 +43,19 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     val context = LocalContext.current 
     val auth = FirebaseAuth.getInstance() 
 
+    // Used to completely remove the ripple tap highlight
+    val interactionSource = remember { MutableInteractionSource() }
+
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF121212) else Color.White
+    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
     val textColor = if (isDark) Color.White else Color.Black
-    val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0F0F0)
+    val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color.White
     val primaryBlue = Color(0xFF0B57D0)
 
     Surface(
         color = bgColor, 
         modifier = Modifier
             .fillMaxSize()
-            // Closes keyboard if you tap anywhere on the background
             .pointerInput(Unit) {
                 detectTapGestures(onTap = {
                     keyboardController?.hide()
@@ -85,8 +88,14 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp), 
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
+                    containerColor = fieldColor, 
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue, 
+                    focusedTextColor = textColor, 
+                    unfocusedTextColor = textColor,
+                    focusedLabelColor = if (isDark) Color.White else primaryBlue,
+                    unfocusedLabelColor = if (isDark) Color.White else Color.DarkGray,
+                    cursorColor = primaryBlue
                 ),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -103,8 +112,14 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
+                    containerColor = fieldColor, 
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue, 
+                    focusedTextColor = textColor, 
+                    unfocusedTextColor = textColor,
+                    focusedLabelColor = if (isDark) Color.White else primaryBlue,
+                    unfocusedLabelColor = if (isDark) Color.White else Color.DarkGray,
+                    cursorColor = primaryBlue
                 ),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
@@ -152,12 +167,15 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // The entire row is now one clickable block
             Row(
                 modifier = Modifier
                     .padding(bottom = 16.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onNavigateToSignup() }
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null, // 🚨 Completely removes the grey highlight box
+                        onClick = { onNavigateToSignup() }
+                    )
                     .padding(horizontal = 12.dp, vertical = 8.dp), 
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
