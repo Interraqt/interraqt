@@ -4,7 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.* // Powers the sliding animations
+import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -44,20 +44,16 @@ fun RootNavigation() {
         mutableStateOf(if (auth.currentUser != null) AppScreen.Main else AppScreen.Login) 
     }
 
-    // Wrap the screens in an animation engine
     AnimatedContent(
         targetState = currentScreen,
         transitionSpec = {
             if (initialState == AppScreen.Login && targetState == AppScreen.Signup) {
-                // Slide left when going to Signup
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith 
                 slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
-                // Slide right when going back to Login
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith 
                 slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
-                // Smooth fade when entering the main app
                 fadeIn() togetherWith fadeOut()
             }
         },
@@ -86,7 +82,8 @@ fun InterraqtApp(onLogout: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
 
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color.Black else Color.White
+    // Upgraded Premium Background Colors
+    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
 
     Scaffold(
         containerColor = bgColor, 
