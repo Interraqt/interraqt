@@ -25,9 +25,11 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     val items = listOf(Screen.Home, Screen.Chat, Screen.Explore, Screen.Video, Screen.Profile)
     
     val isDark = isSystemInDarkTheme()
-    val barColor = if (isDark) Color(0xFF1A1A1A) else Color.White
-    val unselectedColor = if (isDark) Color.Gray else Color.DarkGray
     
+    // 🚨 PERFECTLY MATCHED to the app's White Smoke / Elevated Dark Grey
+    val barColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    
+    val unselectedColor = if (isDark) Color.Gray else Color.DarkGray
     val activeContentColor = if (isDark) Color(0xFF8AB4F8) else Color(0xFF0B57D0) 
     val indicatorColor = if (isDark) Color(0xFF004A77) else Color(0xFFD3E3FD) 
 
@@ -35,8 +37,8 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
 
     Surface(
         color = barColor,
-        shadowElevation = 16.dp,
-        // 1. Shaved 7.dp off the total height (68 -> 61) to drop the ceiling
+        // 🚨 Removed the shadow to make it a seamless extension of the screen
+        shadowElevation = 0.dp,
         modifier = Modifier.height(61.dp) 
     ) {
         BoxWithConstraints(
@@ -78,7 +80,6 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                 label = "PillAnimation"
             )
 
-            // 2. Pulled the pill up by 7.dp (15 -> 8) to close the top gap
             Box(
                 modifier = Modifier
                     .offset(x = pillXOffset, y = 8.dp) 
@@ -86,7 +87,6 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                     .background(indicatorColor, shape = CircleShape)
             )
 
-            // The Icons and Text floating on top
             Row(modifier = Modifier.fillMaxSize()) {
                 items.forEachIndexed { index, screen ->
                     val isHovered = targetIndex == index 
@@ -96,7 +96,6 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                         modifier = Modifier
                             .width(tabWidth)
                             .fillMaxHeight()
-                            // 3. Pulled the column layout up by 7.dp (16 -> 9) to match the pill
                             .padding(top = 9.dp), 
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
