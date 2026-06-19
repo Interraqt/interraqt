@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,12 +26,10 @@ fun HomeScreen() {
     val textColor = if (isDark) Color.White else Color.Black
     val cardColor = if (isDark) Color(0xFF1E1E1E) else Color.White
 
-    // 🚨 Tightened the gradient so it only affects the very top edge!
-    val topFadingEdge = Brush.verticalGradient(
-        0f to Color.Transparent,
-        0.05f to Color.Black, 
-        1f to Color.Black
-    )
+    // 🚨 Calculates the exact pixel height of the mobile status bar
+    val density = LocalDensity.current
+    val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
+    val fadeDistance = statusBarHeightPx + 40f // Fades smoothly just beneath the status icons
 
     Box(
         modifier = Modifier
@@ -43,11 +42,16 @@ fun HomeScreen() {
                 .padding(horizontal = 16.dp)
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
+                    // 🚨 Applies the exact pixel-perfect gradient
+                    val gradient = Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black),
+                        startY = 0f,
+                        endY = fadeDistance
+                    )
                     drawContent()
-                    drawRect(brush = topFadingEdge, blendMode = BlendMode.DstIn)
+                    drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 },
-            // Adjusted padding to look better with the new fade
-            contentPadding = PaddingValues(top = 40.dp, bottom = 100.dp) 
+            contentPadding = PaddingValues(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp, bottom = 100.dp) 
         ) {
             item {
                 Text(
