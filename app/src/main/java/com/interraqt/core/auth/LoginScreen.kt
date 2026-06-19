@@ -41,7 +41,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     var identifier by remember { mutableStateOf("") } 
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) } // Controls the Eye Icon
+    var passwordVisible by remember { mutableStateOf(false) } 
     var isLoading by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
@@ -49,7 +49,7 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     val context = LocalContext.current 
     
     val auth = FirebaseAuth.getInstance() 
-    val firestore = FirebaseFirestore.getInstance() // Added Firestore Database
+    val firestore = FirebaseFirestore.getInstance() 
 
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -70,163 +70,167 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 })
             }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .imePadding() 
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // 1. Forces the floating label's background mask to be 100% transparent
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                surface = Color.Transparent 
+            )
         ) {
-            Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "Interraqt",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = textColor,
-                modifier = Modifier.padding(bottom = 40.dp)
-            )
-
-            OutlinedTextField(
-                value = identifier,
-                onValueChange = { identifier = it },
-                // Removed "Mobile"
-                label = { Text("Email or Username") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp), 
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = fieldColor, 
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = primaryBlue, 
-                    focusedTextColor = textColor, 
-                    unfocusedTextColor = textColor,
-                    focusedLabelColor = if (isDark) Color.White else primaryBlue,
-                    unfocusedLabelColor = if (isDark) Color.White else Color.DarkGray,
-                    cursorColor = primaryBlue
-                ),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
-                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                // Changes dots to text when the eye is clicked
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                // The Eye Icon Button
-                trailingIcon = {
-                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = image, contentDescription = "Toggle Password", tint = if (isDark) Color.Gray else Color.DarkGray)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = fieldColor, 
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = primaryBlue, 
-                    focusedTextColor = textColor, 
-                    unfocusedTextColor = textColor,
-                    focusedLabelColor = if (isDark) Color.White else primaryBlue,
-                    unfocusedLabelColor = if (isDark) Color.White else Color.DarkGray,
-                    cursorColor = primaryBlue
-                ),
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
-                singleLine = true
-            )
-
-            TextButton(
-                onClick = { 
-                    if (identifier.isEmpty()) {
-                        Toast.makeText(context, "Please enter your email in the top field first", Toast.LENGTH_LONG).show()
-                    } else {
-                        auth.sendPasswordResetEmail(identifier).addOnCompleteListener { task ->
-                            if (task.isSuccessful) { Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show() } 
-                            else { Toast.makeText(context, task.exception?.localizedMessage ?: "Error", Toast.LENGTH_LONG).show() }
-                        }
-                    }
-                },
-                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
-            ) {
-                // Fixed Forgot Password Color for Dark Mode
-                Text("Forgot password?", color = if (isDark) Color.White else primaryBlue, fontWeight = FontWeight.Medium)
-            }
-
-            Button(
-                onClick = {
-                    keyboardController?.hide()
-                    focusManager.clearFocus()
-                    if (identifier.isEmpty() || password.isEmpty()) {
-                        Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-                    
-                    isLoading = true
-                    val trimmedIdentifier = identifier.trim()
-
-                    // Smart Login Router: Checks if user typed an Email or a Username
-                    if (trimmedIdentifier.contains("@")) {
-                        // 1. Standard Email Login
-                        auth.signInWithEmailAndPassword(trimmedIdentifier, password).addOnCompleteListener { task ->
-                            isLoading = false
-                            if (task.isSuccessful) { onLoginSuccess() } 
-                            else { Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show() }
-                        }
-                    } else {
-                        // 2. Username Login via Firestore Database
-                        firestore.collection("users").whereEqualTo("username", trimmedIdentifier.lowercase())
-                            .get()
-                            .addOnSuccessListener { documents ->
-                                if (!documents.isEmpty) {
-                                    val linkedEmail = documents.documents[0].getString("email") ?: ""
-                                    auth.signInWithEmailAndPassword(linkedEmail, password).addOnCompleteListener { task ->
-                                        isLoading = false
-                                        if (task.isSuccessful) { onLoginSuccess() } 
-                                        else { Toast.makeText(context, "Incorrect Password", Toast.LENGTH_LONG).show() }
-                                    }
-                                } else {
-                                    isLoading = false
-                                    Toast.makeText(context, "Username not found", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                            .addOnFailureListener {
-                                isLoading = false
-                                Toast.makeText(context, "Database Error", Toast.LENGTH_SHORT).show()
-                            }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
-            ) {
-                if (isLoading) { CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp)) } 
-                else { Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Row(
+            Column(
                 modifier = Modifier
-                    .padding(bottom = 16.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null, 
-                        onClick = { onNavigateToSignup() }
-                    )
-                    .padding(horizontal = 12.dp, vertical = 8.dp), 
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                    .fillMaxSize()
+                    .padding(24.dp)
+                    .imePadding() 
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Don't have an account? ", color = textColor, fontSize = 15.sp)
-                Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = "Interraqt",
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = textColor,
+                    modifier = Modifier.padding(bottom = 40.dp)
+                )
+
+                OutlinedTextField(
+                    value = identifier,
+                    onValueChange = { identifier = it },
+                    label = { Text("Email or Username") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp), 
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        containerColor = fieldColor, 
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = primaryBlue, 
+                        focusedTextColor = textColor, 
+                        unfocusedTextColor = textColor,
+                        focusedLabelColor = if (isDark) Color.White else primaryBlue,
+                        unfocusedLabelColor = if (isDark) Color.White else Color.DarkGray,
+                        cursorColor = primaryBlue
+                    ),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                        IconButton(
+                            onClick = { passwordVisible = !passwordVisible },
+                            // 2. Physically offsets the icon to the left so it doesn't hug the right edge
+                            modifier = Modifier.offset(x = (-12).dp) 
+                        ) {
+                            Icon(imageVector = image, contentDescription = "Toggle Password", tint = if (isDark) Color.Gray else Color.DarkGray)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        containerColor = fieldColor, 
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = primaryBlue, 
+                        focusedTextColor = textColor, 
+                        unfocusedTextColor = textColor,
+                        focusedLabelColor = if (isDark) Color.White else primaryBlue,
+                        unfocusedLabelColor = if (isDark) Color.White else Color.DarkGray,
+                        cursorColor = primaryBlue
+                    ),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
+                    singleLine = true
+                )
+
+                TextButton(
+                    onClick = { 
+                        if (identifier.isEmpty()) {
+                            Toast.makeText(context, "Please enter your email in the top field first", Toast.LENGTH_LONG).show()
+                        } else {
+                            auth.sendPasswordResetEmail(identifier).addOnCompleteListener { task ->
+                                if (task.isSuccessful) { Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show() } 
+                                else { Toast.makeText(context, task.exception?.localizedMessage ?: "Error", Toast.LENGTH_LONG).show() }
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+                ) {
+                    Text("Forgot password?", color = if (isDark) Color.White else primaryBlue, fontWeight = FontWeight.Medium)
+                }
+
+                Button(
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        if (identifier.isEmpty() || password.isEmpty()) {
+                            Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        
+                        isLoading = true
+                        val trimmedIdentifier = identifier.trim()
+
+                        if (trimmedIdentifier.contains("@")) {
+                            auth.signInWithEmailAndPassword(trimmedIdentifier, password).addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) { onLoginSuccess() } 
+                                else { Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show() }
+                            }
+                        } else {
+                            firestore.collection("users").whereEqualTo("username", trimmedIdentifier.lowercase())
+                                .get()
+                                .addOnSuccessListener { documents ->
+                                    if (!documents.isEmpty) {
+                                        val linkedEmail = documents.documents[0].getString("email") ?: ""
+                                        auth.signInWithEmailAndPassword(linkedEmail, password).addOnCompleteListener { task ->
+                                            isLoading = false
+                                            if (task.isSuccessful) { onLoginSuccess() } 
+                                            else { Toast.makeText(context, "Incorrect Password", Toast.LENGTH_LONG).show() }
+                                        }
+                                    } else {
+                                        isLoading = false
+                                        Toast.makeText(context, "Username not found", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    isLoading = false
+                                    Toast.makeText(context, "Database Error", Toast.LENGTH_SHORT).show()
+                                }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                ) {
+                    if (isLoading) { CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp)) } 
+                    else { Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Row(
+                    modifier = Modifier
+                        .padding(bottom = 16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null, 
+                            onClick = { onNavigateToSignup() }
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp), 
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("Don't have an account? ", color = textColor, fontSize = 15.sp)
+                    Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
             }
         }
     }
