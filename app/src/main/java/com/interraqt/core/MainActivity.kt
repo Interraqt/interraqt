@@ -1,5 +1,6 @@
 package com.interraqt.core
 
+import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +16,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 import com.google.firebase.auth.FirebaseAuth
 import com.interraqt.core.auth.LoginScreen
@@ -82,8 +86,19 @@ fun InterraqtApp(onLogout: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
 
     val isDark = isSystemInDarkTheme()
-    // Upgraded Premium Background Colors
     val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+
+    // 🚨 Forces the Android Status Bar and Nav Bar to perfectly match the app background
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = bgColor.toArgb()
+            window.navigationBarColor = bgColor.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !isDark
+        }
+    }
 
     Scaffold(
         containerColor = bgColor, 
