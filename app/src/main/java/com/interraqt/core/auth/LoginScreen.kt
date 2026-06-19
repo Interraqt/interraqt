@@ -1,6 +1,8 @@
 package com.interraqt.core.auth
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,8 +14,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -35,8 +39,8 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val context = LocalContext.current // Used for popup error messages
-    val auth = FirebaseAuth.getInstance() // Real Firebase Engine
+    val context = LocalContext.current 
+    val auth = FirebaseAuth.getInstance() 
 
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color.White
@@ -44,7 +48,18 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0F0F0)
     val primaryBlue = Color(0xFF0B57D0)
 
-    Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
+    Surface(
+        color = bgColor, 
+        modifier = Modifier
+            .fillMaxSize()
+            // Closes keyboard if you tap anywhere on the background
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                })
+            }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -70,19 +85,11 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp), 
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = fieldColor,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = primaryBlue,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor
+                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
                 ),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.None,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                ),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true
             )
 
@@ -96,38 +103,22 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = fieldColor,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedBorderColor = primaryBlue,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor
+                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
                 ),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences, 
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                    }
-                ),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
                 singleLine = true
             )
 
-            // REAL Forgot Password Logic
             TextButton(
                 onClick = { 
                     if (identifier.isEmpty()) {
                         Toast.makeText(context, "Please enter your email in the top field first", Toast.LENGTH_LONG).show()
                     } else {
                         auth.sendPasswordResetEmail(identifier).addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show()
-                            } else {
-                                Toast.makeText(context, task.exception?.localizedMessage ?: "Error", Toast.LENGTH_LONG).show()
-                            }
+                            if (task.isSuccessful) { Toast.makeText(context, "Password reset email sent!", Toast.LENGTH_LONG).show() } 
+                            else { Toast.makeText(context, task.exception?.localizedMessage ?: "Error", Toast.LENGTH_LONG).show() }
                         }
                     }
                 },
@@ -136,51 +127,43 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 Text("Forgot password?", color = primaryBlue, fontWeight = FontWeight.Medium)
             }
 
-            // REAL Login Logic
             Button(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
-                    
                     if (identifier.isEmpty() || password.isEmpty()) {
                         Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-                    
                     isLoading = true
-                    auth.signInWithEmailAndPassword(identifier, password)
-                        .addOnCompleteListener { task ->
-                            isLoading = false
-                            if (task.isSuccessful) {
-                                onLoginSuccess()
-                            } else {
-                                Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show()
-                            }
-                        }
+                    auth.signInWithEmailAndPassword(identifier, password).addOnCompleteListener { task ->
+                        isLoading = false
+                        if (task.isSuccessful) { onLoginSuccess() } 
+                        else { Toast.makeText(context, task.exception?.localizedMessage ?: "Login Failed", Toast.LENGTH_LONG).show() }
+                    }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
+                if (isLoading) { CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp)) } 
+                else { Text("Log In", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White) }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
+            // The entire row is now one clickable block
             Row(
-                modifier = Modifier.padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .padding(bottom = 16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onNavigateToSignup() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp), 
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text("Don't have an account?", color = textColor)
-                TextButton(onClick = onNavigateToSignup) {
-                    Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold)
-                }
+                Text("Don't have an account? ", color = textColor, fontSize = 15.sp)
+                Text("Sign Up", color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
