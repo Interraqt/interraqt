@@ -52,7 +52,6 @@ fun RootNavigation() {
     
     var savedTab by remember { mutableIntStateOf(0) }
     
-    // 🚨 GLOBAL DATA: Fetched instantly in the background!
     var globalUsername by remember { mutableStateOf("...") }
 
     LaunchedEffect(auth.currentUser) {
@@ -91,14 +90,14 @@ fun RootNavigation() {
             )
             AppScreen.Main -> InterraqtApp(
                 initialTab = savedTab, 
-                globalUsername = globalUsername, // Passed down
+                globalUsername = globalUsername, 
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
                 onLogout = { currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
-                username = globalUsername, // Passed down
-                onUsernameUpdated = { globalUsername = it }, // Updates instantly when saved
+                username = globalUsername, 
+                onUsernameUpdated = { globalUsername = it }, 
                 onNavigateBack = { currentScreen = AppScreen.Main },
                 onLogout = { currentScreen = AppScreen.Login }
             )
@@ -129,7 +128,8 @@ fun InterraqtApp(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = bgColor.toArgb()
+            // 🚨 FIX: Makes the status bar completely transparent so posts can slide under it!
+            window.statusBarColor = android.graphics.Color.TRANSPARENT 
             window.navigationBarColor = bgColor.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !isDark
@@ -152,7 +152,6 @@ fun InterraqtApp(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
-                // 🚨 FIX: Only apply BOTTOM padding. Let the top draw behind the status bar!
                 .padding(bottom = innerPadding.calculateBottomPadding()) 
                 .fillMaxSize()
                 .background(bgColor)
