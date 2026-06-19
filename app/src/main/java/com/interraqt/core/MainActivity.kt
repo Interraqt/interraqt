@@ -26,7 +26,6 @@ import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 
-// 1. Added Settings to the App Screens
 enum class AppScreen {
     Login, Signup, Main, Settings
 }
@@ -48,8 +47,10 @@ fun RootNavigation() {
     var currentScreen by remember { 
         mutableStateOf(if (auth.currentUser != null) AppScreen.Main else AppScreen.Login) 
     }
+    
+    // 🚨 Memory Module: Remembers which tab you were on before leaving for Settings!
+    var savedTab by remember { mutableIntStateOf(0) }
 
-    // 2. Updated animation engine for the new Settings page
     AnimatedContent(
         targetState = currentScreen,
         transitionSpec = {
@@ -58,10 +59,8 @@ fun RootNavigation() {
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else if (targetState == AppScreen.Settings) {
-                // Slides Settings in from the right
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 })
             } else if (initialState == AppScreen.Settings && targetState == AppScreen.Main) {
-                // Slides Settings back out to the right
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
                 fadeIn() togetherWith fadeOut()
@@ -79,7 +78,10 @@ fun RootNavigation() {
                 onSignupSuccess = { currentScreen = AppScreen.Main }
             )
             AppScreen.Main -> InterraqtApp(
-                onNavigateToSettings = { currentScreen = AppScreen.Settings }
+                initialTab = savedTab, // Tells the app to start on the saved tab
+                onTabChange = { savedTab = it }, // Constantly records the tab you are looking at
+                onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                onLogout = { currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
                 onNavigateBack = { currentScreen = AppScreen.Main },
@@ -91,9 +93,19 @@ fun RootNavigation() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun InterraqtApp(onNavigateToSettings: () -> Unit) { 
-    val pagerState = rememberPagerState(pageCount = { 5 })
+fun InterraqtApp(
+    initialTab: Int, 
+    onTabChange: (Int) -> Unit, 
+    onNavigateToSettings: () -> Unit, 
+    onLogout: () -> Unit
+) { 
+    val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
+
+    // 🚨 Safely updates the memory module whenever you swipe to a new tab
+    LaunchedEffect(pagerState.currentPage) {
+        onTabChange(pagerState.currentPage)
+    }
 
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
@@ -134,7 +146,6 @@ fun InterraqtApp(onNavigateToSettings: () -> Unit) {
                 1 -> ChatScreen()
                 2 -> ExploreScreen()
                 3 -> VideoScreen()
-                // Connect the Profile Screen to the Settings router
                 4 -> ProfileScreen(onNavigateToSettings = onNavigateToSettings) 
             }
         }
