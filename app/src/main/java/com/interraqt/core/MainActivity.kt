@@ -84,14 +84,14 @@ fun RootNavigation() {
             AppScreen.Login -> LoginScreen(
                 onNavigateToSignup = { currentScreen = AppScreen.Signup },
                 onLoginSuccess = { 
-                    savedTab = 0 // 🚨 Forces app to start on Home
+                    savedTab = 0 
                     currentScreen = AppScreen.Main 
                 }
             )
             AppScreen.Signup -> SignupScreen(
                 onNavigateToLogin = { currentScreen = AppScreen.Login },
                 onSignupSuccess = { 
-                    savedTab = 0 // 🚨 Forces app to start on Home
+                    savedTab = 0 
                     currentScreen = AppScreen.Main 
                 }
             )
@@ -101,7 +101,7 @@ fun RootNavigation() {
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
                 onLogout = { 
-                    savedTab = 0 // 🚨 Clean slate on logout
+                    savedTab = 0 
                     currentScreen = AppScreen.Login 
                 }
             )
@@ -110,7 +110,7 @@ fun RootNavigation() {
                 onUsernameUpdated = { globalUsername = it }, 
                 onNavigateBack = { currentScreen = AppScreen.Main },
                 onLogout = { 
-                    savedTab = 0 // 🚨 Clean slate on logout
+                    savedTab = 0 
                     currentScreen = AppScreen.Login 
                 }
             )
@@ -135,7 +135,8 @@ fun InterraqtApp(
     }
 
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    // 🚨 PREMIUM GLOBAL BACKGROUND 
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
 
     val view = LocalView.current
     if (!view.isInEditMode) {
