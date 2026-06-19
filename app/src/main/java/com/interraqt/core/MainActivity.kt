@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.* // Powers the sliding animations
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -21,7 +22,6 @@ import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 
-// 1. We define the three possible states the app can be in
 enum class AppScreen {
     Login, Signup, Main
 }
@@ -31,43 +31,56 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // 2. We set the Bouncer as the very first thing the app loads
             RootNavigation() 
         }
     }
 }
 
-// 3. The Bouncer logic
 @Composable
 fun RootNavigation() {
     val auth = FirebaseAuth.getInstance()
     
-    // Check if the user is already logged in right now
     var currentScreen by remember { 
         mutableStateOf(if (auth.currentUser != null) AppScreen.Main else AppScreen.Login) 
     }
 
-    // Route the user to the correct screen and handle button clicks
-    when (currentScreen) {
-        AppScreen.Login -> LoginScreen(
-            onNavigateToSignup = { currentScreen = AppScreen.Signup },
-            onLoginSuccess = { currentScreen = AppScreen.Main }
-        )
-        AppScreen.Signup -> SignupScreen(
-            onNavigateToLogin = { currentScreen = AppScreen.Login },
-            onSignupSuccess = { currentScreen = AppScreen.Main }
-        )
-        // 🚨 ADDED: We tell the Main feed what to do if a logout happens
-        AppScreen.Main -> InterraqtApp(
-            onLogout = { currentScreen = AppScreen.Login } 
-        ) 
+    // Wrap the screens in an animation engine
+    AnimatedContent(
+        targetState = currentScreen,
+        transitionSpec = {
+            if (initialState == AppScreen.Login && targetState == AppScreen.Signup) {
+                // Slide left when going to Signup
+                slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith 
+                slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
+            } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
+                // Slide right when going back to Login
+                slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith 
+                slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
+            } else {
+                // Smooth fade when entering the main app
+                fadeIn() togetherWith fadeOut()
+            }
+        },
+        label = "ScreenTransition"
+    ) { targetScreen ->
+        when (targetScreen) {
+            AppScreen.Login -> LoginScreen(
+                onNavigateToSignup = { currentScreen = AppScreen.Signup },
+                onLoginSuccess = { currentScreen = AppScreen.Main }
+            )
+            AppScreen.Signup -> SignupScreen(
+                onNavigateToLogin = { currentScreen = AppScreen.Login },
+                onSignupSuccess = { currentScreen = AppScreen.Main }
+            )
+            AppScreen.Main -> InterraqtApp(
+                onLogout = { currentScreen = AppScreen.Login } 
+            ) 
+        }
     }
 }
 
-// 4. Your existing app structure remains perfectly intact below
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-// 🚨 ADDED: The Main feed now accepts the logout command
 fun InterraqtApp(onLogout: () -> Unit) { 
     val pagerState = rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
@@ -100,7 +113,6 @@ fun InterraqtApp(onLogout: () -> Unit) {
                 1 -> ChatScreen()
                 2 -> ExploreScreen()
                 3 -> VideoScreen()
-                // 🚨 ADDED: We plug the logout cable directly into the Profile Screen
                 4 -> ProfileScreen(onLogout = onLogout) 
             }
         }
