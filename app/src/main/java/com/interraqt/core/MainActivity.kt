@@ -26,6 +26,7 @@ import com.interraqt.core.auth.LoginScreen
 import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
+import kotlin.math.abs // 🚨 Added for the Smart Jump math
 
 enum class AppScreen {
     Login, Signup, Main, Settings
@@ -128,7 +129,6 @@ fun InterraqtApp(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // 🚨 FIX: Makes the status bar completely transparent so posts can slide under it!
             window.statusBarColor = android.graphics.Color.TRANSPARENT 
             window.navigationBarColor = bgColor.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
@@ -143,6 +143,14 @@ fun InterraqtApp(
                 selectedIndex = pagerState.currentPage,
                 onTabSelected = { index ->
                     coroutineScope.launch {
+                        // 🚨 THE SMART JUMP LOGIC 🚨
+                        val currentPage = pagerState.currentPage
+                        if (abs(currentPage - index) > 1) {
+                            // Invisibly jump to the tab right next to our destination
+                            val adjacentPage = if (index > currentPage) index - 1 else index + 1
+                            pagerState.scrollToPage(adjacentPage)
+                        }
+                        // Smoothly slide into the final destination
                         pagerState.animateScrollToPage(index)
                     }
                 }
