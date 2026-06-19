@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.interraqt.core.auth.LoginScreen
 import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
@@ -43,13 +44,24 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun RootNavigation() {
     val auth = FirebaseAuth.getInstance()
+    val firestore = FirebaseFirestore.getInstance()
     
     var currentScreen by remember { 
         mutableStateOf(if (auth.currentUser != null) AppScreen.Main else AppScreen.Login) 
     }
     
-    // 🚨 Memory Module: Remembers which tab you were on before leaving for Settings!
     var savedTab by remember { mutableIntStateOf(0) }
+    
+    // 🚨 GLOBAL DATA: Fetched instantly in the background!
+    var globalUsername by remember { mutableStateOf("...") }
+
+    LaunchedEffect(auth.currentUser) {
+        auth.currentUser?.uid?.let { uid ->
+            firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
+                globalUsername = doc.getString("username") ?: "Unknown"
+            }
+        }
+    }
 
     AnimatedContent(
         targetState = currentScreen,
@@ -78,12 +90,15 @@ fun RootNavigation() {
                 onSignupSuccess = { currentScreen = AppScreen.Main }
             )
             AppScreen.Main -> InterraqtApp(
-                initialTab = savedTab, // Tells the app to start on the saved tab
-                onTabChange = { savedTab = it }, // Constantly records the tab you are looking at
+                initialTab = savedTab, 
+                globalUsername = globalUsername, // Passed down
+                onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
                 onLogout = { currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
+                username = globalUsername, // Passed down
+                onUsernameUpdated = { globalUsername = it }, // Updates instantly when saved
                 onNavigateBack = { currentScreen = AppScreen.Main },
                 onLogout = { currentScreen = AppScreen.Login }
             )
@@ -95,6 +110,7 @@ fun RootNavigation() {
 @Composable
 fun InterraqtApp(
     initialTab: Int, 
+    globalUsername: String,
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
     onLogout: () -> Unit
@@ -102,7 +118,6 @@ fun InterraqtApp(
     val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
-    // 🚨 Safely updates the memory module whenever you swipe to a new tab
     LaunchedEffect(pagerState.currentPage) {
         onTabChange(pagerState.currentPage)
     }
@@ -137,7 +152,8 @@ fun InterraqtApp(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
-                .padding(innerPadding)
+                // 🚨 FIX: Only apply BOTTOM padding. Let the top draw behind the status bar!
+                .padding(bottom = innerPadding.calculateBottomPadding()) 
                 .fillMaxSize()
                 .background(bgColor)
         ) { page ->
@@ -146,7 +162,7 @@ fun InterraqtApp(
                 1 -> ChatScreen()
                 2 -> ExploreScreen()
                 3 -> VideoScreen()
-                4 -> ProfileScreen(onNavigateToSettings = onNavigateToSettings) 
+                4 -> ProfileScreen(username = globalUsername, onNavigateToSettings = onNavigateToSettings) 
             }
         }
     }
