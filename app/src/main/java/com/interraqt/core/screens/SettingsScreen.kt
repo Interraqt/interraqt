@@ -23,14 +23,15 @@ import com.google.firebase.firestore.FirebaseFirestore
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    username: String, // 🚨 Received instantly
-    onUsernameUpdated: (String) -> Unit, // 🚨 Callback to update app globally
+    username: String, 
+    onUsernameUpdated: (String) -> Unit, 
     onNavigateBack: () -> Unit, 
     onLogout: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
-    val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color.White
+    // 🚨 PREMIUM BACKGROUND & SLATE CARDS 
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
+    val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val primaryBlue = Color(0xFF0B57D0)
     val redColor = Color(0xFFD32F2F)
@@ -128,7 +129,7 @@ fun SettingsScreen(
                     currentUser?.uid?.let { uid ->
                         firestore.collection("users").document(uid).update("username", finalUsername)
                             .addOnSuccessListener {
-                                onUsernameUpdated(finalUsername) // 🚨 Instantly updates app everywhere
+                                onUsernameUpdated(finalUsername) 
                                 showEditUsernameDialog = false
                                 Toast.makeText(context, "Username Updated!", Toast.LENGTH_SHORT).show()
                             }
