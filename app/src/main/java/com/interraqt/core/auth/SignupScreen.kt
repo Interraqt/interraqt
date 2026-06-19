@@ -12,6 +12,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,9 +31,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,12 +43,15 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
     var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) } // Controls the Eye Icon
     var isLoading by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
+    
     val auth = FirebaseAuth.getInstance()
+    val firestore = FirebaseFirestore.getInstance() // Added Firestore Database
     
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -117,7 +125,13 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
 
             OutlinedTextField(
                 value = password, onValueChange = { password = it }, label = { Text("Password") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = "Toggle Password", tint = if (isDark) Color.Gray else Color.DarkGray)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.outlinedTextFieldColors(
@@ -139,11 +153,37 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                         Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
+                    
                     isLoading = true
-                    auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
-                        isLoading = false
-                        if (task.isSuccessful) { onSignupSuccess() } 
-                        else { Toast.makeText(context, task.exception?.localizedMessage ?: "Signup Failed", Toast.LENGTH_LONG).show() }
+                    
+                    // 1. Create the user in Authentication Engine
+                    auth.createUserWithEmailAndPassword(email.trim(), password).addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val userId = task.result?.user?.uid
+                            if (userId != null) {
+                                // 2. Save the Username and Email safely into the Firestore Database
+                                val userData = hashMapOf(
+                                    "username" to username.trim().lowercase(),
+                                    "email" to email.trim()
+                                )
+                                
+                                firestore.collection("users").document(userId).set(userData)
+                                    .addOnSuccessListener {
+                                        isLoading = false
+                                        onSignupSuccess()
+                                    }
+                                    .addOnFailureListener {
+                                        isLoading = false
+                                        Toast.makeText(context, "Failed to save profile data.", Toast.LENGTH_LONG).show()
+                                    }
+                            } else {
+                                isLoading = false
+                                onSignupSuccess()
+                            }
+                        } else {
+                            isLoading = false
+                            Toast.makeText(context, task.exception?.localizedMessage ?: "Signup Failed", Toast.LENGTH_LONG).show()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -162,7 +202,7 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(
                         interactionSource = interactionSource,
-                        indication = null, // 🚨 Completely removes the grey highlight box
+                        indication = null, 
                         onClick = { onNavigateToLogin() }
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp), 
