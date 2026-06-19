@@ -58,9 +58,11 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
     BackHandler { onNavigateToLogin() }
 
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    
+    // 🚨 PREMIUM GLOBAL THEME COLORS
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
     val textColor = if (isDark) Color.White else Color.Black
-    val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color.White
+    val fieldColor = if (isDark) Color(0xFF161C24) else Color.White
     val primaryBlue = Color(0xFF0B57D0)
 
     Surface(
