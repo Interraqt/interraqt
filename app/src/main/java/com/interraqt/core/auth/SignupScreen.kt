@@ -2,6 +2,8 @@ package com.interraqt.core.auth
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,8 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -49,20 +53,29 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
     val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color(0xFFF0F0F0)
     val primaryBlue = Color(0xFF0B57D0)
 
-    Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
+    Surface(
+        color = bgColor, 
+        modifier = Modifier
+            .fillMaxSize()
+            // Closes keyboard if you tap anywhere on the background
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                })
+            }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp)
-                .imePadding() // Powers the lift-up physics
+                .imePadding() 
                 .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally // Perfectly centers the titles
+            horizontalAlignment = Alignment.CenterHorizontally 
         ) {
             
-            // 1. This top invisible spacer acts like a spring, pushing everything into the center!
             Spacer(modifier = Modifier.weight(1f))
 
-            // Title (Matched exactly to LoginScreen)
             Text(
                 text = "Interraqt",
                 fontSize = 36.sp,
@@ -71,85 +84,83 @@ fun SignupScreen(onNavigateToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                 modifier = Modifier.padding(bottom = 40.dp)
             )
 
-            // Username Field
             OutlinedTextField(
                 value = username, onValueChange = { username = it }, label = { Text("Username") },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, 
+                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
+                ),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true
             )
 
-            // Email Field
             OutlinedTextField(
                 value = email, onValueChange = { email = it }, label = { Text("Email ID") },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, 
+                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
+                ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                 keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                 singleLine = true
             )
 
-            // Password Field
             OutlinedTextField(
                 value = password, onValueChange = { password = it }, label = { Text("Password") },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 shape = RoundedCornerShape(24.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor),
+                colors = TextFieldDefaults.outlinedTextFieldColors(
+                    containerColor = fieldColor, unfocusedBorderColor = Color.Transparent, 
+                    focusedBorderColor = primaryBlue, focusedTextColor = textColor, unfocusedTextColor = textColor
+                ),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { keyboardController?.hide(); focusManager.clearFocus() }),
                 singleLine = true
             )
 
-            // Button
             Button(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
-                    
                     if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
                         Toast.makeText(context, "Please fill in all fields", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-
                     isLoading = true
-                    auth.createUserWithEmailAndPassword(email, password)
-                        .addOnCompleteListener { task ->
-                            isLoading = false
-                            if (task.isSuccessful) {
-                                onSignupSuccess()
-                            } else {
-                                Toast.makeText(context, task.exception?.localizedMessage ?: "Signup Failed", Toast.LENGTH_LONG).show()
-                            }
-                        }
+                    auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+                        isLoading = false
+                        if (task.isSuccessful) { onSignupSuccess() } 
+                        else { Toast.makeText(context, task.exception?.localizedMessage ?: "Signup Failed", Toast.LENGTH_LONG).show() }
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Sign Up", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
+                if (isLoading) { CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp)) } 
+                else { Text("Sign Up", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White) }
             }
 
-            // 2. This bottom invisible spacer pushes against the top one, holding the UI in the middle!
             Spacer(modifier = Modifier.weight(1f))
 
-            // Anchored to the bottom
+            // The entire row is now one clickable block
             Row(
-                modifier = Modifier.padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .padding(bottom = 16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onNavigateToLogin() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp), 
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
-                Text("Already have an account?", color = textColor)
-                TextButton(onClick = onNavigateToLogin) {
-                    Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold)
-                }
+                Text("Already have an account? ", color = textColor, fontSize = 15.sp)
+                Text("Log In", color = primaryBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
