@@ -54,9 +54,11 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
 
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    
+    // 🚨 PREMIUM GLOBAL THEME COLORS
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
     val textColor = if (isDark) Color.White else Color.Black
-    val fieldColor = if (isDark) Color(0xFF2A2A2A) else Color.White
+    val fieldColor = if (isDark) Color(0xFF161C24) else Color.White
     val primaryBlue = Color(0xFF0B57D0)
 
     Surface(
@@ -70,7 +72,6 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                 })
             }
     ) {
-        // 1. Forces the floating label's background mask to be 100% transparent
         MaterialTheme(
             colorScheme = MaterialTheme.colorScheme.copy(
                 surface = Color.Transparent 
@@ -126,7 +127,6 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                         val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                         IconButton(
                             onClick = { passwordVisible = !passwordVisible },
-                            // 2. Physically offsets the icon to the left so it doesn't hug the right edge
                             modifier = Modifier.offset(x = (-12).dp) 
                         ) {
                             Icon(imageVector = image, contentDescription = "Toggle Password", tint = if (isDark) Color.Gray else Color.DarkGray)
