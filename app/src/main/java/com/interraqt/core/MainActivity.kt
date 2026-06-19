@@ -26,7 +26,7 @@ import com.interraqt.core.auth.LoginScreen
 import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
-import kotlin.math.abs // 🚨 Added for the Smart Jump math
+import kotlin.math.abs
 
 enum class AppScreen {
     Login, Signup, Main, Settings
@@ -83,24 +83,36 @@ fun RootNavigation() {
         when (targetScreen) {
             AppScreen.Login -> LoginScreen(
                 onNavigateToSignup = { currentScreen = AppScreen.Signup },
-                onLoginSuccess = { currentScreen = AppScreen.Main }
+                onLoginSuccess = { 
+                    savedTab = 0 // 🚨 Forces app to start on Home
+                    currentScreen = AppScreen.Main 
+                }
             )
             AppScreen.Signup -> SignupScreen(
                 onNavigateToLogin = { currentScreen = AppScreen.Login },
-                onSignupSuccess = { currentScreen = AppScreen.Main }
+                onSignupSuccess = { 
+                    savedTab = 0 // 🚨 Forces app to start on Home
+                    currentScreen = AppScreen.Main 
+                }
             )
             AppScreen.Main -> InterraqtApp(
                 initialTab = savedTab, 
                 globalUsername = globalUsername, 
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                onLogout = { currentScreen = AppScreen.Login }
+                onLogout = { 
+                    savedTab = 0 // 🚨 Clean slate on logout
+                    currentScreen = AppScreen.Login 
+                }
             )
             AppScreen.Settings -> SettingsScreen(
                 username = globalUsername, 
                 onUsernameUpdated = { globalUsername = it }, 
                 onNavigateBack = { currentScreen = AppScreen.Main },
-                onLogout = { currentScreen = AppScreen.Login }
+                onLogout = { 
+                    savedTab = 0 // 🚨 Clean slate on logout
+                    currentScreen = AppScreen.Login 
+                }
             )
         }
     }
@@ -143,14 +155,11 @@ fun InterraqtApp(
                 selectedIndex = pagerState.currentPage,
                 onTabSelected = { index ->
                     coroutineScope.launch {
-                        // 🚨 THE SMART JUMP LOGIC 🚨
                         val currentPage = pagerState.currentPage
                         if (abs(currentPage - index) > 1) {
-                            // Invisibly jump to the tab right next to our destination
                             val adjacentPage = if (index > currentPage) index - 1 else index + 1
                             pagerState.scrollToPage(adjacentPage)
                         }
-                        // Smoothly slide into the final destination
                         pagerState.animateScrollToPage(index)
                     }
                 }
