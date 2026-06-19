@@ -51,7 +51,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     // Mathematically calculates the exact bottom of your 44dp glass icons + 16dp padding
-    val fadeEndPx = statusBarHeightPx + with(density) { 60.dp.toPx() }
+    val fadeEndPx = statusBarHeightPx + with(density) { 100.dp.toPx() }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
