@@ -49,12 +49,12 @@ fun ProfileScreen(onNavigateToSettings: () -> Unit) {
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
-        // --- TOP BAR (Perfectly Aligned below the Mobile Status Bar) ---
+        // 🚨 TOP BAR FIX: Pushed left/right and lifted safely below status bar!
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding() // 🚨 Prevents overlap with battery/wifi icons
-                .padding(top = 16.dp, start = 24.dp, end = 24.dp),
+                .statusBarsPadding()
+                .padding(top = 8.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -68,7 +68,6 @@ fun ProfileScreen(onNavigateToSettings: () -> Unit) {
             }
         }
 
-        // --- CENTER UPLOAD BUTTON (Sleek Pill Shape) ---
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center,
@@ -89,7 +88,6 @@ fun ProfileScreen(onNavigateToSettings: () -> Unit) {
             }
         }
 
-        // --- UPLOAD BOTTOM SHEET ---
         if (showUploadSheet) {
             var caption by remember { mutableStateOf("") }
 
