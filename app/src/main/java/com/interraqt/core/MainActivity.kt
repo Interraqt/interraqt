@@ -26,8 +26,9 @@ import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 
+// 1. Added Settings to the App Screens
 enum class AppScreen {
-    Login, Signup, Main
+    Login, Signup, Main, Settings
 }
 
 class MainActivity : ComponentActivity() {
@@ -48,15 +49,20 @@ fun RootNavigation() {
         mutableStateOf(if (auth.currentUser != null) AppScreen.Main else AppScreen.Login) 
     }
 
+    // 2. Updated animation engine for the new Settings page
     AnimatedContent(
         targetState = currentScreen,
         transitionSpec = {
             if (initialState == AppScreen.Login && targetState == AppScreen.Signup) {
-                slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith 
-                slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
+                slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
-                slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith 
-                slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
+                slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
+            } else if (targetState == AppScreen.Settings) {
+                // Slides Settings in from the right
+                slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 })
+            } else if (initialState == AppScreen.Settings && targetState == AppScreen.Main) {
+                // Slides Settings back out to the right
+                slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
                 fadeIn() togetherWith fadeOut()
             }
@@ -73,22 +79,25 @@ fun RootNavigation() {
                 onSignupSuccess = { currentScreen = AppScreen.Main }
             )
             AppScreen.Main -> InterraqtApp(
-                onLogout = { currentScreen = AppScreen.Login } 
-            ) 
+                onNavigateToSettings = { currentScreen = AppScreen.Settings }
+            )
+            AppScreen.Settings -> SettingsScreen(
+                onNavigateBack = { currentScreen = AppScreen.Main },
+                onLogout = { currentScreen = AppScreen.Login }
+            )
         }
     }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun InterraqtApp(onLogout: () -> Unit) { 
+fun InterraqtApp(onNavigateToSettings: () -> Unit) { 
     val pagerState = rememberPagerState(pageCount = { 5 })
     val coroutineScope = rememberCoroutineScope()
 
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
 
-    // 🚨 Forces the Android Status Bar and Nav Bar to perfectly match the app background
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -125,7 +134,8 @@ fun InterraqtApp(onLogout: () -> Unit) {
                 1 -> ChatScreen()
                 2 -> ExploreScreen()
                 3 -> VideoScreen()
-                4 -> ProfileScreen(onLogout = onLogout) 
+                // Connect the Profile Screen to the Settings router
+                4 -> ProfileScreen(onNavigateToSettings = onNavigateToSettings) 
             }
         }
     }
