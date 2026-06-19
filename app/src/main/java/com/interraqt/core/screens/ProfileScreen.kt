@@ -19,8 +19,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,69 +39,42 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
-    val primaryOrange = Color(0xFFFF6328) // The vibrant brand color from the screenshot
-    val primaryBlue = Color(0xFF0B57D0) // Blue color for upload sheet icons
+    val primaryOrange = Color(0xFFFF6328) 
+    val primaryBlue = Color(0xFF0B57D0) 
     val glassColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
 
-    // Dynamic state: Sets the buttons to Edit/Share instead of Follow/Message
     val isOwnProfile = true 
-    
     var showUploadSheet by remember { mutableStateOf(false) }
+
+    // 🚨 FADE MATH SETUP
+    val density = LocalDensity.current
+    val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
+    val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // Mathematically calculates the exact bottom of your 44dp glass icons + 16dp padding
+    val fadeEndPx = statusBarHeightPx + with(density) { 60.dp.toPx() }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
+        // --- 1. THE SCROLLING CONTENT (Fades underneath the top bar) ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer { alpha = 0.99f } 
+                .drawWithContent {
+                    // 🚨 Smooth Feather: Fades content exactly behind the floating Top Bar
+                    val gradient = Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black),
+                        startY = 0f,
+                        endY = fadeEndPx 
+                    )
+                    drawContent()
+                    drawRect(brush = gradient, blendMode = BlendMode.DstIn)
+                }
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- TOP BAR (Liquid Glass Icons & Username) ---
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = 16.dp, start = 16.dp, end = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // LEFT: Liquid Glass Upload (+) Button
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(glassColor)
-                        .clickable { showUploadSheet = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Upload", tint = textColor, modifier = Modifier.size(24.dp))
-                }
-
-                // CENTER: @username
-                Text(
-                    text = "@$username", 
-                    fontSize = 20.sp, 
-                    fontWeight = FontWeight.Bold, 
-                    color = textColor
-                )
-
-                // RIGHT: Liquid Glass Settings (2-Line Menu)
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(glassColor)
-                        .clickable { onNavigateToSettings() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
-                        Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
+            // 🚨 Spacer pushes the content safely below the floating Top Bar to start
+            Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
             // --- PROFILE PICTURE & BIO ---
             Box(
@@ -107,7 +84,6 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     .background(surfaceColor),
                 contentAlignment = Alignment.Center
             ) {
-                // Dummy person icon until we add real photos
                 Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
             }
 
@@ -117,11 +93,13 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- STATS ROW (With custom faded dividers!) ---
+            // --- STATS ROW ---
             val dividerBrush = Brush.verticalGradient(
-                0f to Color.Transparent,
-                0.5f to subTextColor.copy(alpha = 0.4f),
-                1f to Color.Transparent
+                colors = listOf(
+                    Color.Transparent,
+                    subTextColor.copy(alpha = 0.4f),
+                    Color.Transparent
+                )
             )
 
             Row(
@@ -177,7 +155,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // --- TABS (Collections / Videos / Photos) ---
+            // --- TABS ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -203,7 +181,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- DUMMY GRID (Visual Placeholder) ---
+            // --- DUMMY GRID ---
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -218,13 +196,59 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
                     Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
                 }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                }
             }
             
-            // Padding so the very bottom photos aren't hidden behind the navigation bar
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // --- UPLOAD BOTTOM SHEET ---
+        // --- 2. THE FLOATING TOP BAR (Pinned to the top of the screen) ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(glassColor)
+                    .clickable { showUploadSheet = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Upload", tint = textColor, modifier = Modifier.size(24.dp))
+            }
+
+            Text(
+                text = "@$username", 
+                fontSize = 20.sp, 
+                fontWeight = FontWeight.Bold, 
+                color = textColor
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(glassColor)
+                    .clickable { onNavigateToSettings() },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
+                    Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
+                }
+            }
+        }
+
+        // --- 3. THE UPLOAD BOTTOM SHEET ---
         if (showUploadSheet) {
             var caption by remember { mutableStateOf("") }
 
