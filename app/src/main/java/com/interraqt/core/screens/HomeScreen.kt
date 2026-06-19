@@ -45,7 +45,7 @@ fun HomeScreen() {
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black),
                         startY = 0f,
-                        endY = statusBarHeightPx + 20f // Added a tiny buffer for a softer fade line
+                        endY = statusBarHeightPx + 40f // Added a tiny buffer for a softer fade line
                     )
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
