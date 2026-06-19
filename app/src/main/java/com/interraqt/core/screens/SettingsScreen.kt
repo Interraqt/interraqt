@@ -22,7 +22,12 @@ import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
+fun SettingsScreen(
+    username: String, // 🚨 Received instantly
+    onUsernameUpdated: (String) -> Unit, // 🚨 Callback to update app globally
+    onNavigateBack: () -> Unit, 
+    onLogout: () -> Unit
+) {
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color.White
@@ -35,10 +40,8 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
     val firestore = FirebaseFirestore.getInstance()
     val currentUser = auth.currentUser
 
-    var currentUsername by remember { mutableStateOf("Loading...") }
     val currentEmail = currentUser?.email ?: "Unknown Email"
 
-    // Dialog Trigger States
     var showEditUsernameDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -48,19 +51,10 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
 
     BackHandler { onNavigateBack() }
 
-    LaunchedEffect(currentUser) {
-        currentUser?.uid?.let { uid ->
-            firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
-                currentUsername = doc.getString("username") ?: "Unknown"
-            }
-        }
-    }
-
     Surface(color = bgColor, modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            // Header
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 32.dp)) {
                 IconButton(onClick = onNavigateBack, modifier = Modifier.padding(end = 16.dp)) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
@@ -68,7 +62,6 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
                 Text("Settings", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
             }
 
-            // Account Details
             Text("ACCOUNT DETAILS", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
             Surface(shape = RoundedCornerShape(16.dp), color = surfaceColor, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -76,13 +69,13 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
                     Text(currentEmail, fontSize = 16.sp, color = textColor, modifier = Modifier.padding(bottom = 16.dp))
                     
                     Text("Username", fontSize = 12.sp, color = Color.Gray)
-                    Text("@$currentUsername", fontSize = 16.sp, color = textColor)
+                    Text("@$username", fontSize = 16.sp, color = textColor)
                 }
             }
 
             Button(
                 onClick = { 
-                    newUsernameInput = currentUsername
+                    newUsernameInput = username
                     showEditUsernameDialog = true 
                 },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
@@ -90,7 +83,6 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue.copy(alpha = 0.1f), contentColor = primaryBlue)
             ) { Text("Edit Username", fontWeight = FontWeight.Bold) }
 
-            // Security
             Text("SECURITY", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
             Button(
                 onClick = { showResetDialog = true },
@@ -101,7 +93,6 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Danger Zone
             Button(
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -118,8 +109,6 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
         }
     }
 
-    // --- ANIMATED DIALOGS ---
-
     if (showEditUsernameDialog) {
         AlertDialog(
             onDismissRequest = { showEditUsernameDialog = false },
@@ -135,10 +124,11 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onLogout: () -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = {
+                    val finalUsername = newUsernameInput.trim().lowercase()
                     currentUser?.uid?.let { uid ->
-                        firestore.collection("users").document(uid).update("username", newUsernameInput.trim().lowercase())
+                        firestore.collection("users").document(uid).update("username", finalUsername)
                             .addOnSuccessListener {
-                                currentUsername = newUsernameInput
+                                onUsernameUpdated(finalUsername) // 🚨 Instantly updates app everywhere
                                 showEditUsernameDialog = false
                                 Toast.makeText(context, "Username Updated!", Toast.LENGTH_SHORT).show()
                             }
