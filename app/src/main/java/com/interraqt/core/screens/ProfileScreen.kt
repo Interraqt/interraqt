@@ -36,6 +36,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328) // The vibrant brand color from the screenshot
+    val primaryBlue = Color(0xFF0B57D0) // Blue color for upload sheet icons
     val glassColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
 
     // Dynamic state: Sets the buttons to Edit/Share instead of Follow/Message
@@ -236,25 +237,37 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     
                     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { }) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha=0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Image, contentDescription = "Image", tint = primaryBlue, modifier = Modifier.size(28.dp)) }
+                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Image, contentDescription = "Image", tint = primaryBlue, modifier = Modifier.size(28.dp))
+                            }
                             Text("Image", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { }) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha=0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Videocam, contentDescription = "Video", tint = primaryBlue, modifier = Modifier.size(28.dp)) }
+                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Videocam, contentDescription = "Video", tint = primaryBlue, modifier = Modifier.size(28.dp))
+                            }
                             Text("Video", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { }) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha=0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Notes, contentDescription = "Text", tint = primaryBlue, modifier = Modifier.size(28.dp)) }
+                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Notes, contentDescription = "Text", tint = primaryBlue, modifier = Modifier.size(28.dp))
+                            }
                             Text("Text", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
                         }
                     }
 
                     OutlinedTextField(
-                        value = caption, onValueChange = { caption = it },
+                        value = caption,
+                        onValueChange = { caption = it },
                         placeholder = { Text("Write a caption...") },
                         modifier = Modifier.fillMaxWidth().height(120.dp).padding(bottom = 16.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = primaryBlue, unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f), focusedTextColor = textColor, unfocusedTextColor = textColor)
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = primaryBlue,
+                            unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f),
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor
+                        )
                     )
 
                     Button(
