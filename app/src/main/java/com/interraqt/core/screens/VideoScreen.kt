@@ -1,4 +1,5 @@
 package com.interraqt.core.screens
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -9,9 +10,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-@Composable fun VideoScreen() { 
+
+@Composable
+fun VideoScreen() {
     val isDark = isSystemInDarkTheme()
-    Box(modifier = Modifier.fillMaxSize().background(if(isDark) Color.Black else Color.White), contentAlignment = Alignment.Center) { 
-        Text("Video Feed", color = if(isDark) Color.White else Color.Black, fontSize = 20.sp, fontWeight = FontWeight.SemiBold) 
-    } 
+    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    val textColor = if (isDark) Color.White else Color.Black
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgColor),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Video Feed",
+            color = textColor,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
 }
