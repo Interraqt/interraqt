@@ -41,16 +41,15 @@ fun HomeScreen() {
                 .padding(horizontal = 16.dp)
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
-                    // 🚨 STRICT FEATHER: Fades strictly within the mobile status bar height
+                    // 🚨 Smooth Feather: Fades to 0% opacity exactly at the top of the screen
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black),
                         startY = 0f,
-                        endY = statusBarHeightPx 
+                        endY = statusBarHeightPx + 20f // Added a tiny buffer for a softer fade line
                     )
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 },
-            // Pushes the actual content safely below the status bar to start
             contentPadding = PaddingValues(top = statusBarHeightDp + 16.dp, bottom = 100.dp) 
         ) {
             item {
