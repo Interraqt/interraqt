@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) { // 🚨 Receives instant username
+fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF1E1E1E) else Color.White
@@ -34,7 +34,6 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) { // 🚨 
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
-        // 🚨 Double padding fixed. This now sits perfectly below the icons!
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -46,9 +45,10 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) { // 🚨 
             Text("@$username", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
             
             IconButton(onClick = onNavigateToSettings) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.End) {
+                // 🚨 FIX: Centered the column and perfectly matched the 22.dp widths
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(modifier = Modifier.width(22.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
-                    Box(modifier = Modifier.width(16.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
+                    Box(modifier = Modifier.width(22.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
                 }
             }
         }
