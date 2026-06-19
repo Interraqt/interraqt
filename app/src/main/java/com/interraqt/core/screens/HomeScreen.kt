@@ -22,9 +22,10 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun HomeScreen() {
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF121212) else Color(0xFFF5F5F5)
+    // 🚨 PREMIUM BACKGROUND & SLATE CARDS 
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
     val textColor = if (isDark) Color.White else Color.Black
-    val cardColor = if (isDark) Color(0xFF1E1E1E) else Color.White
+    val cardColor = if (isDark) Color(0xFF161C24) else Color.White
 
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
@@ -41,11 +42,10 @@ fun HomeScreen() {
                 .padding(horizontal = 16.dp)
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
-                    // 🚨 Smooth Feather: Fades to 0% opacity exactly at the top of the screen
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black),
                         startY = 0f,
-                        endY = statusBarHeightPx + 60f // Added a tiny buffer for a softer fade line
+                        endY = statusBarHeightPx + 60f 
                     )
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
