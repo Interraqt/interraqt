@@ -26,10 +26,9 @@ fun HomeScreen() {
     val textColor = if (isDark) Color.White else Color.Black
     val cardColor = if (isDark) Color(0xFF1E1E1E) else Color.White
 
-    // 🚨 Calculates the exact pixel height of the mobile status bar
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
-    val fadeDistance = statusBarHeightPx + 40f // Fades smoothly just beneath the status icons
+    val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     Box(
         modifier = Modifier
@@ -42,16 +41,17 @@ fun HomeScreen() {
                 .padding(horizontal = 16.dp)
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
-                    // 🚨 Applies the exact pixel-perfect gradient
+                    // 🚨 STRICT FEATHER: Fades strictly within the mobile status bar height
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black),
                         startY = 0f,
-                        endY = fadeDistance
+                        endY = statusBarHeightPx 
                     )
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 },
-            contentPadding = PaddingValues(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 16.dp, bottom = 100.dp) 
+            // Pushes the actual content safely below the status bar to start
+            contentPadding = PaddingValues(top = statusBarHeightDp + 16.dp, bottom = 100.dp) 
         ) {
             item {
                 Text(
