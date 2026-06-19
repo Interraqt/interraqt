@@ -30,13 +30,15 @@ import androidx.compose.ui.unit.sp
 fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val isDark = isSystemInDarkTheme()
     
+    // 🚨 PREMIUM THEME COLORS
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA) 
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
-    val primaryOrange = Color(0xFFFF6328) 
+    val primaryOrange = Color(0xFFFF6328) // The vibrant brand color from the screenshot
     val glassColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
 
+    // Dynamic state: Sets the buttons to Edit/Share instead of Follow/Message
     val isOwnProfile = true 
     
     var showUploadSheet by remember { mutableStateOf(false) }
@@ -49,6 +51,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // --- TOP BAR (Liquid Glass Icons & Username) ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -57,6 +60,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // LEFT: Liquid Glass Upload (+) Button
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -68,6 +72,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     Icon(Icons.Default.Add, contentDescription = "Upload", tint = textColor, modifier = Modifier.size(24.dp))
                 }
 
+                // CENTER: @username
                 Text(
                     text = "@$username", 
                     fontSize = 20.sp, 
@@ -75,6 +80,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     color = textColor
                 )
 
+                // RIGHT: Liquid Glass Settings (2-Line Menu)
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -92,6 +98,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
+            // --- PROFILE PICTURE & BIO ---
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -99,6 +106,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     .background(surfaceColor),
                 contentAlignment = Alignment.Center
             ) {
+                // Dummy person icon until we add real photos
                 Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
             }
 
@@ -108,13 +116,11 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 🚨 FIX: Simplified Brush gradient to prevent compiler ambiguity failures
+            // --- STATS ROW (With custom faded dividers!) ---
             val dividerBrush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    subTextColor.copy(alpha = 0.4f),
-                    Color.Transparent
-                )
+                0f to Color.Transparent,
+                0.5f to subTextColor.copy(alpha = 0.4f),
+                1f to Color.Transparent
             )
 
             Row(
@@ -142,6 +148,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // --- DYNAMIC PILL BUTTONS ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -169,6 +176,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
+            // --- TABS (Collections / Videos / Photos) ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -194,6 +202,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // --- DUMMY GRID (Visual Placeholder) ---
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -210,9 +219,11 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                 }
             }
             
+            // Padding so the very bottom photos aren't hidden behind the navigation bar
             Spacer(modifier = Modifier.height(100.dp))
         }
 
+        // --- UPLOAD BOTTOM SHEET ---
         if (showUploadSheet) {
             var caption by remember { mutableStateOf("") }
 
