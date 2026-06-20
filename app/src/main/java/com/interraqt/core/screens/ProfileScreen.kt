@@ -1,9 +1,15 @@
 package com.interraqt.core.screens
 
+import android.content.Intent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,17 +30,26 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
+fun ProfileScreen(
+    username: String, 
+    onNavigateToSettings: () -> Unit,
+    onNavigateToEditProfile: () -> Unit // 🚨 Received routing
+) {
     val isDark = isSystemInDarkTheme()
+    val context = LocalContext.current
     
-    // 🚨 HYBRID THEME COLORS
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5) 
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
@@ -46,7 +61,46 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val isOwnProfile = true 
     var showUploadSheet by remember { mutableStateOf(false) }
 
-    // 🚨 FADE MATH SETUP
+    // 🚨 1. REAL-TIME DATABASE STATES
+    val auth = FirebaseAuth.getInstance()
+    val firestore = FirebaseFirestore.getInstance()
+    
+    var displayName by remember { mutableStateOf("Update your name") }
+    var bio by remember { mutableStateOf("Welcome to Interraqt! You can update your bio in the edit profile section.") }
+    var postsCount by remember { mutableIntStateOf(0) }
+    var followersCount by remember { mutableIntStateOf(0) }
+    var followingCount by remember { mutableIntStateOf(0) }
+
+    // Fetch live data seamlessly
+    LaunchedEffect(Unit) {
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            firestore.collection("users").document(uid).addSnapshotListener { snapshot, _ ->
+                if (snapshot != null && snapshot.exists()) {
+                    snapshot.getString("name")?.takeIf { it.isNotBlank() }?.let { displayName = it }
+                    snapshot.getString("bio")?.takeIf { it.isNotBlank() }?.let { bio = it }
+                    postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
+                    followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
+                    followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
+                }
+            }
+        }
+    }
+
+    // 🚨 2. NATIVE SHARE INTENT LOGIC
+    val shareProfile = {
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, "Connect with me on Interraqt! \nhttps://interraqt.com/@$username")
+            type = "text/plain"
+        }
+        context.startActivity(Intent.createChooser(sendIntent, "Share Profile"))
+    }
+
+    // Pager for swipeable tabs
+    val tabPagerState = rememberPagerState(pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
+
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -54,7 +108,6 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
-        // --- 1. THE SCROLLING CONTENT ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -73,7 +126,6 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
         ) {
             Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
-            // --- PROFILE PICTURE & BIO ---
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -85,54 +137,44 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "Darlene Robertson", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
-            Text(text = "Actress & Singer", fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 4.dp))
+            Text(text = displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
+            Text(text = bio, fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp), textAlign = TextAlign.Center)
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- STATS ROW ---
             val dividerBrush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Transparent,
-                    subTextColor.copy(alpha = 0.4f),
-                    Color.Transparent
-                )
+                colors = listOf(Color.Transparent, subTextColor.copy(alpha = 0.4f), Color.Transparent)
             )
 
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("200", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
+                    Text(postsCount.toString(), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
                     Text("Posts", fontSize = 12.sp, color = subTextColor)
                 }
                 Box(modifier = Modifier.width(1.dp).height(40.dp).background(dividerBrush))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("97.5K", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
+                    Text(followersCount.toString(), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
                     Text("Followers", fontSize = 12.sp, color = subTextColor)
                 }
                 Box(modifier = Modifier.width(1.dp).height(40.dp).background(dividerBrush))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("3.25M", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
+                    Text(followingCount.toString(), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textColor)
                     Text("Following", fontSize = 12.sp, color = subTextColor)
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- DYNAMIC PILL BUTTONS ---
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Button(
-                    onClick = { },
+                    onClick = { if (isOwnProfile) onNavigateToEditProfile() }, // 🚨 Routes to Edit Profile
                     modifier = Modifier.weight(1f).height(50.dp),
                     shape = RoundedCornerShape(25.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = primaryOrange)
@@ -141,7 +183,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                 }
 
                 Button(
-                    onClick = { if (isOwnProfile) showUploadSheet = true },
+                    onClick = { if (isOwnProfile) shareProfile() }, // 🚨 Triggers Android Share Sheet
                     modifier = Modifier.weight(1f).height(50.dp),
                     shape = RoundedCornerShape(25.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = glassColor)
@@ -152,90 +194,96 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // --- TABS ---
+            // 🚨 3. ANIMATED SWIPEABLE TABS
+            val tabTitles = listOf("Collections", "Videos", "Photos")
+            
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Collections", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.width(90.dp).height(2.dp).background(primaryOrange, RoundedCornerShape(1.dp)))
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Videos", color = subTextColor, fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.width(90.dp).height(2.dp).background(Color.Transparent))
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Photos", color = subTextColor, fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(modifier = Modifier.width(90.dp).height(2.dp).background(Color.Transparent))
+                tabTitles.forEachIndexed { index, title ->
+                    val isSelected = tabPagerState.currentPage == index
+                    val animatedColor by animateColorAsState(targetValue = if (isSelected) primaryOrange else subTextColor, animationSpec = tween(300), label = "")
+                    
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.clickable {
+                            coroutineScope.launch { tabPagerState.animateScrollToPage(index) }
+                        }
+                    ) {
+                        Text(title, color = animatedColor, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 15.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(modifier = Modifier.width(90.dp).height(2.dp).background(if (isSelected) primaryOrange else Color.Transparent, RoundedCornerShape(1.dp)))
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- DUMMY GRID ---
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
-                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+            // 🚨 4. DYNAMIC HORIZONTAL PAGER & EMPTY STATE
+            HorizontalPager(
+                state = tabPagerState,
+                modifier = Modifier.fillMaxWidth()
+            ) { page ->
+                when (page) {
+                    0 -> { // Collections
+                        if (postsCount == 0) {
+                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "The whole world is waiting for you to Interraqt, Share a moment",
+                                    color = subTextColor,
+                                    fontSize = 16.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 40.dp)
+                                )
+                            }
+                        } else {
+                            // Dummy Grid for when posts > 0
+                            Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                                }
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                                    Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
+                                }
+                            }
+                        }
+                    }
+                    1 -> { // Videos
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                            Text("No videos yet.", color = subTextColor)
+                        }
+                    }
+                    2 -> { // Photos
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                            Text("No photos yet.", color = subTextColor)
+                        }
+                    }
                 }
             }
             
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // --- 2. THE FLOATING TOP BAR ---
+        // --- TOP BAR ---
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(top = 16.dp, start = 16.dp, end = 16.dp),
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(top = 16.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(glassColor)
-                    .clickable { showUploadSheet = true },
+                modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { showUploadSheet = true },
                 contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Upload", tint = textColor, modifier = Modifier.size(24.dp))
-            }
+            ) { Icon(Icons.Default.Add, contentDescription = "Upload", tint = textColor, modifier = Modifier.size(24.dp)) }
 
-            Text(
-                text = "@$username", 
-                fontSize = 20.sp, 
-                fontWeight = FontWeight.Bold, 
-                color = textColor
-            )
+            Text(text = "@$username", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
 
             Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(glassColor)
-                    .clickable { onNavigateToSettings() },
+                modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { onNavigateToSettings() },
                 contentAlignment = Alignment.Center
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -245,17 +293,12 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
             }
         }
 
-        // --- 3. THE UPLOAD BOTTOM SHEET ---
+        // --- UPLOAD BOTTOM SHEET ---
         if (showUploadSheet) {
             var caption by remember { mutableStateOf("") }
-
-            ModalBottomSheet(
-                onDismissRequest = { showUploadSheet = false },
-                containerColor = surfaceColor
-            ) {
+            ModalBottomSheet(onDismissRequest = { showUploadSheet = false }, containerColor = surfaceColor) {
                 Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                     Text("New Post", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.padding(bottom = 16.dp))
-                    
                     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { }) {
                             Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
@@ -278,25 +321,14 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                     }
 
                     OutlinedTextField(
-                        value = caption,
-                        onValueChange = { caption = it },
-                        placeholder = { Text("Write a caption...") },
-                        modifier = Modifier.fillMaxWidth().height(120.dp).padding(bottom = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = primaryBlue,
-                            unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f),
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor
-                        )
+                        value = caption, onValueChange = { caption = it }, placeholder = { Text("Write a caption...") },
+                        modifier = Modifier.fillMaxWidth().height(120.dp).padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = primaryBlue, unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f), focusedTextColor = textColor, unfocusedTextColor = textColor)
                     )
 
-                    Button(
-                        onClick = { showUploadSheet = false },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
-                    ) { Text("Post", color = Color.White, fontWeight = FontWeight.Bold) }
-                    
+                    Button(onClick = { showUploadSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)) { 
+                        Text("Post", color = Color.White, fontWeight = FontWeight.Bold) 
+                    }
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
