@@ -34,8 +34,8 @@ import androidx.compose.ui.unit.sp
 fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val isDark = isSystemInDarkTheme()
     
-    // 🚨 PREMIUM THEME COLORS
-    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA) 
+    // 🚨 HYBRID THEME COLORS
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5) 
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
@@ -50,18 +50,16 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Mathematically calculates the exact bottom of your 44dp glass icons + 16dp padding
     val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         
-        // --- 1. THE SCROLLING CONTENT (Fades underneath the top bar) ---
+        // --- 1. THE SCROLLING CONTENT ---
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
-                    // 🚨 Smooth Feather: Fades content exactly behind the floating Top Bar
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black),
                         startY = 0f,
@@ -73,7 +71,6 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 🚨 Spacer pushes the content safely below the floating Top Bar to start
             Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
             // --- PROFILE PICTURE & BIO ---
@@ -206,7 +203,7 @@ fun ProfileScreen(username: String, onNavigateToSettings: () -> Unit) {
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // --- 2. THE FLOATING TOP BAR (Pinned to the top of the screen) ---
+        // --- 2. THE FLOATING TOP BAR ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
