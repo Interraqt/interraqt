@@ -29,7 +29,7 @@ import com.interraqt.core.screens.*
 import kotlin.math.abs
 
 enum class AppScreen {
-    Login, Signup, Main, Settings, EditProfile, OtherProfile // 🚨 Added OtherProfile
+    Login, Signup, Main, Settings, EditProfile, OtherProfile
 }
 
 class MainActivity : ComponentActivity() {
@@ -52,9 +52,20 @@ fun RootNavigation() {
     }
     
     var savedTab by remember { mutableIntStateOf(0) }
-    
-    // 🚨 Stores the ID of the user we click on in the Explore screen
     var viewedUserId by remember { mutableStateOf("") } 
+    var globalUsername by remember { mutableStateOf("...") }
+
+    // 🚨 1. Preload user data instantly into memory
+    DisposableEffect(auth.currentUser) {
+        val uid = auth.currentUser?.uid
+        val listener = if (uid != null) {
+            firestore.collection("users").document(uid).addSnapshotListener { doc, _ ->
+                globalUsername = doc?.getString("username") ?: "Unknown"
+            }
+        } else null
+        
+        onDispose { listener?.remove() }
+    }
 
     AnimatedContent(
         targetState = currentScreen,
@@ -90,19 +101,18 @@ fun RootNavigation() {
                 onNavigateToUserProfile = { uid -> 
                     viewedUserId = uid 
                     currentScreen = AppScreen.OtherProfile 
-                }, // 🚨 Captures search click and navigates
+                }, 
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
-                username = "User", // Will update dynamically later
-                onUsernameUpdated = { }, 
+                username = globalUsername, // 🚨 Pass actual username here
+                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile }, // 🚨 Link to edit profile
                 onNavigateBack = { currentScreen = AppScreen.Main },
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.EditProfile -> EditProfileScreen(
                 onNavigateBack = { currentScreen = AppScreen.Main }
             )
-            // 🚨 Reuses the ProfileScreen but passes the viewedUserId
             AppScreen.OtherProfile -> ProfileScreen(
                 profileUid = viewedUserId, 
                 onNavigateToSettings = { },
@@ -120,7 +130,7 @@ fun InterraqtApp(
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
     onNavigateToEditProfile: () -> Unit,
-    onNavigateToUserProfile: (String) -> Unit, // 🚨 Pass routing down
+    onNavigateToUserProfile: (String) -> Unit, 
     onLogout: () -> Unit
 ) { 
     val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
@@ -172,10 +182,10 @@ fun InterraqtApp(
             when (page) {
                 0 -> HomeScreen()
                 1 -> ChatScreen()
-                2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) // 🚨 Wired up!
+                2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) 
                 3 -> VideoScreen()
                 4 -> ProfileScreen(
-                    profileUid = null, // Null means "Show My Own Profile"
+                    profileUid = null, 
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToEditProfile = onNavigateToEditProfile,
                     onNavigateBack = null
