@@ -29,7 +29,7 @@ import com.interraqt.core.screens.*
 import kotlin.math.abs
 
 enum class AppScreen {
-    Login, Signup, Main, Settings, EditProfile // 🚨 Added EditProfile Route
+    Login, Signup, Main, Settings, EditProfile
 }
 
 class MainActivity : ComponentActivity() {
@@ -100,7 +100,7 @@ fun RootNavigation() {
                 globalUsername = globalUsername, 
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile }, // 🚨 Pass routing
+                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile },
                 onLogout = { 
                     savedTab = 0 
                     currentScreen = AppScreen.Login 
@@ -115,12 +115,10 @@ fun RootNavigation() {
                     currentScreen = AppScreen.Login 
                 }
             )
-            AppScreen.EditProfile -> Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0F16))) {
-                // 🚨 PHASE 2 PLACEHOLDER: We will build EditProfileScreen here next!
-                Button(onClick = { currentScreen = AppScreen.Main }, modifier = Modifier.align(Alignment.Center)) {
-                    Text("Go Back (Phase 2 Coming Soon!)")
-                }
-            }
+            // 🚨 Replaced the placeholder with the actual screen!
+            AppScreen.EditProfile -> EditProfileScreen(
+                onNavigateBack = { currentScreen = AppScreen.Main }
+            )
         }
     }
 }
@@ -132,7 +130,7 @@ fun InterraqtApp(
     globalUsername: String,
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
-    onNavigateToEditProfile: () -> Unit, // 🚨 Pass routing
+    onNavigateToEditProfile: () -> Unit,
     onLogout: () -> Unit
 ) { 
     val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
@@ -189,7 +187,7 @@ fun InterraqtApp(
                 4 -> ProfileScreen(
                     username = globalUsername, 
                     onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToEditProfile = onNavigateToEditProfile // 🚨 Route to ProfileScreen
+                    onNavigateToEditProfile = onNavigateToEditProfile
                 ) 
             }
         }
