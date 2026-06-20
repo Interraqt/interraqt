@@ -2,14 +2,13 @@ package com.interraqt.core.screens
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.ExperimentalLayoutApi // 🚨 Added to fix the build error
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,9 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// 🚨 Added ExperimentalLayoutApi::class to tell the compiler to allow isImeVisible
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditProfileScreen(
@@ -67,7 +66,6 @@ fun EditProfileScreen(
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     
     val primaryOrange = Color(0xFFFF6328)
-    val focusBlue = Color(0xFF1E88E5) 
 
     var displayName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -81,22 +79,15 @@ fun EditProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
 
-    // KEYBOARD STATE TRACKER
     val isImeVisible = WindowInsets.isImeVisible
     
-    // DYNAMIC RUNWAY SPACER
-    val bottomSpacerHeight by animateDpAsState(
-        targetValue = if (isImeVisible) 300.dp else 0.dp, 
-        animationSpec = tween(durationMillis = 300),
-        label = "KeyboardSpacer"
-    )
-
-    // RESET FOCUS & SCROLL ON KEYBOARD CLOSE
+    // 🚨 JITTER-FREE RESET: Waits for keyboard to close, then glides to top
     LaunchedEffect(isImeVisible) {
         if (!isImeVisible) {
             focusManager.clearFocus()
             coroutineScope.launch {
-                scrollState.animateScrollTo(0, animationSpec = tween(durationMillis = 400))
+                delay(100) // Small delay stops the animations from fighting
+                scrollState.animateScrollTo(0, animationSpec = tween(durationMillis = 300))
             }
         }
     }
@@ -160,7 +151,6 @@ fun EditProfileScreen(
         if (isLoading) {
             CircularProgressIndicator(color = primaryOrange, modifier = Modifier.align(Alignment.Center))
         } else {
-            // --- THE SCROLLING FORM ---
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -203,7 +193,7 @@ fun EditProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = focusBlue, 
+                        containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     singleLine = true,
@@ -212,18 +202,19 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // --- USERNAME FIELD ---
+                // --- USERNAME FIELD (18 Char Limit added) ---
                 Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 OutlinedTextField(
                     value = username,
-                    onValueChange = { username = it },
+                    onValueChange = { if (it.length <= 18) username = it },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = focusBlue, 
+                        containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
-                    singleLine = true
+                    singleLine = true,
+                    supportingText = { Text("${username.length}/18", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -236,14 +227,14 @@ fun EditProfileScreen(
                     modifier = Modifier.fillMaxWidth().height(120.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = focusBlue, 
+                        containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                 )
 
-                // SMART DYNAMIC RUNWAY
-                Spacer(modifier = Modifier.height(bottomSpacerHeight))
+                // 🚨 Empty void removed! Just a tiny spacer to clear the last text.
+                Spacer(modifier = Modifier.height(40.dp))
             }
             
             // --- PINNED TOP BAR ---
