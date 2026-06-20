@@ -29,7 +29,7 @@ import com.interraqt.core.screens.*
 import kotlin.math.abs
 
 enum class AppScreen {
-    Login, Signup, Main, Settings
+    Login, Signup, Main, Settings, EditProfile // 🚨 Added EditProfile Route
 }
 
 class MainActivity : ComponentActivity() {
@@ -70,9 +70,9 @@ fun RootNavigation() {
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
-            } else if (targetState == AppScreen.Settings) {
+            } else if (targetState == AppScreen.Settings || targetState == AppScreen.EditProfile) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 })
-            } else if (initialState == AppScreen.Settings && targetState == AppScreen.Main) {
+            } else if ((initialState == AppScreen.Settings || initialState == AppScreen.EditProfile) && targetState == AppScreen.Main) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
                 fadeIn() togetherWith fadeOut()
@@ -100,6 +100,7 @@ fun RootNavigation() {
                 globalUsername = globalUsername, 
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile }, // 🚨 Pass routing
                 onLogout = { 
                     savedTab = 0 
                     currentScreen = AppScreen.Login 
@@ -114,6 +115,12 @@ fun RootNavigation() {
                     currentScreen = AppScreen.Login 
                 }
             )
+            AppScreen.EditProfile -> Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0F16))) {
+                // 🚨 PHASE 2 PLACEHOLDER: We will build EditProfileScreen here next!
+                Button(onClick = { currentScreen = AppScreen.Main }, modifier = Modifier.align(Alignment.Center)) {
+                    Text("Go Back (Phase 2 Coming Soon!)")
+                }
+            }
         }
     }
 }
@@ -125,6 +132,7 @@ fun InterraqtApp(
     globalUsername: String,
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
+    onNavigateToEditProfile: () -> Unit, // 🚨 Pass routing
     onLogout: () -> Unit
 ) { 
     val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
@@ -135,7 +143,6 @@ fun InterraqtApp(
     }
 
     val isDark = isSystemInDarkTheme()
-    // 🚨 PREMIUM GLOBAL BACKGROUND 
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
 
     val view = LocalView.current
@@ -179,7 +186,11 @@ fun InterraqtApp(
                 1 -> ChatScreen()
                 2 -> ExploreScreen()
                 3 -> VideoScreen()
-                4 -> ProfileScreen(username = globalUsername, onNavigateToSettings = onNavigateToSettings) 
+                4 -> ProfileScreen(
+                    username = globalUsername, 
+                    onNavigateToSettings = onNavigateToSettings,
+                    onNavigateToEditProfile = onNavigateToEditProfile // 🚨 Route to ProfileScreen
+                ) 
             }
         }
     }
