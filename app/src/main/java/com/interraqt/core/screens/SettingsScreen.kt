@@ -23,14 +23,13 @@ import com.google.firebase.firestore.FirebaseFirestore
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    username: String, 
-    onUsernameUpdated: (String) -> Unit, 
+    username: String, // Receives live username
+    onNavigateToEditProfile: () -> Unit, // 🚨 Now links to edit screen
     onNavigateBack: () -> Unit, 
     onLogout: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     
-    // 🚨 HYBRID THEME: Premium Dark Mode + Original Light Mode
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
@@ -44,12 +43,9 @@ fun SettingsScreen(
 
     val currentEmail = currentUser?.email ?: "Unknown Email"
 
-    var showEditUsernameDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-
-    var newUsernameInput by remember { mutableStateOf("") }
 
     BackHandler { onNavigateBack() }
 
@@ -71,19 +67,18 @@ fun SettingsScreen(
                     Text(currentEmail, fontSize = 16.sp, color = textColor, modifier = Modifier.padding(bottom = 16.dp))
                     
                     Text("Username", fontSize = 12.sp, color = Color.Gray)
-                    Text("@$username", fontSize = 16.sp, color = textColor)
+                    // 🚨 Fixed Username displaying properly
+                    Text(username, fontSize = 16.sp, color = textColor) 
                 }
             }
 
+            // 🚨 Replaced old button with Edit Profile router
             Button(
-                onClick = { 
-                    newUsernameInput = username
-                    showEditUsernameDialog = true 
-                },
+                onClick = { onNavigateToEditProfile() },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = primaryBlue.copy(alpha = 0.1f), contentColor = primaryBlue)
-            ) { Text("Edit Username", fontWeight = FontWeight.Bold) }
+            ) { Text("Edit Profile", fontWeight = FontWeight.Bold) }
 
             Text("SECURITY", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
             Button(
@@ -109,36 +104,6 @@ fun SettingsScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = redColor.copy(alpha = 0.1f), contentColor = redColor)
             ) { Text("Delete Account", fontWeight = FontWeight.Bold) }
         }
-    }
-
-    if (showEditUsernameDialog) {
-        AlertDialog(
-            onDismissRequest = { showEditUsernameDialog = false },
-            containerColor = surfaceColor,
-            title = { Text("Edit Username", color = textColor, fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = newUsernameInput, onValueChange = { newUsernameInput = it },
-                    label = { Text("New Username") },
-                    colors = TextFieldDefaults.outlinedTextFieldColors(focusedTextColor = textColor, unfocusedTextColor = textColor),
-                    singleLine = true, modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val finalUsername = newUsernameInput.trim().lowercase()
-                    currentUser?.uid?.let { uid ->
-                        firestore.collection("users").document(uid).update("username", finalUsername)
-                            .addOnSuccessListener {
-                                onUsernameUpdated(finalUsername) 
-                                showEditUsernameDialog = false
-                                Toast.makeText(context, "Username Updated!", Toast.LENGTH_SHORT).show()
-                            }
-                    }
-                }) { Text("Save", color = primaryBlue, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = { TextButton(onClick = { showEditUsernameDialog = false }) { Text("Cancel", color = Color.Gray) } }
-        )
     }
 
     if (showResetDialog) {
