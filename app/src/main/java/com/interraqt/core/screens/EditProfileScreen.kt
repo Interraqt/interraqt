@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.isImeVisible // 🚨 Explicitly imported for safety
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -162,7 +163,7 @@ fun EditProfileScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding() 
+                    .imePadding() // Automatically scales UI above the keyboard
                     .graphicsLayer { alpha = 0.99f } 
                     .drawWithContent {
                         val gradient = Brush.verticalGradient(
