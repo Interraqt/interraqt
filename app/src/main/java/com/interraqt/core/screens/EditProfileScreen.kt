@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,7 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.focus.onFocusChanged // 🚨 Added for First-Tap detection
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -85,7 +87,6 @@ fun EditProfileScreen(
 
     val isImeVisible = WindowInsets.isImeVisible
     
-    // JITTER-FREE RESET
     LaunchedEffect(isImeVisible) {
         if (!isImeVisible) {
             focusManager.clearFocus()
@@ -190,7 +191,7 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
 
                 // ==========================================
-                // 🚨 NAME FIELD 
+                // 🚨 NAME FIELD
                 // ==========================================
                 Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 SmartCursorTextField(
@@ -208,7 +209,7 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // ==========================================
-                // 🚨 USERNAME FIELD 
+                // 🚨 USERNAME FIELD
                 // ==========================================
                 Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 SmartCursorTextField(
@@ -226,7 +227,7 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // ==========================================
-                // 🚨 BIO FIELD 
+                // 🚨 BIO FIELD
                 // ==========================================
                 Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 SmartCursorTextField(
@@ -244,7 +245,6 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
             }
             
-            // --- PINNED TOP BAR ---
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -275,8 +275,7 @@ fun EditProfileScreen(
 }
 
 // ====================================================================================
-// 🚨 THE SMART CURSOR STATE MACHINE COMPONENT
-// This perfectly recreates the ChatGPT/iOS text selection rules without losing Native UI
+// 🚨 THE SMART CURSOR STATE MACHINE
 // ====================================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -291,20 +290,29 @@ fun SmartCursorTextField(
     textColor: Color,
     subTextColor: Color
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
     var showHandle by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
-    var justFocused by remember { mutableStateOf(false) }
 
-    // Rule 4: The 10-Second Ghost Timer
+    // 🚨 INSTANT SECOND-TAP LOGIC
+    // If the box is ALREADY focused, any new press instantly triggers the teardrop handle.
+    LaunchedEffect(isPressed) {
+        if (isPressed && isFocused) {
+            showHandle = true
+        }
+    }
+
+    // 🚨 10-SECOND GHOST TIMER
     LaunchedEffect(showHandle, value.selection) {
         if (showHandle) {
-            delay(10000) // Waits 10 seconds
-            showHandle = false // Gracefully vanishes
+            delay(10000)
+            showHandle = false
         }
     }
 
     val customSelectionColors = TextSelectionColors(
-        // Handles visibility: Always show if selecting multiple characters, otherwise rely on the state machine
         handleColor = if (showHandle || !value.selection.collapsed) primaryColor else Color.Transparent,
         backgroundColor = primaryColor.copy(alpha = 0.4f)
     )
@@ -315,35 +323,27 @@ fun SmartCursorTextField(
             onValueChange = { newValue ->
                 if (newValue.text.length <= maxLength) {
                     val textChanged = newValue.text != value.text
-                    val selectionChanged = newValue.selection != value.selection
-
+                    // 🚨 TYPING INTERRUPTION
                     if (textChanged) {
-                        // Rule 3: Typing Interruption instantly hides the handle
-                        showHandle = false
-                    } else if (selectionChanged) {
-                        if (justFocused) {
-                            // Rule 1: Ignored initial focus tap
-                            justFocused = false
-                        } else if (isFocused) {
-                            // Rule 2 & 5: Second tap & dragging shows the handle
-                            showHandle = true
-                        }
+                        showHandle = false 
                     }
                     onValueChange(newValue)
                 }
             },
+            interactionSource = interactionSource,
             modifier = modifier.onFocusChanged { state ->
-                if (state.isFocused && !isFocused) {
-                    // Triggers the millisecond you first tap the box
-                    justFocused = true
-                    showHandle = false
-                }
-                if (!state.isFocused) {
-                    // Hides if you click away to another box
-                    showHandle = false
-                }
                 isFocused = state.isFocused
+                if (!state.isFocused) {
+                    showHandle = false
+                }
             },
+            // 🚨 CURSOR HEIGHT BOOST
+            // Artificially boosting the lineHeight naturally stretches the vertical cursor!
+            textStyle = LocalTextStyle.current.copy(
+                fontSize = 16.sp,
+                lineHeight = 24.sp, 
+                color = textColor
+            ),
             shape = RoundedCornerShape(16.dp),
             colors = TextFieldDefaults.outlinedTextFieldColors(
                 containerColor = surfaceColor,
