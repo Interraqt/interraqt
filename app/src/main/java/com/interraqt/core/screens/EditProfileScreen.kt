@@ -9,7 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.isImeVisible // 🚨 Explicitly imported for safety
+import androidx.compose.foundation.layout.ExperimentalLayoutApi // 🚨 Added to fix the build error
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +42,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+// 🚨 Added ExperimentalLayoutApi::class to tell the compiler to allow isImeVisible
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditProfileScreen(
     onNavigateBack: () -> Unit
@@ -55,7 +57,6 @@ fun EditProfileScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     
-    // 🚨 We need to track the scroll state so we can reset it later
     val scrollState = rememberScrollState()
 
     val isDark = isSystemInDarkTheme()
@@ -80,17 +81,17 @@ fun EditProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
 
-    // 🚨 KEYBOARD STATE TRACKER
+    // KEYBOARD STATE TRACKER
     val isImeVisible = WindowInsets.isImeVisible
     
-    // 🚨 DYNAMIC RUNWAY SPACER (Only takes up space when typing)
+    // DYNAMIC RUNWAY SPACER
     val bottomSpacerHeight by animateDpAsState(
         targetValue = if (isImeVisible) 300.dp else 0.dp, 
         animationSpec = tween(durationMillis = 300),
         label = "KeyboardSpacer"
     )
 
-    // 🚨 RESET FOCUS & SCROLL ON KEYBOARD CLOSE (Handles the Back Gesture perfectly)
+    // RESET FOCUS & SCROLL ON KEYBOARD CLOSE
     LaunchedEffect(isImeVisible) {
         if (!isImeVisible) {
             focusManager.clearFocus()
@@ -163,7 +164,7 @@ fun EditProfileScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding() // Automatically scales UI above the keyboard
+                    .imePadding() 
                     .graphicsLayer { alpha = 0.99f } 
                     .drawWithContent {
                         val gradient = Brush.verticalGradient(
@@ -174,7 +175,7 @@ fun EditProfileScreen(
                         drawContent()
                         drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                     }
-                    .verticalScroll(scrollState) // 🚨 Using tracked scroll state
+                    .verticalScroll(scrollState) 
                     .padding(horizontal = 24.dp)
             ) {
                 Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
@@ -241,8 +242,7 @@ fun EditProfileScreen(
                     supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                 )
 
-                // 🚨 SMART DYNAMIC RUNWAY
-                // Expands only when typing, vanishes smoothly when keyboard closes.
+                // SMART DYNAMIC RUNWAY
                 Spacer(modifier = Modifier.height(bottomSpacerHeight))
             }
             
