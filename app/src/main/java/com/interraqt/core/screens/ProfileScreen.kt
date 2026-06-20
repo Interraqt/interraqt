@@ -159,25 +159,19 @@ fun ProfileScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val density = LocalDensity.current
-    val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(pullRefreshState.nestedScrollConnection)) {
         
         Column(
-            modifier = Modifier.fillMaxSize()
-                .graphicsLayer { alpha = 0.99f } 
-                .drawWithContent {
-                    val gradient = Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black), startY = 0f, endY = fadeEndPx)
-                    drawContent()
-                    drawRect(brush = gradient, blendMode = BlendMode.DstIn)
-                }
+            modifier = Modifier
+                .fillMaxSize()
+                // 🚨 REMOVED the DstIn graphicsLayer that was clipping the top of the image!
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             
-            // 🚨 1. BANNER & AVATAR ISOLATED SECTION 🚨
+            // 🚨 BANNER & AVATAR ISOLATED SECTION
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 
                 // Background Banner (Strictly locked behind the avatar)
@@ -194,14 +188,14 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
+                                    // 🚨 PRECISE COLOR STOPS
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.Transparent,          // TOP: Image is 100% visible
-                                            bgColor.copy(alpha = 0.8f), // MIDDLE: Creates a strong 80% shadow behind the avatar
-                                            bgColor                     // BOTTOM: Fades out completely to solid background color
-                                        ),
-                                        startY = 0f,                    // Fade smoothly starts from the very top
-                                        endY = size.height              // Completely solid by the bottom edge
+                                        0.0f to Color.Transparent,          // 0% (Top): Perfectly visible
+                                        0.45f to Color.Transparent,         // 45% (Middle): Still perfectly visible!
+                                        0.75f to bgColor.copy(alpha = 0.6f),// 75% (Behind Avatar): Darkens smoothly
+                                        1.0f to bgColor,                    // 100% (Bottom Edge): Solid background color
+                                        startY = 0f,
+                                        endY = size.height
                                     )
                                 )
                             }
@@ -233,7 +227,7 @@ fun ProfileScreen(
                 }
             }
 
-            // 🚨 2. TEXT SECTION (Safely decoupled, sitting on solid background) 🚨
+            // 🚨 TEXT SECTION (Safely decoupled, sitting on solid background)
             Text(text = displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
             if (bio.isNotEmpty()) {
                 Text(text = bio, fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp), textAlign = TextAlign.Center)
