@@ -2,14 +2,13 @@ package com.interraqt.core.screens
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -40,10 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
     onNavigateBack: () -> Unit
@@ -55,6 +52,10 @@ fun EditProfileScreen(
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    // 🚨 We need to track the scroll state so we can reset it later
+    val scrollState = rememberScrollState()
 
     val isDark = isSystemInDarkTheme()
     
@@ -64,7 +65,6 @@ fun EditProfileScreen(
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     
     val primaryOrange = Color(0xFFFF6328)
-    // 🚨 NEW: Sleek Light Blue-to-Blue focus color
     val focusBlue = Color(0xFF1E88E5) 
 
     var displayName by remember { mutableStateOf("") }
@@ -74,16 +74,30 @@ fun EditProfileScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
 
-    // 🚨 SCROLL ANIMATION FOR ALL 3 BOXES
-    val coroutineScope = rememberCoroutineScope()
-    val nameRequester = remember { BringIntoViewRequester() }
-    val usernameRequester = remember { BringIntoViewRequester() }
-    val bioRequester = remember { BringIntoViewRequester() }
-
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
+
+    // 🚨 KEYBOARD STATE TRACKER
+    val isImeVisible = WindowInsets.isImeVisible
+    
+    // 🚨 DYNAMIC RUNWAY SPACER (Only takes up space when typing)
+    val bottomSpacerHeight by animateDpAsState(
+        targetValue = if (isImeVisible) 300.dp else 0.dp, 
+        animationSpec = tween(durationMillis = 300),
+        label = "KeyboardSpacer"
+    )
+
+    // 🚨 RESET FOCUS & SCROLL ON KEYBOARD CLOSE (Handles the Back Gesture perfectly)
+    LaunchedEffect(isImeVisible) {
+        if (!isImeVisible) {
+            focusManager.clearFocus()
+            coroutineScope.launch {
+                scrollState.animateScrollTo(0, animationSpec = tween(durationMillis = 400))
+            }
+        }
+    }
 
     BackHandler { onNavigateBack() }
 
@@ -148,7 +162,7 @@ fun EditProfileScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding() // Automatically scales UI above the keyboard
+                    .imePadding() 
                     .graphicsLayer { alpha = 0.99f } 
                     .drawWithContent {
                         val gradient = Brush.verticalGradient(
@@ -159,7 +173,7 @@ fun EditProfileScreen(
                         drawContent()
                         drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                     }
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState) // 🚨 Using tracked scroll state
                     .padding(horizontal = 24.dp)
             ) {
                 Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
@@ -184,17 +198,10 @@ fun EditProfileScreen(
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { if (it.length <= 24) displayName = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .bringIntoViewRequester(nameRequester) // Smooth scroll target
-                        .onFocusEvent { focusState ->
-                            if (focusState.isFocused) {
-                                coroutineScope.launch { delay(250); nameRequester.bringIntoView() }
-                            }
-                        },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = focusBlue, // Sleek blue border
+                        containerColor = surfaceColor, focusedBorderColor = focusBlue, 
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     singleLine = true,
@@ -208,17 +215,10 @@ fun EditProfileScreen(
                 OutlinedTextField(
                     value = username,
                     onValueChange = { username = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .bringIntoViewRequester(usernameRequester) // Smooth scroll target
-                        .onFocusEvent { focusState ->
-                            if (focusState.isFocused) {
-                                coroutineScope.launch { delay(250); usernameRequester.bringIntoView() }
-                            }
-                        },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = focusBlue, // Sleek blue border
+                        containerColor = surfaceColor, focusedBorderColor = focusBlue, 
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     singleLine = true
@@ -231,27 +231,18 @@ fun EditProfileScreen(
                 OutlinedTextField(
                     value = bio,
                     onValueChange = { if (it.length <= 100) bio = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .bringIntoViewRequester(bioRequester) // Smooth scroll target
-                        .onFocusEvent { focusState ->
-                            if (focusState.isFocused) {
-                                coroutineScope.launch { delay(250); bioRequester.bringIntoView() }
-                            }
-                        },
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = focusBlue, // Sleek blue border
+                        containerColor = surfaceColor, focusedBorderColor = focusBlue, 
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                 )
 
-                // 🚨 MASSIVE BOTTOM RUNWAY
-                // This ensures the screen ALWAYS has enough physical room to scroll the Bio field up,
-                // stopping the Android OS from lifting the top bar away.
-                Spacer(modifier = Modifier.height(400.dp))
+                // 🚨 SMART DYNAMIC RUNWAY
+                // Expands only when typing, vanishes smoothly when keyboard closes.
+                Spacer(modifier = Modifier.height(bottomSpacerHeight))
             }
             
             // --- PINNED TOP BAR ---
