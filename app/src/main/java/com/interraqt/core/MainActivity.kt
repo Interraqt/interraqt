@@ -29,7 +29,7 @@ import com.interraqt.core.screens.*
 import kotlin.math.abs
 
 enum class AppScreen {
-    Login, Signup, Main, Settings, EditProfile
+    Login, Signup, Main, Settings, EditProfile, OtherProfile // 🚨 Added OtherProfile
 }
 
 class MainActivity : ComponentActivity() {
@@ -53,15 +53,8 @@ fun RootNavigation() {
     
     var savedTab by remember { mutableIntStateOf(0) }
     
-    var globalUsername by remember { mutableStateOf("...") }
-
-    LaunchedEffect(auth.currentUser) {
-        auth.currentUser?.uid?.let { uid ->
-            firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
-                globalUsername = doc.getString("username") ?: "Unknown"
-            }
-        }
-    }
+    // 🚨 Stores the ID of the user we click on in the Explore screen
+    var viewedUserId by remember { mutableStateOf("") } 
 
     AnimatedContent(
         targetState = currentScreen,
@@ -70,9 +63,9 @@ fun RootNavigation() {
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
-            } else if (targetState == AppScreen.Settings || targetState == AppScreen.EditProfile) {
+            } else if (targetState == AppScreen.Settings || targetState == AppScreen.EditProfile || targetState == AppScreen.OtherProfile) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 })
-            } else if ((initialState == AppScreen.Settings || initialState == AppScreen.EditProfile) && targetState == AppScreen.Main) {
+            } else if ((initialState == AppScreen.Settings || initialState == AppScreen.EditProfile || initialState == AppScreen.OtherProfile) && targetState == AppScreen.Main) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
                 fadeIn() togetherWith fadeOut()
@@ -83,40 +76,37 @@ fun RootNavigation() {
         when (targetScreen) {
             AppScreen.Login -> LoginScreen(
                 onNavigateToSignup = { currentScreen = AppScreen.Signup },
-                onLoginSuccess = { 
-                    savedTab = 0 
-                    currentScreen = AppScreen.Main 
-                }
+                onLoginSuccess = { savedTab = 0; currentScreen = AppScreen.Main }
             )
             AppScreen.Signup -> SignupScreen(
                 onNavigateToLogin = { currentScreen = AppScreen.Login },
-                onSignupSuccess = { 
-                    savedTab = 0 
-                    currentScreen = AppScreen.Main 
-                }
+                onSignupSuccess = { savedTab = 0; currentScreen = AppScreen.Main }
             )
             AppScreen.Main -> InterraqtApp(
                 initialTab = savedTab, 
-                globalUsername = globalUsername, 
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
                 onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile },
-                onLogout = { 
-                    savedTab = 0 
-                    currentScreen = AppScreen.Login 
-                }
+                onNavigateToUserProfile = { uid -> 
+                    viewedUserId = uid 
+                    currentScreen = AppScreen.OtherProfile 
+                }, // 🚨 Captures search click and navigates
+                onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
-                username = globalUsername, 
-                onUsernameUpdated = { globalUsername = it }, 
+                username = "User", // Will update dynamically later
+                onUsernameUpdated = { }, 
                 onNavigateBack = { currentScreen = AppScreen.Main },
-                onLogout = { 
-                    savedTab = 0 
-                    currentScreen = AppScreen.Login 
-                }
+                onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
-            // 🚨 Replaced the placeholder with the actual screen!
             AppScreen.EditProfile -> EditProfileScreen(
+                onNavigateBack = { currentScreen = AppScreen.Main }
+            )
+            // 🚨 Reuses the ProfileScreen but passes the viewedUserId
+            AppScreen.OtherProfile -> ProfileScreen(
+                profileUid = viewedUserId, 
+                onNavigateToSettings = { },
+                onNavigateToEditProfile = { },
                 onNavigateBack = { currentScreen = AppScreen.Main }
             )
         }
@@ -127,10 +117,10 @@ fun RootNavigation() {
 @Composable
 fun InterraqtApp(
     initialTab: Int, 
-    globalUsername: String,
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToUserProfile: (String) -> Unit, // 🚨 Pass routing down
     onLogout: () -> Unit
 ) { 
     val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
@@ -182,12 +172,13 @@ fun InterraqtApp(
             when (page) {
                 0 -> HomeScreen()
                 1 -> ChatScreen()
-                2 -> ExploreScreen()
+                2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) // 🚨 Wired up!
                 3 -> VideoScreen()
                 4 -> ProfileScreen(
-                    username = globalUsername, 
+                    profileUid = null, // Null means "Show My Own Profile"
                     onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToEditProfile = onNavigateToEditProfile
+                    onNavigateToEditProfile = onNavigateToEditProfile,
+                    onNavigateBack = null
                 ) 
             }
         }
