@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange // 🚨 Added for forcing cursor position
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -295,16 +296,18 @@ fun SmartCursorTextField(
     
     var showHandle by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
+    
+    // 🚨 FIRST TAP INTERCEPTOR: Forces cursor to the end
+    var forceCursorToEnd by remember { mutableStateOf(false) }
 
-    // 🚨 INSTANT SECOND-TAP LOGIC
-    // If the box is ALREADY focused, any new press instantly triggers the teardrop handle.
+    // INSTANT SECOND-TAP LOGIC
     LaunchedEffect(isPressed) {
-        if (isPressed && isFocused) {
+        if (isPressed && isFocused && !forceCursorToEnd) {
             showHandle = true
         }
     }
 
-    // 🚨 10-SECOND GHOST TIMER
+    // 10-SECOND GHOST TIMER
     LaunchedEffect(showHandle, value.selection) {
         if (showHandle) {
             delay(10000)
@@ -322,23 +325,35 @@ fun SmartCursorTextField(
             value = value,
             onValueChange = { newValue ->
                 if (newValue.text.length <= maxLength) {
-                    val textChanged = newValue.text != value.text
-                    // 🚨 TYPING INTERRUPTION
+                    var finalValue = newValue
+                    
+                    // 🚨 If this is the first tap, intercept and snap to the end!
+                    if (forceCursorToEnd) {
+                        finalValue = finalValue.copy(selection = TextRange(finalValue.text.length))
+                        forceCursorToEnd = false // Turn off interceptor until next time box loses focus
+                    }
+
+                    val textChanged = finalValue.text != value.text
+                    // TYPING INTERRUPTION
                     if (textChanged) {
                         showHandle = false 
                     }
-                    onValueChange(newValue)
+                    onValueChange(finalValue)
                 }
             },
             interactionSource = interactionSource,
             modifier = modifier.onFocusChanged { state ->
-                isFocused = state.isFocused
-                if (!state.isFocused) {
+                if (state.isFocused && !isFocused) {
+                    // The exact moment the box gets focus, flag the interceptor
+                    forceCursorToEnd = true
                     showHandle = false
                 }
+                if (!state.isFocused) {
+                    showHandle = false
+                    forceCursorToEnd = false // Safety reset
+                }
+                isFocused = state.isFocused
             },
-            // 🚨 CURSOR HEIGHT BOOST
-            // Artificially boosting the lineHeight naturally stretches the vertical cursor!
             textStyle = LocalTextStyle.current.copy(
                 fontSize = 16.sp,
                 lineHeight = 24.sp, 
