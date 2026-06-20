@@ -6,8 +6,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -28,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.onFocusChanged // 🚨 Added for First-Tap detection
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -38,7 +37,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue // 🚨 Required for advanced cursor tracking
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,7 +71,6 @@ fun EditProfileScreen(
     
     val primaryOrange = Color(0xFFFF6328)
 
-    // 🚨 UPGRADED TO TextFieldValue FOR CURSOR TRACKING
     var displayName by remember { mutableStateOf(TextFieldValue("")) }
     var username by remember { mutableStateOf(TextFieldValue("")) }
     var bio by remember { mutableStateOf(TextFieldValue("")) }
@@ -192,91 +190,56 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
 
                 // ==========================================
-                // 🚨 NAME FIELD (No Compromise Cursor)
+                // 🚨 NAME FIELD 
                 // ==========================================
-                val nameInteraction = remember { MutableInteractionSource() }
-                val nameIsPressed by nameInteraction.collectIsPressedAsState()
-                val nameColors = TextSelectionColors(
-                    handleColor = if (nameIsPressed || !displayName.selection.collapsed) primaryOrange else Color.Transparent,
-                    backgroundColor = primaryOrange.copy(alpha = 0.4f)
-                )
-
                 Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                CompositionLocalProvider(LocalTextSelectionColors provides nameColors) {
-                    OutlinedTextField(
-                        value = displayName,
-                        onValueChange = { if (it.text.length <= 24) displayName = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        interactionSource = nameInteraction,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
-                            unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
-                            cursorColor = primaryOrange
-                        ),
-                        singleLine = true,
-                        supportingText = { Text("${displayName.text.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
-                    )
-                }
+                SmartCursorTextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    maxLength = 24,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    primaryColor = primaryOrange,
+                    surfaceColor = surfaceColor,
+                    textColor = textColor,
+                    subTextColor = subTextColor
+                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // ==========================================
-                // 🚨 USERNAME FIELD (No Compromise Cursor)
+                // 🚨 USERNAME FIELD 
                 // ==========================================
-                val usernameInteraction = remember { MutableInteractionSource() }
-                val usernameIsPressed by usernameInteraction.collectIsPressedAsState()
-                val usernameColors = TextSelectionColors(
-                    handleColor = if (usernameIsPressed || !username.selection.collapsed) primaryOrange else Color.Transparent,
-                    backgroundColor = primaryOrange.copy(alpha = 0.4f)
-                )
-
                 Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                CompositionLocalProvider(LocalTextSelectionColors provides usernameColors) {
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { if (it.text.length <= 18) username = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        interactionSource = usernameInteraction,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
-                            unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
-                            cursorColor = primaryOrange
-                        ),
-                        singleLine = true,
-                        supportingText = { Text("${username.text.length}/18", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
-                    )
-                }
+                SmartCursorTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    maxLength = 18,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    primaryColor = primaryOrange,
+                    surfaceColor = surfaceColor,
+                    textColor = textColor,
+                    subTextColor = subTextColor
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // ==========================================
-                // 🚨 BIO FIELD (No Compromise Cursor)
+                // 🚨 BIO FIELD 
                 // ==========================================
-                val bioInteraction = remember { MutableInteractionSource() }
-                val bioIsPressed by bioInteraction.collectIsPressedAsState()
-                val bioColors = TextSelectionColors(
-                    handleColor = if (bioIsPressed || !bio.selection.collapsed) primaryOrange else Color.Transparent,
-                    backgroundColor = primaryOrange.copy(alpha = 0.4f)
-                )
-
                 Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                CompositionLocalProvider(LocalTextSelectionColors provides bioColors) {
-                    OutlinedTextField(
-                        value = bio,
-                        onValueChange = { if (it.text.length <= 100) bio = it },
-                        modifier = Modifier.fillMaxWidth().height(120.dp),
-                        interactionSource = bioInteraction,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
-                            unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
-                            cursorColor = primaryOrange
-                        ),
-                        supportingText = { Text("${bio.text.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
-                    )
-                }
+                SmartCursorTextField(
+                    value = bio,
+                    onValueChange = { bio = it },
+                    maxLength = 100,
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                    singleLine = false,
+                    primaryColor = primaryOrange,
+                    surfaceColor = surfaceColor,
+                    textColor = textColor,
+                    subTextColor = subTextColor
+                )
 
                 Spacer(modifier = Modifier.height(40.dp))
             }
@@ -308,5 +271,97 @@ fun EditProfileScreen(
                 }
             }
         }
+    }
+}
+
+// ====================================================================================
+// 🚨 THE SMART CURSOR STATE MACHINE COMPONENT
+// This perfectly recreates the ChatGPT/iOS text selection rules without losing Native UI
+// ====================================================================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SmartCursorTextField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    maxLength: Int,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
+    primaryColor: Color,
+    surfaceColor: Color,
+    textColor: Color,
+    subTextColor: Color
+) {
+    var showHandle by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
+    var justFocused by remember { mutableStateOf(false) }
+
+    // Rule 4: The 10-Second Ghost Timer
+    LaunchedEffect(showHandle, value.selection) {
+        if (showHandle) {
+            delay(10000) // Waits 10 seconds
+            showHandle = false // Gracefully vanishes
+        }
+    }
+
+    val customSelectionColors = TextSelectionColors(
+        // Handles visibility: Always show if selecting multiple characters, otherwise rely on the state machine
+        handleColor = if (showHandle || !value.selection.collapsed) primaryColor else Color.Transparent,
+        backgroundColor = primaryColor.copy(alpha = 0.4f)
+    )
+
+    CompositionLocalProvider(LocalTextSelectionColors provides customSelectionColors) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                if (newValue.text.length <= maxLength) {
+                    val textChanged = newValue.text != value.text
+                    val selectionChanged = newValue.selection != value.selection
+
+                    if (textChanged) {
+                        // Rule 3: Typing Interruption instantly hides the handle
+                        showHandle = false
+                    } else if (selectionChanged) {
+                        if (justFocused) {
+                            // Rule 1: Ignored initial focus tap
+                            justFocused = false
+                        } else if (isFocused) {
+                            // Rule 2 & 5: Second tap & dragging shows the handle
+                            showHandle = true
+                        }
+                    }
+                    onValueChange(newValue)
+                }
+            },
+            modifier = modifier.onFocusChanged { state ->
+                if (state.isFocused && !isFocused) {
+                    // Triggers the millisecond you first tap the box
+                    justFocused = true
+                    showHandle = false
+                }
+                if (!state.isFocused) {
+                    // Hides if you click away to another box
+                    showHandle = false
+                }
+                isFocused = state.isFocused
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                containerColor = surfaceColor,
+                focusedBorderColor = primaryColor,
+                unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = textColor,
+                unfocusedTextColor = textColor,
+                cursorColor = primaryColor
+            ),
+            singleLine = singleLine,
+            supportingText = {
+                Text(
+                    "${value.text.length}/$maxLength",
+                    color = subTextColor,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.End
+                )
+            }
+        )
     }
 }
