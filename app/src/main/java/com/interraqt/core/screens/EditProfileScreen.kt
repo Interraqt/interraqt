@@ -120,7 +120,7 @@ fun EditProfileScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = (-12).dp)) {
+                    IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = -12.dp)) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
                     }
                     Text("Edit Profile", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
