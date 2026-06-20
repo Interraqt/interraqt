@@ -2,7 +2,8 @@ package com.interraqt.core.screens
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.animation.animateColorAsState
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -19,10 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +36,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -41,15 +46,16 @@ import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProfileScreen(
-    profileUid: String? = null, // 🚨 If null, we show the Current User's Profile
+    profileUid: String? = null, 
     onNavigateToSettings: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
-    onNavigateBack: (() -> Unit)? = null // 🚨 Used for exiting other people's profiles
+    onNavigateBack: (() -> Unit)? = null 
 ) {
     val isDark = isSystemInDarkTheme()
     val context = LocalContext.current
@@ -62,7 +68,6 @@ fun ProfileScreen(
     val primaryBlue = Color(0xFF0B57D0) 
     val glassColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
 
-    // 🚨 Identify who we are looking at
     val auth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
     val currentUserId = auth.currentUser?.uid ?: ""
@@ -71,60 +76,63 @@ fun ProfileScreen(
     
     var showUploadSheet by remember { mutableStateOf(false) }
 
-    // Display Data States
     var displayUsername by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("...") }
     var bio by remember { mutableStateOf("") }
     var postsCount by remember { mutableIntStateOf(0) }
     var followersCount by remember { mutableIntStateOf(0) }
     var followingCount by remember { mutableIntStateOf(0) }
-    
-    // Follow State
     var isFollowing by remember { mutableStateOf(false) }
 
-    // 🚨 1. FETCH PROFILE DATA (one-time fetch to avoid listener leaks)
-    LaunchedEffect(targetUid) {
-        if (targetUid.isNotBlank()) {
-            firestore.collection("users").document(targetUid).get()
-                .addOnSuccessListener { snapshot ->
-                    if (snapshot != null && snapshot.exists()) {
-                        displayUsername = snapshot.getString("username") ?: ""
-                        displayName = snapshot.getString("name")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Update your name" else "New User"
-                        bio = snapshot.getString("bio")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Welcome to Interraqt! You can update your bio in the edit profile section." else ""
-                        postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
-                        followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
-                        followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
-                    }
-                }
+    // 🚨 1. Back Gesture Fix
+    BackHandler { if (!isOwnProfile) onNavigateBack?.invoke() }
+
+    // 🚨 2. Instant Database Fetch & Refresh Key Logic
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val pullRefreshState = rememberPullToRefreshState()
+
+    if (pullRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            refreshKey++
+            delay(800) // Beautiful UI delay for the spinner
+            pullRefreshState.endRefresh()
         }
+    }
+
+    DisposableEffect(targetUid, refreshKey) {
+        val listener = if (targetUid.isNotBlank()) {
+            firestore.collection("users").document(targetUid).addSnapshotListener { snapshot, _ ->
+                if (snapshot != null && snapshot.exists()) {
+                    displayUsername = snapshot.getString("username") ?: ""
+                    displayName = snapshot.getString("name")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Update your name" else "New User"
+                    bio = snapshot.getString("bio")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Welcome to Interraqt! You can update your bio in the edit profile section." else ""
+                    postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
+                    followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
+                    followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
+                }
+            }
+        } else null
         
-        // If looking at someone else, check if we follow them
         if (!isOwnProfile && currentUserId.isNotEmpty()) {
             firestore.collection("users").document(currentUserId)
                 .collection("following").document(targetUid).get()
                 .addOnSuccessListener { doc -> isFollowing = doc.exists() }
         }
+        
+        onDispose { listener?.remove() }
     }
 
-    // 🚨 2. FOLLOW / UNFOLLOW LOGIC (Fixed for Kotlin compiler)
+    // 🚨 3. Optimistic Follow UI (Math updates instantly before DB)
     val toggleFollow: () -> Unit = l@{
-        if (currentUserId.isBlank()) {
-            Toast.makeText(context, "Please sign in to follow users.", Toast.LENGTH_SHORT).show()
-            return@l
-        }
+        if (currentUserId.isBlank()) return@l
 
-        isFollowing = !isFollowing // Optimistic UI update for instant feedback
-        val incrementValue = if (isFollowing) 1L else -1L
+        isFollowing = !isFollowing 
+        val incrementValue = if (isFollowing) 1 else -1
+        followersCount += incrementValue // Updates screen instantly
 
-        // Update target user's Follower count
-        firestore.collection("users").document(targetUid)
-            .update("followersCount", FieldValue.increment(incrementValue))
-            
-        // Update my Following count
-        firestore.collection("users").document(currentUserId)
-            .update("followingCount", FieldValue.increment(incrementValue))
+        firestore.collection("users").document(targetUid).update("followersCount", FieldValue.increment(incrementValue.toLong()))
+        firestore.collection("users").document(currentUserId).update("followingCount", FieldValue.increment(incrementValue.toLong()))
 
-        // Save standard relational data
         if (isFollowing) {
             firestore.collection("users").document(currentUserId).collection("following").document(targetUid).set(mapOf("timestamp" to System.currentTimeMillis()))
             firestore.collection("users").document(targetUid).collection("followers").document(currentUserId).set(mapOf("timestamp" to System.currentTimeMillis()))
@@ -134,11 +142,10 @@ fun ProfileScreen(
         }
     }
 
-    // Fixed for Kotlin compiler
     val shareProfile: () -> Unit = {
         val sendIntent = Intent().apply {
             action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, "Connect with me on Interraqt! \nhttps://interraqt.com/@$displayUsername")
+            putExtra(Intent.EXTRA_TEXT, "Connect with me on Interraqt! \nhttps://interraqt.com/$displayUsername")
             type = "text/plain"
         }
         context.startActivity(Intent.createChooser(sendIntent, "Share Profile"))
@@ -152,7 +159,8 @@ fun ProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
-    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
+    // 🚨 Pull-to-Refresh Box Setup
+    Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(pullRefreshState.nestedScrollConnection)) {
         
         Column(
             modifier = Modifier
@@ -205,7 +213,6 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 🚨 3. DYNAMIC BUTTON RENDERING (My Profile vs Their Profile)
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
                     onClick = { if (isOwnProfile) onNavigateToEditProfile() else toggleFollow() },
@@ -221,7 +228,7 @@ fun ProfileScreen(
                 }
 
                 Button(
-                    onClick = { if (isOwnProfile) shareProfile() },
+                    onClick = { if (isOwnProfile) shareProfile() else Toast.makeText(context, "Messaging coming soon!", Toast.LENGTH_SHORT).show() },
                     modifier = Modifier.weight(1f).height(50.dp),
                     shape = RoundedCornerShape(25.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = glassColor)
@@ -233,15 +240,35 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             val tabTitles = listOf("Collections", "Videos", "Photos")
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                tabTitles.forEachIndexed { index, title ->
-                    val isSelected = tabPagerState.currentPage == index
-                    val animatedColor by animateColorAsState(targetValue = if (isSelected) primaryOrange else subTextColor, animationSpec = tween(300), label = "")
-                    
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { coroutineScope.launch { tabPagerState.animateScrollToPage(index) } }) {
-                        Text(title, color = animatedColor, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, fontSize = 15.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Box(modifier = Modifier.width(90.dp).height(2.dp).background(if (isSelected) primaryOrange else Color.Transparent, RoundedCornerShape(1.dp)))
+            
+            // 🚨 4. CONTINUOUS ANIMATED TABS WITH TEXT SCALING
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                val tabWidth = maxWidth / 3
+                val exactPage = tabPagerState.currentPage + tabPagerState.currentPageOffsetFraction
+                val indicatorOffset = tabWidth * exactPage
+
+                // Sliding Indicator
+                Box(modifier = Modifier.offset(x = indicatorOffset).width(tabWidth).align(Alignment.BottomStart), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.width(90.dp).height(2.dp).background(primaryOrange, RoundedCornerShape(1.dp)))
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    tabTitles.forEachIndexed { index, title ->
+                        val isSelected = tabPagerState.currentPage == index
+                        val scale by animateFloatAsState(targetValue = if (isSelected) 1.15f else 1.0f, animationSpec = tween(300), label = "")
+                        
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally, 
+                            modifier = Modifier.width(tabWidth).clickable { coroutineScope.launch { tabPagerState.animateScrollToPage(index) } }
+                        ) {
+                            Text(
+                                text = title, 
+                                color = if (isSelected) primaryOrange else subTextColor, 
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, 
+                                fontSize = 15.sp,
+                                modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }.padding(bottom = 8.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -259,7 +286,6 @@ fun ProfileScreen(
                                 )
                             }
                         } else {
-                            // Dummy Grid for active posts
                             Column(modifier = Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Box(modifier = Modifier.weight(1f).height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor))
@@ -276,13 +302,15 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // 🚨 4. DYNAMIC FLOATING TOP BAR
+        // Pull to refresh UI element
+        PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
+
+        // 🚨 5. FLOATING TOP BAR (Unbolded Text, No @)
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(top = 16.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // LEFT ICON (Upload if me, Back Arrow if them)
             Box(
                 modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { 
                     if (isOwnProfile) showUploadSheet = true else onNavigateBack?.invoke() 
@@ -292,21 +320,22 @@ fun ProfileScreen(
                 Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = textColor, modifier = Modifier.size(24.dp)) 
             }
 
-            Text(text = "@$displayUsername", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
+            // Fixed Typography
+            Text(text = displayUsername, fontSize = 20.sp, fontWeight = FontWeight.Normal, color = textColor)
 
-            // RIGHT ICON (Settings if me, Hidden if them)
-            if (isOwnProfile) {
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { onNavigateToSettings() },
-                    contentAlignment = Alignment.Center
-                ) {
+            // 🚨 3-Dot Menu added for other users
+            Box(
+                modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { if (isOwnProfile) onNavigateToSettings() },
+                contentAlignment = Alignment.Center
+            ) {
+                if (isOwnProfile) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
                         Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
                     }
+                } else {
+                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = textColor, modifier = Modifier.size(24.dp))
                 }
-            } else {
-                Box(modifier = Modifier.size(44.dp)) // Empty box for visual symmetry
             }
         }
 
