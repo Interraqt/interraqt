@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
@@ -63,8 +64,8 @@ fun EditProfileScreen(
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     
     val primaryOrange = Color(0xFFFF6328)
-    // 🚨 SOFTER BORDER COLOR
-    val softFocusOrange = primaryOrange.copy(alpha = 0.4f)
+    // 🚨 NEW: Sleek Light Blue-to-Blue focus color
+    val focusBlue = Color(0xFF1E88E5) 
 
     var displayName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -73,10 +74,11 @@ fun EditProfileScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
 
-    // 🚨 SCROLL ANIMATION SETUP
+    // 🚨 SCROLL ANIMATION FOR ALL 3 BOXES
     val coroutineScope = rememberCoroutineScope()
-    val bioRequester = remember { BringIntoViewRequester() }
+    val nameRequester = remember { BringIntoViewRequester() }
     val usernameRequester = remember { BringIntoViewRequester() }
+    val bioRequester = remember { BringIntoViewRequester() }
 
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
@@ -142,11 +144,11 @@ fun EditProfileScreen(
         if (isLoading) {
             CircularProgressIndicator(color = primaryOrange, modifier = Modifier.align(Alignment.Center))
         } else {
-            // THE SCROLLING FORM
+            // --- THE SCROLLING FORM ---
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .imePadding() 
+                    .imePadding() // Automatically scales UI above the keyboard
                     .graphicsLayer { alpha = 0.99f } 
                     .drawWithContent {
                         val gradient = Brush.verticalGradient(
@@ -162,7 +164,6 @@ fun EditProfileScreen(
             ) {
                 Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
-                // --- PROFILE PICTURE ---
                 Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
@@ -183,14 +184,21 @@ fun EditProfileScreen(
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { if (it.length <= 24) displayName = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .bringIntoViewRequester(nameRequester) // Smooth scroll target
+                        .onFocusEvent { focusState ->
+                            if (focusState.isFocused) {
+                                coroutineScope.launch { delay(250); nameRequester.bringIntoView() }
+                            }
+                        },
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = softFocusOrange, // 🚨 Softer border
+                        containerColor = surfaceColor, focusedBorderColor = focusBlue, // Sleek blue border
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     singleLine = true,
-                    supportingText = { Text("${displayName.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.End) }
+                    supportingText = { Text("${displayName.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -202,18 +210,15 @@ fun EditProfileScreen(
                     onValueChange = { username = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .bringIntoViewRequester(usernameRequester)
+                        .bringIntoViewRequester(usernameRequester) // Smooth scroll target
                         .onFocusEvent { focusState ->
                             if (focusState.isFocused) {
-                                coroutineScope.launch {
-                                    delay(200) // Wait for keyboard
-                                    usernameRequester.bringIntoView()
-                                }
+                                coroutineScope.launch { delay(250); usernameRequester.bringIntoView() }
                             }
                         },
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = softFocusOrange, // 🚨 Softer border
+                        containerColor = surfaceColor, focusedBorderColor = focusBlue, // Sleek blue border
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
                     singleLine = true
@@ -229,31 +234,27 @@ fun EditProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp)
-                        .bringIntoViewRequester(bioRequester) // 🚨 Attaches smooth scroll target
+                        .bringIntoViewRequester(bioRequester) // Smooth scroll target
                         .onFocusEvent { focusState ->
                             if (focusState.isFocused) {
-                                coroutineScope.launch {
-                                    delay(200) // 🚨 Waits for keyboard, then smoothly scrolls
-                                    bioRequester.bringIntoView()
-                                }
+                                coroutineScope.launch { delay(250); bioRequester.bringIntoView() }
                             }
                         },
                     shape = RoundedCornerShape(16.dp),
                     colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = softFocusOrange, // 🚨 Softer border
+                        containerColor = surfaceColor, focusedBorderColor = focusBlue, // Sleek blue border
                         unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
                     ),
-                    supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.End) }
+                    supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                 )
 
                 // 🚨 MASSIVE BOTTOM RUNWAY
-                // This gives the screen enough room to scroll the Bio field up natively,
-                // completely neutralizing the Android OS bug that pushed the top bar off-screen.
-                Spacer(modifier = Modifier.height(250.dp))
+                // This ensures the screen ALWAYS has enough physical room to scroll the Bio field up,
+                // stopping the Android OS from lifting the top bar away.
+                Spacer(modifier = Modifier.height(400.dp))
             }
             
-            // 🚨 PINNED TOP BAR
-            // Explicitly anchored to TopCenter so it absolutely cannot move
+            // --- PINNED TOP BAR ---
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
