@@ -194,10 +194,14 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
+                                    // 🚨 AGGRESSIVE DARK FEATHER EFFECT
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, bgColor), // Fades beautifully to solid app theme color
-                                        startY = size.height * 0.4f, // Strong fade starts exactly mid-avatar
-                                        endY = size.height // Completely solid by the bottom edge
+                                        0.0f to Color.Transparent,          // 0% to 30%: Top stays 100% visible
+                                        0.3f to Color.Transparent,          
+                                        0.6f to bgColor.copy(alpha = 0.85f),// 60%: Becomes VERY dark right behind the avatar
+                                        1.0f to bgColor,                    // 100%: Completely solid by the bottom
+                                        startY = 0f,
+                                        endY = size.height
                                     )
                                 )
                             }
