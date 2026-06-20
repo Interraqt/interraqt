@@ -14,7 +14,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ChatScreen() {
     val isDark = isSystemInDarkTheme()
-    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
+    // 🚨 HYBRID THEME: Premium Dark Mode + Original Light Mode
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     val textColor = if (isDark) Color.White else Color.Black
 
     Box(
