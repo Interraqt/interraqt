@@ -26,17 +26,11 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
     
     val isDark = isSystemInDarkTheme()
     
-    // 🚨 GLOBAL PREMIUM THEME COLORS 🚨
-    // Seamless background matching the rest of the app
-    val barColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF8F9FA)
+    // 🚨 HYBRID THEME: Premium Dark Mode + Original Light Mode
+    val barColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     
-    // Unselected icons use the premium sub-text color
     val unselectedColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
-    
-    // Active icons are stark white/black for maximum crispness
     val activeContentColor = if (isDark) Color.White else Color.Black 
-    
-    // Sliding pill uses the "Elevated Slate" surface color (or Light Glass in Light Mode)
     val indicatorColor = if (isDark) Color(0xFF161C24) else Color.Black.copy(alpha = 0.05f) 
 
     var currentDragIndex by remember { mutableStateOf<Int?>(null) }
