@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage 
+import coil.request.ImageRequest // 🚨 Added for robust URL loading
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
@@ -92,11 +93,10 @@ fun EditProfileScreen(
     var username by remember { mutableStateOf(TextFieldValue("")) }
     var bio by remember { mutableStateOf(TextFieldValue("")) }
     
-    // IMAGE UPLOAD STATES
     var profileImageUrl by remember { mutableStateOf("") }
-    var bannerImageUrl by remember { mutableStateOf("") } // 🚨 New Banner State
+    var bannerImageUrl by remember { mutableStateOf("") } 
     var isUploadingImage by remember { mutableStateOf(false) }
-    var isUploadingBanner by remember { mutableStateOf(false) } // 🚨 New Upload State
+    var isUploadingBanner by remember { mutableStateOf(false) } 
     
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
@@ -127,7 +127,7 @@ fun EditProfileScreen(
                 username = TextFieldValue(doc.getString("username") ?: "")
                 bio = TextFieldValue(doc.getString("bio")?.takeIf { it.isNotBlank() } ?: "Welcome to Interraqt!")
                 profileImageUrl = doc.getString("profileImageUrl") ?: ""
-                bannerImageUrl = doc.getString("bannerImageUrl") ?: "" // 🚨 Load existing banner
+                bannerImageUrl = doc.getString("bannerImageUrl") ?: "" 
                 isLoading = false
             }.addOnFailureListener {
                 isLoading = false
@@ -136,7 +136,6 @@ fun EditProfileScreen(
         }
     }
 
-    // PROFILE PICTURE UPLOADER
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri: Uri? ->
@@ -155,7 +154,6 @@ fun EditProfileScreen(
         }
     )
 
-    // 🚨 BANNER PICTURE UPLOADER
     val bannerPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri: Uri? ->
@@ -189,7 +187,7 @@ fun EditProfileScreen(
                     "username" to username.text.trim().lowercase(),
                     "bio" to bio.text.trim(),
                     "profileImageUrl" to profileImageUrl,
-                    "bannerImageUrl" to bannerImageUrl // 🚨 Save for redundancy
+                    "bannerImageUrl" to bannerImageUrl 
                 )
                 firestore.collection("users").document(uid).update(updates)
                     .addOnSuccessListener {
@@ -234,14 +232,16 @@ fun EditProfileScreen(
             ) {
                 Spacer(modifier = Modifier.height(statusBarHeightDp + 60.dp))
 
-                // 🚨 NEW OVERLAPPING BANNER & AVATAR LAYOUT
                 Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
                     
                     // --- BANNER BACKGROUND ---
                     Box(modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor)) {
                         if (bannerImageUrl.isNotEmpty()) {
                             AsyncImage(
-                                model = bannerImageUrl,
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(bannerImageUrl)
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = "Banner Picture",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop 
@@ -254,7 +254,6 @@ fun EditProfileScreen(
                             }
                         }
 
-                        // Banner Camera Button
                         Box(
                             modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.6f))
                                 .clickable { bannerPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -269,7 +268,12 @@ fun EditProfileScreen(
                         Box(modifier = Modifier.size(104.dp).clip(CircleShape).background(bgColor), contentAlignment = Alignment.Center) {
                             Box(modifier = Modifier.size(96.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
                                 if (profileImageUrl.isNotEmpty()) {
-                                    AsyncImage(model = profileImageUrl, contentDescription = "Profile Picture", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current).data(profileImageUrl).crossfade(true).build(), 
+                                        contentDescription = "Profile Picture", 
+                                        modifier = Modifier.fillMaxSize(), 
+                                        contentScale = ContentScale.Crop
+                                    )
                                 } else {
                                     Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
                                 }
@@ -282,7 +286,6 @@ fun EditProfileScreen(
                             }
                         }
                         
-                        // Avatar Camera Button
                         Box(
                             modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
                                 .clickable { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -340,7 +343,6 @@ fun EditProfileScreen(
     }
 }
 
-// IMGBB NETWORK UPLOAD FUNCTION
 suspend fun uploadImageToImgbb(context: android.content.Context, uri: Uri, apiKey: String): String? = withContext(Dispatchers.IO) {
     try {
         val inputStream = context.contentResolver.openInputStream(uri)
