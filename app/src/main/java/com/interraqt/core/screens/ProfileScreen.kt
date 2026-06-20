@@ -106,8 +106,8 @@ fun ProfileScreen(
         }
     }
 
-    // 🚨 2. FOLLOW / UNFOLLOW LOGIC
-    val toggleFollow = l@{
+    // 🚨 2. FOLLOW / UNFOLLOW LOGIC (Fixed for Kotlin compiler)
+    val toggleFollow: () -> Unit = l@{
         if (currentUserId.isBlank()) {
             Toast.makeText(context, "Please sign in to follow users.", Toast.LENGTH_SHORT).show()
             return@l
@@ -134,7 +134,8 @@ fun ProfileScreen(
         }
     }
 
-    val shareProfile = {
+    // Fixed for Kotlin compiler
+    val shareProfile: () -> Unit = {
         val sendIntent = Intent().apply {
             action = Intent.ACTION_SEND
             putExtra(Intent.EXTRA_TEXT, "Connect with me on Interraqt! \nhttps://interraqt.com/@$displayUsername")
