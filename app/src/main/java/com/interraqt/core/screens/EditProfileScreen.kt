@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -67,6 +69,13 @@ fun EditProfileScreen(
     
     val primaryOrange = Color(0xFFFF6328)
 
+    // 🚨 BRAND IDENTITY SELECTION COLORS
+    // This changes the teardrop handle and text highlight from blue to your brand's orange!
+    val customTextSelectionColors = TextSelectionColors(
+        handleColor = primaryOrange,
+        backgroundColor = primaryOrange.copy(alpha = 0.4f)
+    )
+
     var displayName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var bio by remember { mutableStateOf("") }
@@ -81,12 +90,12 @@ fun EditProfileScreen(
 
     val isImeVisible = WindowInsets.isImeVisible
     
-    // 🚨 JITTER-FREE RESET: Waits for keyboard to close, then glides to top
+    // JITTER-FREE RESET: Waits for keyboard to close, then glides to top
     LaunchedEffect(isImeVisible) {
         if (!isImeVisible) {
             focusManager.clearFocus()
             coroutineScope.launch {
-                delay(100) // Small delay stops the animations from fighting
+                delay(100)
                 scrollState.animateScrollTo(0, animationSpec = tween(durationMillis = 300))
             }
         }
@@ -151,91 +160,96 @@ fun EditProfileScreen(
         if (isLoading) {
             CircularProgressIndicator(color = primaryOrange, modifier = Modifier.align(Alignment.Center))
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding() 
-                    .graphicsLayer { alpha = 0.99f } 
-                    .drawWithContent {
-                        val gradient = Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black),
-                            startY = 0f,
-                            endY = fadeEndPx 
-                        )
-                        drawContent()
-                        drawRect(brush = gradient, blendMode = BlendMode.DstIn)
-                    }
-                    .verticalScroll(scrollState) 
-                    .padding(horizontal = 24.dp)
-            ) {
-                Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
+            // 🚨 WRAPPED FORM IN CUSTOM SELECTION COLORS
+            CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .imePadding() 
+                        .graphicsLayer { alpha = 0.99f } 
+                        .drawWithContent {
+                            val gradient = Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black),
+                                startY = 0f,
+                                endY = fadeEndPx 
+                            )
+                            drawContent()
+                            drawRect(brush = gradient, blendMode = BlendMode.DstIn)
+                        }
+                        .verticalScroll(scrollState) 
+                        .padding(horizontal = 24.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
-                Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                    Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                        }
+                        Box(
+                            modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
+                                .clickable { Toast.makeText(context, "ImgBB upload coming soon!", Toast.LENGTH_SHORT).show() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Change Photo", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
                     }
-                    Box(
-                        modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
-                            .clickable { Toast.makeText(context, "ImgBB upload coming soon!", Toast.LENGTH_SHORT).show() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = "Change Photo", tint = Color.White, modifier = Modifier.size(16.dp))
-                    }
+
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    // --- NAME FIELD ---
+                    Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(
+                        value = displayName,
+                        onValueChange = { if (it.length <= 24) displayName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
+                            unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
+                            cursorColor = primaryOrange // 🚨 Custom blinking cursor color
+                        ),
+                        singleLine = true,
+                        supportingText = { Text("${displayName.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // --- USERNAME FIELD ---
+                    Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { if (it.length <= 18) username = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
+                            unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
+                            cursorColor = primaryOrange // 🚨 Custom blinking cursor color
+                        ),
+                        singleLine = true,
+                        supportingText = { Text("${username.length}/18", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // --- BIO FIELD ---
+                    Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    OutlinedTextField(
+                        value = bio,
+                        onValueChange = { if (it.length <= 100) bio = it },
+                        modifier = Modifier.fillMaxWidth().height(120.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                            containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
+                            unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
+                            cursorColor = primaryOrange // 🚨 Custom blinking cursor color
+                        ),
+                        supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+                    )
+
+                    Spacer(modifier = Modifier.height(40.dp))
                 }
-
-                Spacer(modifier = Modifier.height(40.dp))
-
-                // --- NAME FIELD ---
-                Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { if (it.length <= 24) displayName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
-                        unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
-                    ),
-                    singleLine = true,
-                    supportingText = { Text("${displayName.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // --- USERNAME FIELD (18 Char Limit added) ---
-                Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { if (it.length <= 18) username = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
-                        unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
-                    ),
-                    singleLine = true,
-                    supportingText = { Text("${username.length}/18", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // --- BIO FIELD ---
-                Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                OutlinedTextField(
-                    value = bio,
-                    onValueChange = { if (it.length <= 100) bio = it },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = TextFieldDefaults.outlinedTextFieldColors(
-                        containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
-                        unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor
-                    ),
-                    supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
-                )
-
-                // 🚨 Empty void removed! Just a tiny spacer to clear the last text.
-                Spacer(modifier = Modifier.height(40.dp))
-            }
+            } // End of CompositionLocalProvider
             
             // --- PINNED TOP BAR ---
             Row(
