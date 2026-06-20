@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -36,6 +38,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue // 🚨 Required for advanced cursor tracking
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,16 +72,10 @@ fun EditProfileScreen(
     
     val primaryOrange = Color(0xFFFF6328)
 
-    // 🚨 BRAND IDENTITY SELECTION COLORS
-    // This changes the teardrop handle and text highlight from blue to your brand's orange!
-    val customTextSelectionColors = TextSelectionColors(
-        handleColor = primaryOrange,
-        backgroundColor = primaryOrange.copy(alpha = 0.4f)
-    )
-
-    var displayName by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var bio by remember { mutableStateOf("") }
+    // 🚨 UPGRADED TO TextFieldValue FOR CURSOR TRACKING
+    var displayName by remember { mutableStateOf(TextFieldValue("")) }
+    var username by remember { mutableStateOf(TextFieldValue("")) }
+    var bio by remember { mutableStateOf(TextFieldValue("")) }
     
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
@@ -90,7 +87,7 @@ fun EditProfileScreen(
 
     val isImeVisible = WindowInsets.isImeVisible
     
-    // JITTER-FREE RESET: Waits for keyboard to close, then glides to top
+    // JITTER-FREE RESET
     LaunchedEffect(isImeVisible) {
         if (!isImeVisible) {
             focusManager.clearFocus()
@@ -106,9 +103,9 @@ fun EditProfileScreen(
     LaunchedEffect(Unit) {
         currentUser?.uid?.let { uid ->
             firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
-                displayName = doc.getString("name")?.takeIf { it.isNotBlank() } ?: "Update your name"
-                username = doc.getString("username") ?: ""
-                bio = doc.getString("bio")?.takeIf { it.isNotBlank() } ?: "Welcome to Interraqt! You can update your bio in the edit profile section."
+                displayName = TextFieldValue(doc.getString("name")?.takeIf { it.isNotBlank() } ?: "Update your name")
+                username = TextFieldValue(doc.getString("username") ?: "")
+                bio = TextFieldValue(doc.getString("bio")?.takeIf { it.isNotBlank() } ?: "Welcome to Interraqt! You can update your bio in the edit profile section.")
                 isLoading = false
             }.addOnFailureListener {
                 isLoading = false
@@ -118,19 +115,19 @@ fun EditProfileScreen(
     }
 
     val saveProfile: () -> Unit = {
-        if (displayName.length > 24) {
+        if (displayName.text.length > 24) {
             Toast.makeText(context, "Name cannot exceed 24 characters", Toast.LENGTH_SHORT).show()
-        } else if (bio.length > 100) {
+        } else if (bio.text.length > 100) {
             Toast.makeText(context, "Bio cannot exceed 100 characters", Toast.LENGTH_SHORT).show()
-        } else if (username.isEmpty()) {
+        } else if (username.text.isEmpty()) {
             Toast.makeText(context, "Username cannot be empty", Toast.LENGTH_SHORT).show()
         } else {
             isSaving = true
             currentUser?.uid?.let { uid ->
                 val updates = hashMapOf<String, Any>(
-                    "name" to displayName.trim(),
-                    "username" to username.trim().lowercase(),
-                    "bio" to bio.trim()
+                    "name" to displayName.text.trim(),
+                    "username" to username.text.trim().lowercase(),
+                    "bio" to bio.text.trim()
                 )
                 firestore.collection("users").document(uid).update(updates)
                     .addOnSuccessListener {
@@ -160,96 +157,129 @@ fun EditProfileScreen(
         if (isLoading) {
             CircularProgressIndicator(color = primaryOrange, modifier = Modifier.align(Alignment.Center))
         } else {
-            // 🚨 WRAPPED FORM IN CUSTOM SELECTION COLORS
-            CompositionLocalProvider(LocalTextSelectionColors provides customTextSelectionColors) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .imePadding() 
-                        .graphicsLayer { alpha = 0.99f } 
-                        .drawWithContent {
-                            val gradient = Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black),
-                                startY = 0f,
-                                endY = fadeEndPx 
-                            )
-                            drawContent()
-                            drawRect(brush = gradient, blendMode = BlendMode.DstIn)
-                        }
-                        .verticalScroll(scrollState) 
-                        .padding(horizontal = 24.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
-
-                    Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
-                        }
-                        Box(
-                            modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
-                                .clickable { Toast.makeText(context, "ImgBB upload coming soon!", Toast.LENGTH_SHORT).show() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = "Change Photo", tint = Color.White, modifier = Modifier.size(16.dp))
-                        }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding() 
+                    .graphicsLayer { alpha = 0.99f } 
+                    .drawWithContent {
+                        val gradient = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black),
+                            startY = 0f,
+                            endY = fadeEndPx 
+                        )
+                        drawContent()
+                        drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                     }
+                    .verticalScroll(scrollState) 
+                    .padding(horizontal = 24.dp)
+            ) {
+                Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
-                    Spacer(modifier = Modifier.height(40.dp))
+                Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                    }
+                    Box(
+                        modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
+                            .clickable { Toast.makeText(context, "ImgBB upload coming soon!", Toast.LENGTH_SHORT).show() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Change Photo", tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
 
-                    // --- NAME FIELD ---
-                    Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                Spacer(modifier = Modifier.height(40.dp))
+
+                // ==========================================
+                // 🚨 NAME FIELD (No Compromise Cursor)
+                // ==========================================
+                val nameInteraction = remember { MutableInteractionSource() }
+                val nameIsPressed by nameInteraction.collectIsPressedAsState()
+                val nameColors = TextSelectionColors(
+                    handleColor = if (nameIsPressed || !displayName.selection.collapsed) primaryOrange else Color.Transparent,
+                    backgroundColor = primaryOrange.copy(alpha = 0.4f)
+                )
+
+                Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                CompositionLocalProvider(LocalTextSelectionColors provides nameColors) {
                     OutlinedTextField(
                         value = displayName,
-                        onValueChange = { if (it.length <= 24) displayName = it },
+                        onValueChange = { if (it.text.length <= 24) displayName = it },
                         modifier = Modifier.fillMaxWidth(),
+                        interactionSource = nameInteraction,
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.outlinedTextFieldColors(
                             containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
                             unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
-                            cursorColor = primaryOrange // 🚨 Custom blinking cursor color
+                            cursorColor = primaryOrange
                         ),
                         singleLine = true,
-                        supportingText = { Text("${displayName.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+                        supportingText = { Text("${displayName.text.length}/24", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                    // --- USERNAME FIELD ---
-                    Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                // ==========================================
+                // 🚨 USERNAME FIELD (No Compromise Cursor)
+                // ==========================================
+                val usernameInteraction = remember { MutableInteractionSource() }
+                val usernameIsPressed by usernameInteraction.collectIsPressedAsState()
+                val usernameColors = TextSelectionColors(
+                    handleColor = if (usernameIsPressed || !username.selection.collapsed) primaryOrange else Color.Transparent,
+                    backgroundColor = primaryOrange.copy(alpha = 0.4f)
+                )
+
+                Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                CompositionLocalProvider(LocalTextSelectionColors provides usernameColors) {
                     OutlinedTextField(
                         value = username,
-                        onValueChange = { if (it.length <= 18) username = it },
+                        onValueChange = { if (it.text.length <= 18) username = it },
                         modifier = Modifier.fillMaxWidth(),
+                        interactionSource = usernameInteraction,
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.outlinedTextFieldColors(
                             containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
                             unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
-                            cursorColor = primaryOrange // 🚨 Custom blinking cursor color
+                            cursorColor = primaryOrange
                         ),
                         singleLine = true,
-                        supportingText = { Text("${username.length}/18", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+                        supportingText = { Text("${username.text.length}/18", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                    // --- BIO FIELD ---
-                    Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                // ==========================================
+                // 🚨 BIO FIELD (No Compromise Cursor)
+                // ==========================================
+                val bioInteraction = remember { MutableInteractionSource() }
+                val bioIsPressed by bioInteraction.collectIsPressedAsState()
+                val bioColors = TextSelectionColors(
+                    handleColor = if (bioIsPressed || !bio.selection.collapsed) primaryOrange else Color.Transparent,
+                    backgroundColor = primaryOrange.copy(alpha = 0.4f)
+                )
+
+                Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                CompositionLocalProvider(LocalTextSelectionColors provides bioColors) {
                     OutlinedTextField(
                         value = bio,
-                        onValueChange = { if (it.length <= 100) bio = it },
+                        onValueChange = { if (it.text.length <= 100) bio = it },
                         modifier = Modifier.fillMaxWidth().height(120.dp),
+                        interactionSource = bioInteraction,
                         shape = RoundedCornerShape(16.dp),
                         colors = TextFieldDefaults.outlinedTextFieldColors(
                             containerColor = surfaceColor, focusedBorderColor = primaryOrange, 
                             unfocusedBorderColor = Color.Transparent, focusedTextColor = textColor, unfocusedTextColor = textColor,
-                            cursorColor = primaryOrange // 🚨 Custom blinking cursor color
+                            cursorColor = primaryOrange
                         ),
-                        supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+                        supportingText = { Text("${bio.text.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
                     )
-
-                    Spacer(modifier = Modifier.height(40.dp))
                 }
-            } // End of CompositionLocalProvider
+
+                Spacer(modifier = Modifier.height(40.dp))
+            }
             
             // --- PINNED TOP BAR ---
             Row(
