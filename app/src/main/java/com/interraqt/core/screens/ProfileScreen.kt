@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest // 🚨 Added for robust URL loading
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -82,7 +83,7 @@ fun ProfileScreen(
     var displayName by remember { mutableStateOf("...") }
     var bio by remember { mutableStateOf("") }
     var profileImageUrl by remember { mutableStateOf("") } 
-    var bannerImageUrl by remember { mutableStateOf("") } // 🚨 New Banner State
+    var bannerImageUrl by remember { mutableStateOf("") } 
     var postsCount by remember { mutableIntStateOf(0) }
     var followersCount by remember { mutableIntStateOf(0) }
     var followingCount by remember { mutableIntStateOf(0) }
@@ -109,7 +110,7 @@ fun ProfileScreen(
                     displayName = snapshot.getString("name")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Update your name" else "New User"
                     bio = snapshot.getString("bio")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Welcome to Interraqt!" else ""
                     profileImageUrl = snapshot.getString("profileImageUrl") ?: "" 
-                    bannerImageUrl = snapshot.getString("bannerImageUrl") ?: "" // 🚨 Fetches the Banner URL
+                    bannerImageUrl = snapshot.getString("bannerImageUrl") ?: ""
                     postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
                     followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
                     followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
@@ -175,25 +176,26 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 🚨 FEATHERED BANNER & PROFILE HEADER
+            // 🚨 PERFECT GAP-FREE LAYOUT
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 
-                // Background Banner with Feather Effect
+                // Background Banner
                 if (bannerImageUrl.isNotEmpty()) {
                     AsyncImage(
-                        model = bannerImageUrl,
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(bannerImageUrl)
+                            .crossfade(true)
+                            .build(),
                         contentDescription = "Banner",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(350.dp) // Stretches behind the avatar and text
+                            .matchParentSize() // 🚨 Locks height perfectly to the content below, preventing massive gaps!
                             .drawWithContent {
                                 drawContent()
-                                // This block seamlessly feathers the bottom of the image into the app background color!
                                 drawRect(
                                     brush = Brush.verticalGradient(
                                         colors = listOf(Color.Transparent, bgColor),
-                                        startY = size.height * 0.4f, // Fades out the bottom 60%
+                                        startY = size.height * 0.4f, 
                                         endY = size.height
                                     )
                                 )
@@ -201,7 +203,7 @@ fun ProfileScreen(
                     )
                 }
 
-                // Foreground Content
+                // Foreground Content (Avatar, Name, Bio)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -210,7 +212,12 @@ fun ProfileScreen(
 
                     Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
                         if (profileImageUrl.isNotEmpty()) {
-                            AsyncImage(model = profileImageUrl, contentDescription = "Profile Picture", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current).data(profileImageUrl).crossfade(true).build(),
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         } else {
                             Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
                         }
@@ -221,11 +228,13 @@ fun ProfileScreen(
                     if (bio.isNotEmpty()) {
                         Text(text = bio, fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp), textAlign = TextAlign.Center)
                     }
+                    
+                    // Spacer included inside the layout so the banner perfectly covers this area!
+                    Spacer(modifier = Modifier.height(32.dp)) 
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
+            // --- STATS ROW (Original Spacing Restored) ---
             val dividerBrush = Brush.verticalGradient(listOf(Color.Transparent, subTextColor.copy(alpha = 0.4f), Color.Transparent))
 
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
