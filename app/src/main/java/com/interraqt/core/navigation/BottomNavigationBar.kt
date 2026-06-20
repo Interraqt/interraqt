@@ -48,6 +48,12 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
                         val tabWidthPx = size.width / 5f
+
+                        // Guard against zero width early in layout
+                        if (tabWidthPx <= 0f) {
+                            currentDragIndex = null
+                            return@awaitEachGesture
+                        }
                         
                         var dragIndex = (down.position.x / tabWidthPx).toInt().coerceIn(0, 4)
                         currentDragIndex = dragIndex

@@ -127,7 +127,7 @@ fun LoginScreen(onNavigateToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                         val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                         IconButton(
                             onClick = { passwordVisible = !passwordVisible },
-                            modifier = Modifier.offset(x = (-12).dp) 
+                            modifier = Modifier.offset(x = -12.dp) 
                         ) {
                             Icon(imageVector = image, contentDescription = "Toggle Password", tint = if (isDark) Color.Gray else Color.DarkGray)
                         }
