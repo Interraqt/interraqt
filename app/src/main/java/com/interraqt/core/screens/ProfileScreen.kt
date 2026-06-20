@@ -37,12 +37,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale // 🚨 Added for image scaling
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage // 🚨 Added Coil for instant image loading
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -79,15 +81,16 @@ fun ProfileScreen(
     var displayUsername by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("...") }
     var bio by remember { mutableStateOf("") }
+    var profileImageUrl by remember { mutableStateOf("") } // 🚨 Added profile image state
     var postsCount by remember { mutableIntStateOf(0) }
     var followersCount by remember { mutableIntStateOf(0) }
     var followingCount by remember { mutableIntStateOf(0) }
     var isFollowing by remember { mutableStateOf(false) }
 
-    // 🚨 1. Back Gesture Fix
+    // 1. Back Gesture Fix
     BackHandler { if (!isOwnProfile) onNavigateBack?.invoke() }
 
-    // 🚨 2. Instant Database Fetch & Refresh Key Logic
+    // 2. Instant Database Fetch & Refresh Key Logic
     var refreshKey by remember { mutableIntStateOf(0) }
     val pullRefreshState = rememberPullToRefreshState()
 
@@ -106,6 +109,7 @@ fun ProfileScreen(
                     displayUsername = snapshot.getString("username") ?: ""
                     displayName = snapshot.getString("name")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Update your name" else "New User"
                     bio = snapshot.getString("bio")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Welcome to Interraqt! You can update your bio in the edit profile section." else ""
+                    profileImageUrl = snapshot.getString("profileImageUrl") ?: "" // 🚨 Fetches the image URL instantly
                     postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
                     followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
                     followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
@@ -122,7 +126,7 @@ fun ProfileScreen(
         onDispose { listener?.remove() }
     }
 
-    // 🚨 3. Optimistic Follow UI (Math updates instantly before DB)
+    // 3. Optimistic Follow UI (Math updates instantly before DB)
     val toggleFollow: () -> Unit = l@{
         if (currentUserId.isBlank()) return@l
 
@@ -159,7 +163,7 @@ fun ProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
-    // 🚨 Pull-to-Refresh Box Setup
+    // Pull-to-Refresh Box Setup
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(pullRefreshState.nestedScrollConnection)) {
         
         Column(
@@ -180,8 +184,18 @@ fun ProfileScreen(
         ) {
             Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
+            // 🚨 Updated Avatar Box with Coil integration
             Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                if (profileImageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = profileImageUrl,
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop // Fits image perfectly into the circle
+                    )
+                } else {
+                    Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -241,7 +255,7 @@ fun ProfileScreen(
 
             val tabTitles = listOf("Collections", "Videos", "Photos")
             
-            // 🚨 4. CONTINUOUS ANIMATED TABS WITH TEXT SCALING
+            // 4. CONTINUOUS ANIMATED TABS WITH TEXT SCALING
             BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                 val tabWidth = maxWidth / 3
                 val exactPage = tabPagerState.currentPage + tabPagerState.currentPageOffsetFraction
@@ -305,7 +319,7 @@ fun ProfileScreen(
         // Pull to refresh UI element
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
 
-        // 🚨 5. FLOATING TOP BAR (Unbolded Text, No @)
+        // 5. FLOATING TOP BAR (Unbolded Text, No @)
         Row(
             modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(top = 16.dp, start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,7 +337,7 @@ fun ProfileScreen(
             // Fixed Typography
             Text(text = displayUsername, fontSize = 20.sp, fontWeight = FontWeight.Normal, color = textColor)
 
-            // 🚨 3-Dot Menu added for other users
+            // 3-Dot Menu added for other users
             Box(
                 modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { if (isOwnProfile) onNavigateToSettings() },
                 contentAlignment = Alignment.Center
