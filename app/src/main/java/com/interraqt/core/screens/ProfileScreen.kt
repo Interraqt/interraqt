@@ -1,6 +1,7 @@
 package com.interraqt.core.screens
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -81,17 +82,20 @@ fun ProfileScreen(
     // Follow State
     var isFollowing by remember { mutableStateOf(false) }
 
-    // 🚨 1. FETCH PROFILE DATA
+    // 🚨 1. FETCH PROFILE DATA (one-time fetch to avoid listener leaks)
     LaunchedEffect(targetUid) {
-        firestore.collection("users").document(targetUid).addSnapshotListener { snapshot, _ ->
-            if (snapshot != null && snapshot.exists()) {
-                displayUsername = snapshot.getString("username") ?: ""
-                displayName = snapshot.getString("name")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Update your name" else "New User"
-                bio = snapshot.getString("bio")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Welcome to Interraqt! You can update your bio in the edit profile section." else ""
-                postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
-                followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
-                followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
-            }
+        if (targetUid.isNotBlank()) {
+            firestore.collection("users").document(targetUid).get()
+                .addOnSuccessListener { snapshot ->
+                    if (snapshot != null && snapshot.exists()) {
+                        displayUsername = snapshot.getString("username") ?: ""
+                        displayName = snapshot.getString("name")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Update your name" else "New User"
+                        bio = snapshot.getString("bio")?.takeIf { it.isNotBlank() } ?: if (isOwnProfile) "Welcome to Interraqt! You can update your bio in the edit profile section." else ""
+                        postsCount = snapshot.getLong("postsCount")?.toInt() ?: 0
+                        followersCount = snapshot.getLong("followersCount")?.toInt() ?: 0
+                        followingCount = snapshot.getLong("followingCount")?.toInt() ?: 0
+                    }
+                }
         }
         
         // If looking at someone else, check if we follow them
@@ -104,6 +108,11 @@ fun ProfileScreen(
 
     // 🚨 2. FOLLOW / UNFOLLOW LOGIC
     val toggleFollow = {
+        if (currentUserId.isBlank()) {
+            Toast.makeText(context, "Please sign in to follow users.", Toast.LENGTH_SHORT).show()
+            return@let
+        }
+
         isFollowing = !isFollowing // Optimistic UI update for instant feedback
         val incrementValue = if (isFollowing) 1L else -1L
 
@@ -309,15 +318,15 @@ fun ProfileScreen(
                     
                     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Image, contentDescription = "Image", tint = primaryBlue, modifier = Modifier.size(28.dp)) }
+                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Image, cont[...] }
                             Text("Image", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Videocam, contentDescription = "Video", tint = primaryBlue, modifier = Modifier.size(28.dp)) }
+                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Videocam, c[...] }
                             Text("Video", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Notes, contentDescription = "Text", tint = primaryBlue, modifier = Modifier.size(28.dp)) }
+                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Notes, cont[...] }
                             Text("Text", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
                         }
                     }
@@ -325,7 +334,7 @@ fun ProfileScreen(
                     OutlinedTextField(
                         value = caption, onValueChange = { caption = it }, placeholder = { Text("Write a caption...") },
                         modifier = Modifier.fillMaxWidth().height(120.dp).padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = primaryBlue, unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f), focusedTextColor = textColor, unfocusedTextColor = textColor)
+                        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = primaryBlue, unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f), focusedTextColor = textColor[...]
                     )
 
                     Button(onClick = { showUploadSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)) { 
