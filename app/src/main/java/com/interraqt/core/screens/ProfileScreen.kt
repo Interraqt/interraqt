@@ -180,7 +180,7 @@ fun ProfileScreen(
             // 🚨 1. BANNER & AVATAR ISOLATED SECTION 🚨
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 
-                // Background Banner (Now strictly locked behind the avatar)
+                // Background Banner (Strictly locked behind the avatar)
                 if (bannerImageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -195,9 +195,13 @@ fun ProfileScreen(
                                 drawContent()
                                 drawRect(
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, bgColor), // Fades beautifully to solid app theme color
-                                        startY = size.height * 0.4f, // Strong fade starts exactly mid-avatar
-                                        endY = size.height // Completely solid by the bottom edge
+                                        colors = listOf(
+                                            Color.Transparent,          // TOP: Image is 100% visible
+                                            bgColor.copy(alpha = 0.8f), // MIDDLE: Creates a strong 80% shadow behind the avatar
+                                            bgColor                     // BOTTOM: Fades out completely to solid background color
+                                        ),
+                                        startY = 0f,                    // Fade smoothly starts from the very top
+                                        endY = size.height              // Completely solid by the bottom edge
                                     )
                                 )
                             }
@@ -225,7 +229,6 @@ fun ProfileScreen(
                     }
 
                     // This gap controls where the banner ends. 
-                    // 24.dp allows the feathering to perfectly wrap under the avatar.
                     Spacer(modifier = Modifier.height(24.dp)) 
                 }
             }
