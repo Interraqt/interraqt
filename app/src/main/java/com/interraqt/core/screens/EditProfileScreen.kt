@@ -1,7 +1,11 @@
 package com.interraqt.core.screens
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,20 +38,30 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextRange // 🚨 Added for forcing cursor position
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage // 🚨 Added Coil
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -78,6 +92,10 @@ fun EditProfileScreen(
     var username by remember { mutableStateOf(TextFieldValue("")) }
     var bio by remember { mutableStateOf(TextFieldValue("")) }
     
+    // 🚨 IMAGE UPLOAD STATES
+    var profileImageUrl by remember { mutableStateOf("") }
+    var isUploadingImage by remember { mutableStateOf(false) }
+    
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
 
@@ -106,6 +124,8 @@ fun EditProfileScreen(
                 displayName = TextFieldValue(doc.getString("name")?.takeIf { it.isNotBlank() } ?: "Update your name")
                 username = TextFieldValue(doc.getString("username") ?: "")
                 bio = TextFieldValue(doc.getString("bio")?.takeIf { it.isNotBlank() } ?: "Welcome to Interraqt! You can update your bio in the edit profile section.")
+                // 🚨 Load existing profile picture
+                profileImageUrl = doc.getString("profileImageUrl") ?: ""
                 isLoading = false
             }.addOnFailureListener {
                 isLoading = false
@@ -113,6 +133,30 @@ fun EditProfileScreen(
             }
         }
     }
+
+    // 🚨 IMGBB UPLOAD LOGIC
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                isUploadingImage = true
+                coroutineScope.launch {
+                    val url = uploadImageToImgbb(context, uri, "5433cd544443d393fe4dedcf078bac4c")
+                    if (url != null) {
+                        profileImageUrl = url
+                        // Instantly update Firestore so it's not lost
+                        currentUser?.uid?.let { uid ->
+                            firestore.collection("users").document(uid).update("profileImageUrl", url)
+                        }
+                        Toast.makeText(context, "Profile picture updated!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Failed to upload image", Toast.LENGTH_SHORT).show()
+                    }
+                    isUploadingImage = false
+                }
+            }
+        }
+    )
 
     val saveProfile: () -> Unit = {
         if (displayName.text.length > 24) {
@@ -127,7 +171,8 @@ fun EditProfileScreen(
                 val updates = hashMapOf<String, Any>(
                     "name" to displayName.text.trim(),
                     "username" to username.text.trim().lowercase(),
-                    "bio" to bio.text.trim()
+                    "bio" to bio.text.trim(),
+                    "profileImageUrl" to profileImageUrl // Also save here for redundancy
                 )
                 firestore.collection("users").document(uid).update(updates)
                     .addOnSuccessListener {
@@ -177,12 +222,37 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
                 Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    // 🚨 AVATAR DISPLAY 
                     Box(modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                        if (profileImageUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = profileImageUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop // Fits image perfectly into the circle
+                            )
+                        } else {
+                            Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                        }
+
+                        // Overlay a loading spinner if uploading
+                        if (isUploadingImage) {
+                            Box(
+                                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(30.dp))
+                            }
+                        }
                     }
+                    
+                    // 🚨 CAMERA BUTTON
                     Box(
                         modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
-                            .clickable { Toast.makeText(context, "ImgBB upload coming soon!", Toast.LENGTH_SHORT).show() },
+                            .clickable {
+                                // Launch the native Android gallery picker
+                                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = "Change Photo", tint = Color.White, modifier = Modifier.size(16.dp))
@@ -191,9 +261,6 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // ==========================================
-                // 🚨 NAME FIELD
-                // ==========================================
                 Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 SmartCursorTextField(
                     value = displayName,
@@ -209,9 +276,6 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // ==========================================
-                // 🚨 USERNAME FIELD
-                // ==========================================
                 Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 SmartCursorTextField(
                     value = username,
@@ -227,9 +291,6 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // ==========================================
-                // 🚨 BIO FIELD
-                // ==========================================
                 Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 SmartCursorTextField(
                     value = bio,
@@ -276,7 +337,48 @@ fun EditProfileScreen(
 }
 
 // ====================================================================================
-// 🚨 THE SMART CURSOR STATE MACHINE
+// 🚨 IMGBB NETWORK UPLOAD FUNCTION
+// ====================================================================================
+suspend fun uploadImageToImgbb(context: android.content.Context, uri: Uri, apiKey: String): String? = withContext(Dispatchers.IO) {
+    try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val bytes = inputStream?.readBytes()
+        inputStream?.close()
+
+        if (bytes != null) {
+            val client = OkHttpClient()
+            
+            val requestBody = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("key", apiKey)
+                .addFormDataPart(
+                    "image", 
+                    "profile_pic.jpg",
+                    bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                )
+                .build()
+
+            val request = Request.Builder()
+                .url("https://api.imgbb.com/1/upload")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string()
+                val jsonObject = JSONObject(responseBody ?: "")
+                val data = jsonObject.getJSONObject("data")
+                return@withContext data.getString("url") // Returns the live image link!
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return@withContext null
+}
+
+// ====================================================================================
+// THE SMART CURSOR STATE MACHINE
 // ====================================================================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -296,18 +398,14 @@ fun SmartCursorTextField(
     
     var showHandle by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
-    
-    // 🚨 FIRST TAP INTERCEPTOR: Forces cursor to the end
     var forceCursorToEnd by remember { mutableStateOf(false) }
 
-    // INSTANT SECOND-TAP LOGIC
     LaunchedEffect(isPressed) {
         if (isPressed && isFocused && !forceCursorToEnd) {
             showHandle = true
         }
     }
 
-    // 10-SECOND GHOST TIMER
     LaunchedEffect(showHandle, value.selection) {
         if (showHandle) {
             delay(10000)
@@ -327,14 +425,12 @@ fun SmartCursorTextField(
                 if (newValue.text.length <= maxLength) {
                     var finalValue = newValue
                     
-                    // 🚨 If this is the first tap, intercept and snap to the end!
                     if (forceCursorToEnd) {
                         finalValue = finalValue.copy(selection = TextRange(finalValue.text.length))
-                        forceCursorToEnd = false // Turn off interceptor until next time box loses focus
+                        forceCursorToEnd = false 
                     }
 
                     val textChanged = finalValue.text != value.text
-                    // TYPING INTERRUPTION
                     if (textChanged) {
                         showHandle = false 
                     }
@@ -344,13 +440,12 @@ fun SmartCursorTextField(
             interactionSource = interactionSource,
             modifier = modifier.onFocusChanged { state ->
                 if (state.isFocused && !isFocused) {
-                    // The exact moment the box gets focus, flag the interceptor
                     forceCursorToEnd = true
                     showHandle = false
                 }
                 if (!state.isFocused) {
                     showHandle = false
-                    forceCursorToEnd = false // Safety reset
+                    forceCursorToEnd = false 
                 }
                 isFocused = state.isFocused
             },
