@@ -73,8 +73,8 @@ fun EditProfileScreen(
         }
     }
 
-    // 🚨 2. SAVE DATA LOGIC
-    val saveProfile = {
+    // 🚨 2. SAVE DATA LOGIC (Fixed for Kotlin compiler)
+    val saveProfile: () -> Unit = {
         if (displayName.length > 24) {
             Toast.makeText(context, "Name cannot exceed 24 characters", Toast.LENGTH_SHORT).show()
         } else if (bio.length > 100) {
@@ -120,7 +120,7 @@ fun EditProfileScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = -12.dp)) {
+                    IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = (-12).dp)) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
                     }
                     Text("Edit Profile", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
