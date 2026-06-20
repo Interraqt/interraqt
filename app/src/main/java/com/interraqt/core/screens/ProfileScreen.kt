@@ -45,7 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest // 🚨 Added for robust URL loading
+import coil.request.ImageRequest 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -176,10 +176,11 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 🚨 PERFECT GAP-FREE LAYOUT
+            
+            // 🚨 1. BANNER & AVATAR ISOLATED SECTION 🚨
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 
-                // Background Banner
+                // Background Banner (Now strictly locked behind the avatar)
                 if (bannerImageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -189,21 +190,21 @@ fun ProfileScreen(
                         contentDescription = "Banner",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .matchParentSize() // 🚨 Locks height perfectly to the content below, preventing massive gaps!
+                            .matchParentSize() 
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, bgColor),
-                                        startY = size.height * 0.4f, 
-                                        endY = size.height
+                                        colors = listOf(Color.Transparent, bgColor), // Fades beautifully to solid app theme color
+                                        startY = size.height * 0.4f, // Strong fade starts exactly mid-avatar
+                                        endY = size.height // Completely solid by the bottom edge
                                     )
                                 )
                             }
                     )
                 }
 
-                // Foreground Content (Avatar, Name, Bio)
+                // Foreground Content (Avatar ONLY)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -223,18 +224,21 @@ fun ProfileScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
-                    if (bio.isNotEmpty()) {
-                        Text(text = bio, fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp), textAlign = TextAlign.Center)
-                    }
-                    
-                    // Spacer included inside the layout so the banner perfectly covers this area!
-                    Spacer(modifier = Modifier.height(32.dp)) 
+                    // This gap controls where the banner ends. 
+                    // 24.dp allows the feathering to perfectly wrap under the avatar.
+                    Spacer(modifier = Modifier.height(24.dp)) 
                 }
             }
 
-            // --- STATS ROW (Original Spacing Restored) ---
+            // 🚨 2. TEXT SECTION (Safely decoupled, sitting on solid background) 🚨
+            Text(text = displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
+            if (bio.isNotEmpty()) {
+                Text(text = bio, fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp), textAlign = TextAlign.Center)
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp)) 
+
+            // --- STATS ROW ---
             val dividerBrush = Brush.verticalGradient(listOf(Color.Transparent, subTextColor.copy(alpha = 0.4f), Color.Transparent))
 
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
