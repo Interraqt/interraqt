@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.gms.google-services") // Added Google Services Plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -47,7 +47,12 @@ dependencies {
     val media3Version = "1.2.1"
     implementation("androidx.media3:media3-exoplayer:$media3Version")
     implementation("androidx.media3:media3-ui:$media3Version")
+    
+    // 🚨 Coil for instant image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
+    
+    // 🚨 OkHttp for ImgBB API Uploads
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Firebase Engine & Database
     implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
