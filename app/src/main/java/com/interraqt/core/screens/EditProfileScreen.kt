@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,8 +20,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,31 +46,36 @@ fun EditProfileScreen(
     val firestore = FirebaseFirestore.getInstance()
     val currentUser = auth.currentUser
 
+    // 🚨 Keyboard & Focus Managers
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     val isDark = isSystemInDarkTheme()
     
-    // 🚨 HYBRID THEME
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328)
 
-    // Form States
     var displayName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var bio by remember { mutableStateOf("") }
     
-    // Loading States
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
 
+    // 🚨 FADE MATH SETUP
+    val density = LocalDensity.current
+    val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
+    val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
+
     BackHandler { onNavigateBack() }
 
-    // 🚨 1. FETCH CURRENT DATA ON LOAD
     LaunchedEffect(Unit) {
         currentUser?.uid?.let { uid ->
             firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
-                // Uses the placeholder strings if the fields are empty
                 displayName = doc.getString("name")?.takeIf { it.isNotBlank() } ?: "Update your name"
                 username = doc.getString("username") ?: ""
                 bio = doc.getString("bio")?.takeIf { it.isNotBlank() } ?: "Welcome to Interraqt! You can update your bio in the edit profile section."
@@ -73,7 +87,6 @@ fun EditProfileScreen(
         }
     }
 
-    // 🚨 2. SAVE DATA LOGIC (Fixed for Kotlin compiler)
     val saveProfile: () -> Unit = {
         if (displayName.length > 24) {
             Toast.makeText(context, "Name cannot exceed 24 characters", Toast.LENGTH_SHORT).show()
@@ -93,7 +106,7 @@ fun EditProfileScreen(
                     .addOnSuccessListener {
                         isSaving = false
                         Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
-                        onNavigateBack() // Go back to profile screen
+                        onNavigateBack() 
                     }
                     .addOnFailureListener {
                         isSaving = false
@@ -103,39 +116,42 @@ fun EditProfileScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
+    // 🚨 1. DISMISS KEYBOARD ON TAP OUTSIDE
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgColor)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                })
+            }
+    ) {
         if (isLoading) {
             CircularProgressIndicator(color = primaryOrange, modifier = Modifier.align(Alignment.Center))
         } else {
+            // 🚨 2. THE SCROLLING FORM
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(horizontal = 24.dp)
+                    .imePadding() // 🚨 Lifts UI automatically when keyboard opens
+                    .graphicsLayer { alpha = 0.99f } 
+                    .drawWithContent {
+                        val gradient = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black),
+                            startY = 0f,
+                            endY = fadeEndPx 
+                        )
+                        drawContent()
+                        drawRect(brush = gradient, blendMode = BlendMode.DstIn)
+                    }
                     .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
             ) {
-                // --- TOP BAR ---
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = (-12).dp)) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
-                    }
-                    Text("Edit Profile", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
-                    if (isSaving) {
-                        CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(24.dp))
-                    } else {
-                        TextButton(onClick = saveProfile) {
-                            Text("Save", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                    }
-                }
+                // Spacer pushes content safely below the pinned top bar
+                Spacer(modifier = Modifier.height(statusBarHeightDp + 80.dp))
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // --- PROFILE PICTURE COMPONENT ---
                 Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Box(
                         modifier = Modifier.size(100.dp).clip(CircleShape).background(surfaceColor),
@@ -150,7 +166,6 @@ fun EditProfileScreen(
                             .clip(CircleShape)
                             .background(primaryOrange)
                             .clickable {
-                                // 🚨 IMGBB INTEGRATION PLACEHOLDER
                                 Toast.makeText(context, "ImgBB upload coming soon!", Toast.LENGTH_SHORT).show()
                             },
                         contentAlignment = Alignment.Center
@@ -161,7 +176,6 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // --- NAME FIELD (Max 24) ---
                 Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 OutlinedTextField(
                     value = displayName,
@@ -178,7 +192,6 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // --- USERNAME FIELD ---
                 Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 OutlinedTextField(
                     value = username,
@@ -194,7 +207,6 @@ fun EditProfileScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // --- BIO FIELD (Max 100) ---
                 Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                 OutlinedTextField(
                     value = bio,
@@ -208,7 +220,34 @@ fun EditProfileScreen(
                     supportingText = { Text("${bio.length}/100", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.End) }
                 )
 
+                // Extra space at bottom ensures smooth scroll clearance
                 Spacer(modifier = Modifier.height(40.dp))
+            }
+            
+            // 🚨 3. THE PINNED TOP BAR (Placed after the Column so it floats on top)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = (-12).dp)) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
+                }
+                Text("Edit Profile", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
+                if (isSaving) {
+                    CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(24.dp))
+                } else {
+                    TextButton(onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        saveProfile()
+                    }) {
+                        Text("Save", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                }
             }
         }
     }
