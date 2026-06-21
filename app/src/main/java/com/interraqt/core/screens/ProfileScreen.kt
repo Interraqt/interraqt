@@ -164,9 +164,6 @@ fun ProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
-    // 🚨 DYNAMIC WAKE-UP LOGIC (LATER TRIGGER)
-    // < 120px scroll = mask is completely invisible. 
-    // 120px to 180px scroll = mask activates smoothly as the faded banner hits the top!
     val scrollValue = scrollState.value.toFloat()
     val topColorAlpha = when {
         scrollValue < 120f -> 0f
@@ -211,8 +208,8 @@ fun ProfileScreen(
                                     brush = Brush.verticalGradient(
                                         0.0f to Color.Transparent,          // Top: 100% Clear
                                         0.70f to Color.Transparent,         // Stays completely clear down to 70%
-                                        0.85f to bgColor.copy(alpha = 0.6f),// Smoothly feathers to 60% darkness
-                                        1.0f to bgColor,                    // Finishes softly at 100% background color
+                                        0.85f to bgColor.copy(alpha = 0.9f),// Feathers deeply into 90% darkness
+                                        1.0f to bgColor,                    // Finishes flawlessly at 100% solid background
                                         startY = 0f, 
                                         endY = size.height 
                                     )
