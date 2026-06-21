@@ -91,8 +91,10 @@ fun ProfileScreen(
 
     BackHandler { if (!isOwnProfile) onNavigateBack?.invoke() }
 
+    // 🚨 Extracted scrollState to use dynamically for math
     var refreshKey by remember { mutableIntStateOf(0) }
     val pullRefreshState = rememberPullToRefreshState()
+    val scrollState = rememberScrollState()
 
     if (pullRefreshState.isRefreshing) {
         LaunchedEffect(true) {
@@ -163,24 +165,39 @@ fun ProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
+    // 🚨 DYNAMIC WAKE-UP LOGIC FOR TOP STATUS BAR
+    // < 40px scroll = mask is invisible (alpha 0)
+    // 40px to 80px scroll = mask smoothly activates (0 to 1)
+    val scrollValue = scrollState.value.toFloat()
+    val topColorAlpha = when {
+        scrollValue < 40f -> 0f
+        scrollValue > 80f -> 1f
+        else -> (scrollValue - 40f) / 40f
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(pullRefreshState.nestedScrollConnection)) {
         
         Column(
             modifier = Modifier.fillMaxSize()
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
-                    val gradient = Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black), startY = 0f, endY = fadeEndPx)
+                    // Applies the dynamic math to exactly erase the top only during a scroll
+                    val gradient = Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 1f - topColorAlpha), Color.Black), 
+                        startY = 0f, 
+                        endY = fadeEndPx
+                    )
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 }
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState), // 🚨 Used hoisted scrollState
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             
             // 🚨 1. BANNER & AVATAR ISOLATED SECTION 🚨
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 
-                // Background Banner (Now strictly locked behind the avatar)
+                // Background Banner 
                 if (bannerImageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -194,10 +211,14 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
+                                    // 🚨 PRECISE "SUNGLASSES" COLOR STOPS
                                     brush = Brush.verticalGradient(
-                                        colors = listOf(Color.Transparent, bgColor), // Fades beautifully to solid app theme color
-                                        startY = size.height * 0.6f, // Strong fade starts exactly mid-avatar
-                                        endY = size.height // Completely solid by the bottom edge
+                                        0.0f to Color.Transparent,          // Top: 100% Clear
+                                        0.55f to Color.Transparent,         // Remains 100% Clear until 55% height
+                                        0.55f to bgColor.copy(alpha = 0.4f),// Instantly jumps to 40% darkness at 55% mark
+                                        1.0f to bgColor,                    // Smoothly hits 100% darkness by the bottom edge
+                                        startY = 0f, 
+                                        endY = size.height 
                                     )
                                 )
                             }
@@ -225,7 +246,6 @@ fun ProfileScreen(
                     }
 
                     // This gap controls where the banner ends. 
-                    // 24.dp allows the feathering to perfectly wrap under the avatar.
                     Spacer(modifier = Modifier.height(24.dp)) 
                 }
             }
