@@ -204,12 +204,13 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 SMOOTH FEATHER LOGIC 🚨
+                                    // 🚨 BUTTER SMOOTH FEATHER LOGIC 🚨
                                     brush = Brush.verticalGradient(
                                         0.0f to Color.Transparent,          // Top: 100% Clear
-                                        0.70f to Color.Transparent,         // Stays completely clear down to 70%
-                                        0.85f to bgColor.copy(alpha = 0.9f),// Feathers deeply into 90% darkness
-                                        1.0f to bgColor,                    // Finishes flawlessly at 100% solid background
+                                        0.55f to Color.Transparent,         // Stays perfectly clear until 55%
+                                        0.75f to bgColor.copy(alpha = 0.4f),// Very soft, invisible start to the shadow
+                                        0.90f to bgColor.copy(alpha = 0.8f),// Deepens smoothly
+                                        1.0f to bgColor,                    // Flawlessly melts into the solid background
                                         startY = 0f, 
                                         endY = size.height 
                                     )
