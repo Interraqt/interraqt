@@ -207,12 +207,13 @@ fun ProfileScreen(
                                 onSuccess = { _, result ->
                                     val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
                                     bitmap?.let { b ->
-                                        Palette.from(b).generate { palette ->
-                                            // 🚨 Finds the most prominent color in the banner
+                                        // 🚨 DYNAMIC FIX: Only scan the top 25% of the image (the sky/top area)
+                                        val topHeight = (b.height * 0.25).toInt().coerceAtLeast(1)
+                                        Palette.from(b).setRegion(0, 0, b.width, topHeight).generate { palette ->
                                             val dominantSwatch = palette?.dominantSwatch ?: palette?.vibrantSwatch ?: palette?.mutedSwatch
                                             dominantSwatch?.rgb?.let { color ->
                                                 val luminance = ColorUtils.calculateLuminance(color)
-                                                // If image is bright (luminance > 0.5), use Black text. If dark, use White text.
+                                                // If sky is bright (luminance > 0.5), use Black icons. If dark, use White icons.
                                                 topBarIconTint = if (luminance > 0.5) Color.Black else Color.White
                                             }
                                         }
@@ -228,15 +229,17 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 BUTTERY SMOOTH LINEAR FADE (Removed the middle stair-step)
+                                    // 🚨 GRADIENT FIX: Smoothly paints background color without eraser bands
                                     brush = Brush.verticalGradient(
-                                        0.0f to Color.Black,          // Top stays 100% visible
-                                        0.60f to Color.Black,         // Solid down to 60% (just behind the avatar)
-                                        1.0f to Color.Transparent,    // Performs one long, smooth gradient to 100% invisible
+                                        0.00f to Color.Transparent,          // Top 40% perfectly clear
+                                        0.40f to Color.Transparent,
+                                        0.60f to bgColor.copy(alpha = 0.15f), // Very gentle start to the fade
+                                        0.75f to bgColor.copy(alpha = 0.6f),  // Smoothly darkens behind avatar
+                                        0.95f to bgColor,                    // Hits solid background right at the end
+                                        1.00f to bgColor,                    // Forces final edge solid to kill the 1-px line
                                         startY = 0f, 
                                         endY = size.height 
-                                    ),
-                                    blendMode = BlendMode.DstIn
+                                    )
                                 )
                             }
                     )
@@ -397,11 +400,9 @@ fun ProfileScreen(
                 },
                 contentAlignment = Alignment.Center
             ) { 
-                // 🚨 Dynamic Palette tint applied
                 Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = topBarIconTint, modifier = Modifier.size(24.dp)) 
             }
 
-            // 🚨 Dynamic Palette color applied
             Text(text = displayUsername, fontSize = 20.sp, fontWeight = FontWeight.Normal, color = topBarIconTint)
 
             Box(
@@ -410,12 +411,10 @@ fun ProfileScreen(
             ) {
                 if (isOwnProfile) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        // 🚨 Dynamic Palette tint applied
                         Box(modifier = Modifier.width(18.dp).height(2.dp).background(topBarIconTint, RoundedCornerShape(1.dp)))
                         Box(modifier = Modifier.width(18.dp).height(2.dp).background(topBarIconTint, RoundedCornerShape(1.dp)))
                     }
                 } else {
-                    // 🚨 Dynamic Palette tint applied
                     Icon(Icons.Default.MoreVert, contentDescription = "More", tint = topBarIconTint, modifier = Modifier.size(24.dp))
                 }
             }
