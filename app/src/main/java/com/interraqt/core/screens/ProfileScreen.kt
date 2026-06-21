@@ -70,6 +70,9 @@ fun ProfileScreen(
     val primaryOrange = Color(0xFFFF6328) 
     val primaryBlue = Color(0xFF0B57D0) 
     val glassColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
+    
+    // Dynamic protection color for the top bar
+    val topBarProtectionColor = if (isDark) Color.Black else Color.White
 
     val auth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
@@ -201,19 +204,23 @@ fun ProfileScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .matchParentSize() 
+                            // 🚨 This layer is strictly required for the eraser effect to work properly
+                            .graphicsLayer { alpha = 0.99f } 
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 BUTTER SMOOTH FEATHER LOGIC 🚨
+                                    // 🚨 THE ERASER EFFECT (BlendMode.DstIn)
+                                    // Black = 100% visible image. Transparent = image is erased.
                                     brush = Brush.verticalGradient(
-                                        0.0f to Color.Transparent,          // Top: 100% Clear
-                                        0.55f to Color.Transparent,         // Stays perfectly clear until 55%
-                                        0.75f to bgColor.copy(alpha = 0.4f),// Very soft, invisible start to the shadow
-                                        0.90f to bgColor.copy(alpha = 0.8f),// Deepens smoothly
-                                        1.0f to bgColor,                    // Flawlessly melts into the solid background
+                                        0.0f to Color.Black,                     // Top: 100% visible
+                                        0.55f to Color.Black,                    // Stays 100% visible until 55%
+                                        0.75f to Color.Black.copy(alpha = 0.6f), // Starts to gently erase
+                                        0.90f to Color.Black.copy(alpha = 0.1f), // Mostly erased (shadow effect)
+                                        1.0f to Color.Transparent,               // 100% transparent at bottom
                                         startY = 0f, 
                                         endY = size.height 
-                                    )
+                                    ),
+                                    blendMode = BlendMode.DstIn // This makes it an eraser instead of a paintbrush
                                 )
                             }
                     )
@@ -359,8 +366,19 @@ fun ProfileScreen(
 
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
 
+        // 🚨 PROTECTIVE TOP BAR ROW 🚨
         Row(
-            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(top = 16.dp, start = 16.dp, end = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                // The protective shadow gradient (adjusts automatically based on light/dark mode)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(topBarProtectionColor.copy(alpha = 0.6f), Color.Transparent)
+                    )
+                )
+                .statusBarsPadding()
+                // Added bottom padding to let the protective shadow stretch nicely past the icons
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
