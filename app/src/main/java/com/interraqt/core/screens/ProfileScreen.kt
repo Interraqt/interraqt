@@ -212,8 +212,8 @@ fun ProfileScreen(
                                         0.0f to Color.Transparent, // Top: 100% clear
                                         0.55f to Color.Transparent, // Stays completely clear until the middle
                                         0.65f to bgColor.copy(alpha = 0.25f),
-                                        0.85f to bgColor.copy(alpha = 0.75f),
-                                        0.95f to bgColor.copy(alpha = 0.95f),
+                                        0.85f to bgColor.copy(alpha = 0.85f),
+                                        0.95f to bgColor.copy(alpha = 0.98f),
                                         1.0f to bgColor, // Very smoothly hits 100% solid background color at the very bottom
                                         startY = 0f, 
                                         endY = size.height 
