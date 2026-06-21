@@ -91,7 +91,6 @@ fun ProfileScreen(
 
     BackHandler { if (!isOwnProfile) onNavigateBack?.invoke() }
 
-    // 🚨 Extracted scrollState to use dynamically for math
     var refreshKey by remember { mutableIntStateOf(0) }
     val pullRefreshState = rememberPullToRefreshState()
     val scrollState = rememberScrollState()
@@ -165,14 +164,14 @@ fun ProfileScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fadeEndPx = statusBarHeightPx + with(density) { 120.dp.toPx() }
 
-    // 🚨 DYNAMIC WAKE-UP LOGIC FOR TOP STATUS BAR
-    // < 40px scroll = mask is invisible (alpha 0)
-    // 40px to 80px scroll = mask smoothly activates (0 to 1)
+    // 🚨 DYNAMIC WAKE-UP LOGIC (LATER TRIGGER)
+    // < 120px scroll = mask is completely invisible. 
+    // 120px to 180px scroll = mask activates smoothly as the faded banner hits the top!
     val scrollValue = scrollState.value.toFloat()
     val topColorAlpha = when {
-        scrollValue < 40f -> 0f
-        scrollValue > 80f -> 1f
-        else -> (scrollValue - 40f) / 40f
+        scrollValue < 120f -> 0f
+        scrollValue > 180f -> 1f
+        else -> (scrollValue - 120f) / 60f
     }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(pullRefreshState.nestedScrollConnection)) {
@@ -181,7 +180,6 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxSize()
                 .graphicsLayer { alpha = 0.99f } 
                 .drawWithContent {
-                    // Applies the dynamic math to exactly erase the top only during a scroll
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Black.copy(alpha = 1f - topColorAlpha), Color.Black), 
                         startY = 0f, 
@@ -190,14 +188,12 @@ fun ProfileScreen(
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 }
-                .verticalScroll(scrollState), // 🚨 Used hoisted scrollState
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             
-            // 🚨 1. BANNER & AVATAR ISOLATED SECTION 🚨
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 
-                // Background Banner 
                 if (bannerImageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -211,12 +207,12 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 PRECISE "SUNGLASSES" COLOR STOPS
+                                    // 🚨 SMOOTH FEATHER LOGIC 🚨
                                     brush = Brush.verticalGradient(
                                         0.0f to Color.Transparent,          // Top: 100% Clear
-                                        0.55f to Color.Transparent,         // Remains 100% Clear until 55% height
-                                        0.55f to bgColor.copy(alpha = 0.4f),// Instantly jumps to 40% darkness at 55% mark
-                                        1.0f to bgColor,                    // Smoothly hits 100% darkness by the bottom edge
+                                        0.70f to Color.Transparent,         // Stays completely clear down to 70%
+                                        0.85f to bgColor.copy(alpha = 0.6f),// Smoothly feathers to 60% darkness
+                                        1.0f to bgColor,                    // Finishes softly at 100% background color
                                         startY = 0f, 
                                         endY = size.height 
                                     )
@@ -225,7 +221,6 @@ fun ProfileScreen(
                     )
                 }
 
-                // Foreground Content (Avatar ONLY)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -245,12 +240,10 @@ fun ProfileScreen(
                         }
                     }
 
-                    // This gap controls where the banner ends. 
                     Spacer(modifier = Modifier.height(24.dp)) 
                 }
             }
 
-            // 🚨 2. TEXT SECTION (Safely decoupled, sitting on solid background) 🚨
             Text(text = displayName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
             if (bio.isNotEmpty()) {
                 Text(text = bio, fontSize = 14.sp, color = subTextColor, modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp), textAlign = TextAlign.Center)
@@ -258,7 +251,6 @@ fun ProfileScreen(
             
             Spacer(modifier = Modifier.height(32.dp)) 
 
-            // --- STATS ROW ---
             val dividerBrush = Brush.verticalGradient(listOf(Color.Transparent, subTextColor.copy(alpha = 0.4f), Color.Transparent))
 
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
