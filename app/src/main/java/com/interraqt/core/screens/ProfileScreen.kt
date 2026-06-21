@@ -203,18 +203,21 @@ fun ProfileScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .matchParentSize() 
+                            // 🚨 This layer is strictly required for the eraser effect to work properly
+                            .graphicsLayer { alpha = 0.99f } 
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 FLAWLESS GRADIENT OVERLAY (No Eraser)
-                                    // Smoothly transitions from perfectly clear to the solid app background color.
+                                    // 🚨 THE HYBRID ERASER
+                                    // Black = 100% visible image. Transparent = 100% erased.
                                     brush = Brush.verticalGradient(
-                                        0.0f to Color.Transparent, // Top: 100% clear
-                                        0.50f to Color.Transparent, // Stays completely clear until the middle
-                                        1.0f to bgColor, // Very smoothly hits 100% solid background color at the very bottom
+                                        0.0f to Color.Black,         // Top half: perfectly visible
+                                        0.50f to Color.Black,        // Middle: still perfectly visible
+                                        1.0f to Color.Transparent,   // Bottom: smoothly and completely erased
                                         startY = 0f, 
                                         endY = size.height 
-                                    )
+                                    ),
+                                    blendMode = BlendMode.DstIn      // This makes it act as an eraser
                                 )
                             }
                     )
