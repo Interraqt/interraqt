@@ -1,7 +1,6 @@
 package com.interraqt.core.screens
 
 import android.content.Intent
-import android.graphics.drawable.BitmapDrawable
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
@@ -45,8 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.ColorUtils
-import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import coil.request.ImageRequest 
 import com.google.firebase.auth.FirebaseAuth
@@ -73,9 +70,9 @@ fun ProfileScreen(
     val primaryOrange = Color(0xFFFF6328) 
     val primaryBlue = Color(0xFF0B57D0) 
     val glassColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
-   
-    // 🚨 State to hold the dynamic Top Bar color (defaults to standard text color)
-    var topBarIconTint by remember(isDark) { mutableStateOf(textColor) }
+    
+    // Dynamic protection color for the top bar
+    val topBarProtectionColor = if (isDark) Color.Black else Color.White
 
     val auth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
@@ -202,44 +199,28 @@ fun ProfileScreen(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(bannerImageUrl)
                             .crossfade(true)
-                            .allowHardware(false) // 🚨 Required for Palette API to read the pixels!
-                            .listener(
-                                onSuccess = { _, result ->
-                                    val bitmap = (result.drawable as? BitmapDrawable)?.bitmap
-                                    bitmap?.let { b ->
-                                        // 🚨 DYNAMIC FIX: Only scan the top 25% of the image (the sky/top area)
-                                        val topHeight = (b.height * 0.25).toInt().coerceAtLeast(1)
-                                        Palette.from(b).setRegion(0, 0, b.width, topHeight).generate { palette ->
-                                            val dominantSwatch = palette?.dominantSwatch ?: palette?.vibrantSwatch ?: palette?.mutedSwatch
-                                            dominantSwatch?.rgb?.let { color ->
-                                                val luminance = ColorUtils.calculateLuminance(color)
-                                                // If sky is bright (luminance > 0.5), use Black icons. If dark, use White icons.
-                                                topBarIconTint = if (luminance > 0.5) Color.Black else Color.White
-                                            }
-                                        }
-                                    }
-                                }
-                            )
                             .build(),
                         contentDescription = "Banner",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .matchParentSize() 
+                            // 🚨 This layer is strictly required for the eraser effect to work properly
                             .graphicsLayer { alpha = 0.99f } 
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 GRADIENT FIX: Smoothly paints background color without eraser bands
+                                    // 🚨 THE ERASER EFFECT (BlendMode.DstIn)
+                                    // Black = 100% visible image. Transparent = image is erased.
                                     brush = Brush.verticalGradient(
-                                        0.00f to Color.Transparent,          // Top 40% perfectly clear
-                                        0.40f to Color.Transparent,
-                                        0.60f to bgColor.copy(alpha = 0.15f), // Very gentle start to the fade
-                                        0.75f to bgColor.copy(alpha = 0.6f),  // Smoothly darkens behind avatar
-                                        0.95f to bgColor,                    // Hits solid background right at the end
-                                        1.00f to bgColor,                    // Forces final edge solid to kill the 1-px line
+                                        0.0f to Color.Black,                     // Top: 100% visible
+                                        0.55f to Color.Black,                    // Stays 100% visible until 55%
+                                        0.75f to Color.Black.copy(alpha = 0.6f), // Starts to gently erase
+                                        0.90f to Color.Black.copy(alpha = 0.1f), // Mostly erased (shadow effect)
+                                        1.0f to Color.Transparent,               // 100% transparent at bottom
                                         startY = 0f, 
                                         endY = size.height 
-                                    )
+                                    ),
+                                    blendMode = BlendMode.DstIn // This makes it an eraser instead of a paintbrush
                                 )
                             }
                     )
@@ -385,11 +366,18 @@ fun ProfileScreen(
 
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
 
-        // 🚨 TOP BAR ROW 🚨
+        // 🚨 PROTECTIVE TOP BAR ROW 🚨
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // The protective shadow gradient (adjusts automatically based on light/dark mode)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(topBarProtectionColor.copy(alpha = 0.6f), Color.Transparent)
+                    )
+                )
                 .statusBarsPadding()
+                // Added bottom padding to let the protective shadow stretch nicely past the icons
                 .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -400,10 +388,10 @@ fun ProfileScreen(
                 },
                 contentAlignment = Alignment.Center
             ) { 
-                Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = topBarIconTint, modifier = Modifier.size(24.dp)) 
+                Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = textColor, modifier = Modifier.size(24.dp)) 
             }
 
-            Text(text = displayUsername, fontSize = 20.sp, fontWeight = FontWeight.Normal, color = topBarIconTint)
+            Text(text = displayUsername, fontSize = 20.sp, fontWeight = FontWeight.Normal, color = textColor)
 
             Box(
                 modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { if (isOwnProfile) onNavigateToSettings() },
@@ -411,11 +399,11 @@ fun ProfileScreen(
             ) {
                 if (isOwnProfile) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.width(18.dp).height(2.dp).background(topBarIconTint, RoundedCornerShape(1.dp)))
-                        Box(modifier = Modifier.width(18.dp).height(2.dp).background(topBarIconTint, RoundedCornerShape(1.dp)))
+                        Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
+                        Box(modifier = Modifier.width(18.dp).height(2.dp).background(textColor, RoundedCornerShape(1.dp)))
                     }
                 } else {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = topBarIconTint, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.MoreVert, contentDescription = "More", tint = textColor, modifier = Modifier.size(24.dp))
                 }
             }
         }
