@@ -203,21 +203,18 @@ fun ProfileScreen(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .matchParentSize() 
-                            // 🚨 This layer is strictly required for the eraser effect to work properly
-                            .graphicsLayer { alpha = 0.99f } 
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 95% EARLY-STOP ERASER
+                                    // 🚨 FLAWLESS GRADIENT OVERLAY (No Eraser)
+                                    // Smoothly transitions from perfectly clear to the solid app background color.
                                     brush = Brush.verticalGradient(
-                                        0.0f to Color.Black,        // 0% to 70%: 100% visible
-                                        0.70f to Color.Black,       // Start fading smoothly at exactly 70%
-                                        0.95f to Color.Transparent, // 95%: 100% fully erased (transparent)
-                                        1.0f to Color.Transparent,  // 95% to 100%: Remains fully erased to kill the bottom line
+                                        0.0f to Color.Transparent, // Top: 100% clear
+                                        0.50f to Color.Transparent, // Stays completely clear until the middle
+                                        1.0f to bgColor, // Very smoothly hits 100% solid background color at the very bottom
                                         startY = 0f, 
                                         endY = size.height 
-                                    ),
-                                    blendMode = BlendMode.DstIn     // Acts as an eraser
+                                    )
                                 )
                             }
                     )
@@ -363,7 +360,7 @@ fun ProfileScreen(
 
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
 
-        // 🚨 PROTECTIVE TOP BAR ROW 🚨
+        // 🚨 PROTECTIVE TOP BAR ROW 🚨 (Shadow completely removed)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -381,6 +378,7 @@ fun ProfileScreen(
                 Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = textColor, modifier = Modifier.size(24.dp)) 
             }
 
+            // Optional: The username is also wrapped in a tiny glass pill so it never gets lost against a white/black image
             Text(
                 text = displayUsername, 
                 fontSize = 20.sp, 
