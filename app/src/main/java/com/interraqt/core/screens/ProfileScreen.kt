@@ -208,16 +208,16 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 THE HYBRID ERASER
-                                    // Black = 100% visible image. Transparent = 100% erased.
+                                    // 🚨 95% EARLY-STOP ERASER
                                     brush = Brush.verticalGradient(
-                                        0.0f to Color.Black,         // Top half: perfectly visible
-                                        0.50f to Color.Black,        // Middle: still perfectly visible
-                                        1.0f to Color.Transparent,   // Bottom: smoothly and completely erased
+                                        0.0f to Color.Black,        // 0% to 70%: 100% visible
+                                        0.70f to Color.Black,       // Start fading smoothly at exactly 70%
+                                        0.95f to Color.Transparent, // 95%: 100% fully erased (transparent)
+                                        1.0f to Color.Transparent,  // 95% to 100%: Remains fully erased to kill the bottom line
                                         startY = 0f, 
                                         endY = size.height 
                                     ),
-                                    blendMode = BlendMode.DstIn      // This makes it act as an eraser
+                                    blendMode = BlendMode.DstIn     // Acts as an eraser
                                 )
                             }
                     )
@@ -363,7 +363,7 @@ fun ProfileScreen(
 
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
 
-        // 🚨 PROTECTIVE TOP BAR ROW 🚨 (Shadow completely removed)
+        // 🚨 PROTECTIVE TOP BAR ROW 🚨
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -381,7 +381,6 @@ fun ProfileScreen(
                 Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = textColor, modifier = Modifier.size(24.dp)) 
             }
 
-            // Optional: The username is also wrapped in a tiny glass pill so it never gets lost against a white/black image
             Text(
                 text = displayUsername, 
                 fontSize = 20.sp, 
