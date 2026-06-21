@@ -51,6 +51,9 @@ dependencies {
     // 🚨 Coil for instant image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
     
+    // 🚨 Palette API for Dynamic Image Colors (Light/Dark Icon switching)
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    
     // 🚨 OkHttp for ImgBB API Uploads
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
