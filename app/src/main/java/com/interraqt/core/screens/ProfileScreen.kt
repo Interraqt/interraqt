@@ -210,7 +210,7 @@ fun ProfileScreen(
                                     // Smoothly transitions from perfectly clear to the solid app background color.
                                     brush = Brush.verticalGradient(
                                         0.0f to Color.Transparent, // Top: 100% clear
-                                        0.50f to Color.Transparent, // Stays completely clear until the middle
+                                        0.70f to Color.Transparent, // Stays completely clear until the middle
                                         1.0f to bgColor, // Very smoothly hits 100% solid background color at the very bottom
                                         startY = 0f, 
                                         endY = size.height 
