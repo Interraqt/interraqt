@@ -196,7 +196,7 @@ fun ProfileScreen(
                                 drawRect(
                                     brush = Brush.verticalGradient(
                                         colors = listOf(Color.Transparent, bgColor), // Fades beautifully to solid app theme color
-                                        startY = size.height * 0.4f, // Strong fade starts exactly mid-avatar
+                                        startY = size.height * 0.6f, // Strong fade starts exactly mid-avatar
                                         endY = size.height // Completely solid by the bottom edge
                                     )
                                 )
