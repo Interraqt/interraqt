@@ -50,19 +50,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage 
-import coil.request.ImageRequest // 🚨 Added for robust URL loading
+import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.interraqt.core.network.CloudflareManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -142,11 +136,13 @@ fun EditProfileScreen(
             if (uri != null) {
                 isUploadingImage = true
                 coroutineScope.launch {
-                    val url = uploadImageToImgbb(context, uri, "5433cd544443d393fe4dedcf078bac4c")
+                    val url = CloudflareManager.uploadImage(context, uri)
                     if (url != null) {
                         profileImageUrl = url
                         currentUser?.uid?.let { uid -> firestore.collection("users").document(uid).update("profileImageUrl", url) }
                         Toast.makeText(context, "Profile picture updated!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Upload failed", Toast.LENGTH_SHORT).show()
                     }
                     isUploadingImage = false
                 }
@@ -160,11 +156,13 @@ fun EditProfileScreen(
             if (uri != null) {
                 isUploadingBanner = true
                 coroutineScope.launch {
-                    val url = uploadImageToImgbb(context, uri, "5433cd544443d393fe4dedcf078bac4c")
+                    val url = CloudflareManager.uploadImage(context, uri)
                     if (url != null) {
                         bannerImageUrl = url
                         currentUser?.uid?.let { uid -> firestore.collection("users").document(uid).update("bannerImageUrl", url) }
                         Toast.makeText(context, "Banner updated!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Upload failed", Toast.LENGTH_SHORT).show()
                     }
                     isUploadingBanner = false
                 }
@@ -341,31 +339,6 @@ fun EditProfileScreen(
             }
         }
     }
-}
-
-suspend fun uploadImageToImgbb(context: android.content.Context, uri: Uri, apiKey: String): String? = withContext(Dispatchers.IO) {
-    try {
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val bytes = inputStream?.readBytes()
-        inputStream?.close()
-
-        if (bytes != null) {
-            val client = OkHttpClient()
-            val requestBody = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("key", apiKey)
-                .addFormDataPart("image", "profile_pic.jpg", bytes.toRequestBody("image/jpeg".toMediaTypeOrNull()))
-                .build()
-
-            val request = Request.Builder().url("https://api.imgbb.com/1/upload").post(requestBody).build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val data = JSONObject(response.body?.string() ?: "").getJSONObject("data")
-                return@withContext data.getString("url")
-            }
-        }
-    } catch (e: Exception) { e.printStackTrace() }
-    return@withContext null
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
