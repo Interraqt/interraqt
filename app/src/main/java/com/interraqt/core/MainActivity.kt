@@ -28,7 +28,6 @@ import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 import kotlin.math.abs
 
-// 🚨 Added CreatePost to AppScreen
 enum class AppScreen {
     Login, Signup, Main, Settings, EditProfile, OtherProfile, CreatePost
 }
@@ -51,6 +50,9 @@ fun RootNavigation() {
     var currentScreen by remember { 
         mutableStateOf(if (auth.currentUser != null) AppScreen.Main else AppScreen.Login) 
     }
+    
+    // 🚨 ADDED: Navigation memory tracker to flawlessy route the back button
+    var previousScreen by remember { mutableStateOf(AppScreen.Main) }
     
     var savedTab by remember { mutableIntStateOf(0) }
     var viewedUserId by remember { mutableStateOf("") } 
@@ -75,10 +77,8 @@ fun RootNavigation() {
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else if (targetState == AppScreen.Settings || targetState == AppScreen.EditProfile || targetState == AppScreen.OtherProfile || targetState == AppScreen.CreatePost) {
-                // 🚨 Added CreatePost to the slide-in animation group
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 })
             } else if ((initialState == AppScreen.Settings || initialState == AppScreen.EditProfile || initialState == AppScreen.OtherProfile || initialState == AppScreen.CreatePost) && targetState == AppScreen.Main) {
-                // 🚨 Added CreatePost to the slide-out animation group
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
                 fadeIn() togetherWith fadeOut()
@@ -98,34 +98,48 @@ fun RootNavigation() {
             AppScreen.Main -> InterraqtApp(
                 initialTab = savedTab, 
                 onTabChange = { savedTab = it }, 
-                onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile },
-                onNavigateToCreatePost = { currentScreen = AppScreen.CreatePost }, // 🚨 Link to Create Post
+                onNavigateToSettings = { 
+                    previousScreen = currentScreen
+                    currentScreen = AppScreen.Settings 
+                },
+                onNavigateToEditProfile = { 
+                    previousScreen = currentScreen
+                    currentScreen = AppScreen.EditProfile 
+                },
+                onNavigateToCreatePost = { 
+                    // 🚨 Remember we came from Main before opening CreatePost
+                    previousScreen = currentScreen
+                    currentScreen = AppScreen.CreatePost 
+                },
                 onNavigateToUserProfile = { uid -> 
                     viewedUserId = uid 
+                    previousScreen = currentScreen
                     currentScreen = AppScreen.OtherProfile 
                 }, 
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
                 username = globalUsername, 
-                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile },
-                onNavigateBack = { currentScreen = AppScreen.Main },
+                onNavigateToEditProfile = { 
+                    previousScreen = currentScreen
+                    currentScreen = AppScreen.EditProfile 
+                },
+                onNavigateBack = { currentScreen = previousScreen },
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.EditProfile -> EditProfileScreen(
-                onNavigateBack = { currentScreen = AppScreen.Main }
+                onNavigateBack = { currentScreen = previousScreen }
             )
-            // 🚨 NEW ROUTE ADDED
             AppScreen.CreatePost -> CreatePostScreen(
-                onNavigateBack = { currentScreen = AppScreen.Main }
+                // 🚨 Routes the Back button EXACTLY to the previous screen memory variable
+                onNavigateBack = { currentScreen = previousScreen }
             )
             AppScreen.OtherProfile -> ProfileScreen(
                 profileUid = viewedUserId, 
                 onNavigateToSettings = { },
                 onNavigateToEditProfile = { },
                 onNavigateToCreatePost = { }, 
-                onNavigateBack = { currentScreen = AppScreen.Main }
+                onNavigateBack = { currentScreen = previousScreen }
             )
         }
     }
@@ -138,7 +152,7 @@ fun InterraqtApp(
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
     onNavigateToEditProfile: () -> Unit,
-    onNavigateToCreatePost: () -> Unit, // 🚨 Param added
+    onNavigateToCreatePost: () -> Unit,
     onNavigateToUserProfile: (String) -> Unit, 
     onLogout: () -> Unit
 ) { 
@@ -197,7 +211,7 @@ fun InterraqtApp(
                     profileUid = null, 
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToEditProfile = onNavigateToEditProfile,
-                    onNavigateToCreatePost = onNavigateToCreatePost, // 🚨 Pass parameter down
+                    onNavigateToCreatePost = onNavigateToCreatePost,
                     onNavigateBack = null
                 ) 
             }
