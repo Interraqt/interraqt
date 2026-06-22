@@ -28,8 +28,9 @@ import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 import kotlin.math.abs
 
+// 🚨 Added CreatePost to AppScreen
 enum class AppScreen {
-    Login, Signup, Main, Settings, EditProfile, OtherProfile
+    Login, Signup, Main, Settings, EditProfile, OtherProfile, CreatePost
 }
 
 class MainActivity : ComponentActivity() {
@@ -55,7 +56,6 @@ fun RootNavigation() {
     var viewedUserId by remember { mutableStateOf("") } 
     var globalUsername by remember { mutableStateOf("...") }
 
-    // 🚨 1. Preload user data instantly into memory
     DisposableEffect(auth.currentUser) {
         val uid = auth.currentUser?.uid
         val listener = if (uid != null) {
@@ -74,9 +74,11 @@ fun RootNavigation() {
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth })
             } else if (initialState == AppScreen.Signup && targetState == AppScreen.Login) {
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
-            } else if (targetState == AppScreen.Settings || targetState == AppScreen.EditProfile || targetState == AppScreen.OtherProfile) {
+            } else if (targetState == AppScreen.Settings || targetState == AppScreen.EditProfile || targetState == AppScreen.OtherProfile || targetState == AppScreen.CreatePost) {
+                // 🚨 Added CreatePost to the slide-in animation group
                 slideInHorizontally(initialOffsetX = { fullWidth -> fullWidth }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 })
-            } else if ((initialState == AppScreen.Settings || initialState == AppScreen.EditProfile || initialState == AppScreen.OtherProfile) && targetState == AppScreen.Main) {
+            } else if ((initialState == AppScreen.Settings || initialState == AppScreen.EditProfile || initialState == AppScreen.OtherProfile || initialState == AppScreen.CreatePost) && targetState == AppScreen.Main) {
+                // 🚨 Added CreatePost to the slide-out animation group
                 slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) togetherWith slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth })
             } else {
                 fadeIn() togetherWith fadeOut()
@@ -98,6 +100,7 @@ fun RootNavigation() {
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { currentScreen = AppScreen.Settings },
                 onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile },
+                onNavigateToCreatePost = { currentScreen = AppScreen.CreatePost }, // 🚨 Link to Create Post
                 onNavigateToUserProfile = { uid -> 
                     viewedUserId = uid 
                     currentScreen = AppScreen.OtherProfile 
@@ -105,18 +108,23 @@ fun RootNavigation() {
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.Settings -> SettingsScreen(
-                username = globalUsername, // 🚨 Pass actual username here
-                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile }, // 🚨 Link to edit profile
+                username = globalUsername, 
+                onNavigateToEditProfile = { currentScreen = AppScreen.EditProfile },
                 onNavigateBack = { currentScreen = AppScreen.Main },
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
             AppScreen.EditProfile -> EditProfileScreen(
                 onNavigateBack = { currentScreen = AppScreen.Main }
             )
+            // 🚨 NEW ROUTE ADDED
+            AppScreen.CreatePost -> CreatePostScreen(
+                onNavigateBack = { currentScreen = AppScreen.Main }
+            )
             AppScreen.OtherProfile -> ProfileScreen(
                 profileUid = viewedUserId, 
                 onNavigateToSettings = { },
                 onNavigateToEditProfile = { },
+                onNavigateToCreatePost = { }, 
                 onNavigateBack = { currentScreen = AppScreen.Main }
             )
         }
@@ -130,6 +138,7 @@ fun InterraqtApp(
     onTabChange: (Int) -> Unit, 
     onNavigateToSettings: () -> Unit, 
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToCreatePost: () -> Unit, // 🚨 Param added
     onNavigateToUserProfile: (String) -> Unit, 
     onLogout: () -> Unit
 ) { 
@@ -188,6 +197,7 @@ fun InterraqtApp(
                     profileUid = null, 
                     onNavigateToSettings = onNavigateToSettings,
                     onNavigateToEditProfile = onNavigateToEditProfile,
+                    onNavigateToCreatePost = onNavigateToCreatePost, // 🚨 Pass parameter down
                     onNavigateBack = null
                 ) 
             }
