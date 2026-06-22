@@ -321,18 +321,39 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
             }
             
-            Row(
-                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().statusBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+            // 🚨 REWRITTEN TOP BAR USING BOX TO LOCK TITLE DEAD CENTER 🚨
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                IconButton(onClick = onNavigateBack, modifier = Modifier.offset(x = (-12).dp)) {
+                IconButton(
+                    onClick = onNavigateBack, 
+                    modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp)
+                ) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
                 }
-                Text("Edit Profile", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
+                
+                Text(
+                    text = "Edit Profile", 
+                    fontSize = 20.sp, 
+                    fontWeight = FontWeight.Bold, 
+                    color = textColor, 
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                
                 if (isSaving) {
-                    CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(
+                        color = primaryOrange, 
+                        modifier = Modifier.align(Alignment.CenterEnd).size(24.dp)
+                    )
                 } else {
-                    TextButton(onClick = { keyboardController?.hide(); focusManager.clearFocus(); saveProfile() }) {
+                    TextButton(
+                        onClick = { keyboardController?.hide(); focusManager.clearFocus(); saveProfile() },
+                        modifier = Modifier.align(Alignment.CenterEnd).offset(x = 12.dp)
+                    ) {
                         Text("Save", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
