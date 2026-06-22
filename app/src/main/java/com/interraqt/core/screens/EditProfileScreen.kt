@@ -136,7 +136,8 @@ fun EditProfileScreen(
             if (uri != null) {
                 isUploadingImage = true
                 coroutineScope.launch {
-                    val url = CloudflareManager.uploadImage(context, uri)
+                    // 🚨 Passed isBanner = false
+                    val url = CloudflareManager.uploadImage(context, uri, isBanner = false)
                     if (url != null) {
                         profileImageUrl = url
                         currentUser?.uid?.let { uid -> firestore.collection("users").document(uid).update("profileImageUrl", url) }
@@ -156,7 +157,8 @@ fun EditProfileScreen(
             if (uri != null) {
                 isUploadingBanner = true
                 coroutineScope.launch {
-                    val url = CloudflareManager.uploadImage(context, uri)
+                    // 🚨 Passed isBanner = true
+                    val url = CloudflareManager.uploadImage(context, uri, isBanner = true)
                     if (url != null) {
                         bannerImageUrl = url
                         currentUser?.uid?.let { uid -> firestore.collection("users").document(uid).update("bannerImageUrl", url) }
@@ -321,7 +323,7 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
             }
             
-            // 🚨 REWRITTEN TOP BAR USING BOX TO LOCK TITLE DEAD CENTER 🚨
+            // 🚨 ALIGNMENT FIX: Removed offsets. The standard padding(horizontal = 24.dp) perfectly frames the edges now.
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -331,7 +333,7 @@ fun EditProfileScreen(
             ) {
                 IconButton(
                     onClick = onNavigateBack, 
-                    modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp)
+                    modifier = Modifier.align(Alignment.CenterStart) // 🚨 Removed .offset()
                 ) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
                 }
@@ -352,7 +354,7 @@ fun EditProfileScreen(
                 } else {
                     TextButton(
                         onClick = { keyboardController?.hide(); focusManager.clearFocus(); saveProfile() },
-                        modifier = Modifier.align(Alignment.CenterEnd).offset(x = 12.dp)
+                        modifier = Modifier.align(Alignment.CenterEnd) // 🚨 Removed .offset()
                     ) {
                         Text("Save", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
