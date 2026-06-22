@@ -16,7 +16,7 @@ object CloudflareManager {
     private const val WORKER_URL = "https://interraqt-uploader.interraqt.workers.dev"
     
     // 🚨 Make absolutely sure this exactly matches your Cloudflare Environment Variable
-    private const val APP_SECRET = "InterraqtSecretUploadKey2026" 
+    private const val APP_SECRET = "Interraqt@2026" 
     
     private val client = OkHttpClient()
 
