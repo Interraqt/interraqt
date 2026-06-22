@@ -242,7 +242,8 @@ fun CreatePostScreen(
 
                     // --- Bottom-Left Area: Media Picker Icons ---
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, top = 8.dp),
+                        // 🚨 FIXED: Separated the horizontal and top padding calls
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
