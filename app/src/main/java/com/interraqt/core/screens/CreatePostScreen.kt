@@ -65,15 +65,16 @@ fun CreatePostScreen(
         onResult = { uri -> if (uri != null) selectedImageUri = uri }
     )
 
-    val publishPost: () -> Unit = {
+    // 🚨 FIXED: Converted to a standard function so we can use normal 'return'
+    fun publishPost() {
         if (selectedImageUri == null) {
             Toast.makeText(context, "Please select an image first", Toast.LENGTH_SHORT).show()
-            return@Unit
+            return // Safe return without labels!
         }
         
         isPublishing = true
         coroutineScope.launch {
-            // 1. Upload to Cloudflare (Using Banner dimensions for higher quality feed posts)
+            // 1. Upload to Cloudflare
             val imageUrl = CloudflareManager.uploadImage(context, selectedImageUri!!, isBanner = true)
             
             if (imageUrl != null) {
@@ -191,7 +192,7 @@ fun CreatePostScreen(
 
             Box(modifier = Modifier.align(Alignment.CenterEnd), contentAlignment = Alignment.Center) {
                 TextButton(
-                    onClick = { if (!isPublishing) { focusManager.clearFocus(); publishPost() } },
+                    onClick = { if (!isPublishing) { focusManager.clearFocus(); publishPost() } }, // 🚨 Fixed method call
                     enabled = !isPublishing
                 ) {
                     Text("Share", color = if (isPublishing) Color.Transparent else primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
