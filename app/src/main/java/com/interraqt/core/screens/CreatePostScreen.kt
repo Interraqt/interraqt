@@ -1,6 +1,8 @@
 package com.interraqt.core.screens
 
 import android.app.Activity
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -32,6 +34,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.*
@@ -56,6 +59,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -65,9 +69,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.interraqt.core.network.CloudflareManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
+
+// 🚨 Smart Data Class to Track Image vs Video
+data class MediaAttachment(val uri: Uri, val isVideo: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,16 +105,17 @@ fun CreatePostScreen(
     val highOpacityGlassColor = if (isDark) Color.Black.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f)
     val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
-    var selectedMediaUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var fullscreenMediaUri by remember { mutableStateOf<Uri?>(null) }
+    // 🚨 Track Media Using the New Custom Class
+    var selectedMedia by remember { mutableStateOf<List<MediaAttachment>>(emptyList()) }
+    var fullscreenMedia by remember { mutableStateOf<MediaAttachment?>(null) }
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
-    DisposableEffect(fullscreenMediaUri) {
+    DisposableEffect(fullscreenMedia) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
         
-        if (fullscreenMediaUri != null) {
+        if (fullscreenMedia != null) {
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
@@ -118,8 +128,8 @@ fun CreatePostScreen(
     }
 
     BackHandler {
-        if (fullscreenMediaUri != null) {
-            fullscreenMediaUri = null
+        if (fullscreenMedia != null) {
+            fullscreenMedia = null
         } else if (!isPublishing) {
             onNavigateBack()
         }
@@ -128,21 +138,21 @@ fun CreatePostScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3),
         onResult = { uris -> 
-            val availableSlots = 3 - selectedMediaUris.size
-            if (availableSlots > 0) selectedMediaUris = selectedMediaUris + uris.take(availableSlots)
+            val availableSlots = 3 - selectedMedia.size
+            if (availableSlots > 0) selectedMedia = selectedMedia + uris.take(availableSlots).map { MediaAttachment(it, false) }
         }
     )
 
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3),
         onResult = { uris -> 
-            val availableSlots = 3 - selectedMediaUris.size
-            if (availableSlots > 0) selectedMediaUris = selectedMediaUris + uris.take(availableSlots)
+            val availableSlots = 3 - selectedMedia.size
+            if (availableSlots > 0) selectedMedia = selectedMedia + uris.take(availableSlots).map { MediaAttachment(it, true) }
         }
     )
 
     fun publishPost() {
-        if (caption.text.trim().isEmpty() && selectedMediaUris.isEmpty()) {
+        if (caption.text.trim().isEmpty() && selectedMedia.isEmpty()) {
             Toast.makeText(context, "Post cannot be empty", Toast.LENGTH_SHORT).show()
             return 
         }
@@ -150,12 +160,12 @@ fun CreatePostScreen(
         isPublishing = true
         coroutineScope.launch {
             val uploadedUrls = mutableListOf<String>()
-            for (uri in selectedMediaUris) {
-                val url = CloudflareManager.uploadImage(context, uri, isBanner = true)
+            for (media in selectedMedia) {
+                val url = CloudflareManager.uploadImage(context, media.uri, isBanner = true)
                 if (url != null) uploadedUrls.add(url)
             }
 
-            if (selectedMediaUris.isNotEmpty() && uploadedUrls.isEmpty()) {
+            if (selectedMedia.isNotEmpty() && uploadedUrls.isEmpty()) {
                 isPublishing = false
                 Toast.makeText(context, "Media upload failed", Toast.LENGTH_SHORT).show()
                 return@launch
@@ -214,41 +224,109 @@ fun CreatePostScreen(
                     )
                     .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null 
-                    ) {
-                        focusRequester.requestFocus()
-                        keyboardController?.show()
-                    }
-                    .padding(top = 16.dp, bottom = 12.dp) // 🚨 Reduced bottom padding to perfectly hug the icons
+                    // 🚨 Intercepting Clickable REMOVED. Events flow directly to the Text Field now!
+                    .padding(top = 16.dp, bottom = 12.dp)
             ) {
                 Column {
-                    if (selectedMediaUris.isNotEmpty()) {
+                    if (selectedMedia.isNotEmpty()) {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(horizontal = 16.dp),
                             modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
                         ) {
-                            items(selectedMediaUris) { uri ->
+                            items(selectedMedia) { media ->
                                 Box(
                                     modifier = Modifier
                                         .width(84.dp)
                                         .height(112.dp) 
                                 ) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(true).build(),
-                                        contentDescription = "Media Preview",
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(16.dp)) 
-                                            .clickable { 
-                                                keyboardController?.hide()
-                                                focusManager.clearFocus()
-                                                fullscreenMediaUri = uri 
-                                            },
-                                        contentScale = ContentScale.Crop
-                                    )
+                                    // 🚨 SMART THUMBNAIL GENERATOR
+                                    if (media.isVideo) {
+                                        var videoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
+                                        var durationText by remember { mutableStateOf("") }
+
+                                        LaunchedEffect(media.uri) {
+                                            withContext(Dispatchers.IO) {
+                                                try {
+                                                    val retriever = MediaMetadataRetriever()
+                                                    retriever.setDataSource(context, media.uri)
+                                                    // Grabs a frame near the 1-second mark
+                                                    videoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                                    
+                                                    // Grabs video duration
+                                                    val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                                                    if (durationMs > 0) {
+                                                        val seconds = (durationMs / 1000) % 60
+                                                        val minutes = (durationMs / 1000) / 60
+                                                        durationText = String.format("%d:%02d", minutes, seconds)
+                                                    }
+                                                    retriever.release()
+                                                } catch (e: Exception) { e.printStackTrace() }
+                                            }
+                                        }
+
+                                        // Render Video Thumbnail
+                                        AsyncImage(
+                                            model = videoThumbnail,
+                                            contentDescription = "Video Preview",
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(16.dp)) 
+                                                .clickable { 
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    fullscreenMedia = media 
+                                                },
+                                            contentScale = ContentScale.Crop
+                                        )
+
+                                        // 🚨 Premium Video Overlay (Play Button & Dark Tint)
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(Color.Black.copy(alpha = 0.2f))
+                                                .clickable { 
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    fullscreenMedia = media 
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+
+                                        // 🚨 Duration Badge (e.g. 0:15)
+                                        if (durationText.isNotEmpty()) {
+                                            Text(
+                                                text = durationText,
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier
+                                                    .align(Alignment.BottomEnd)
+                                                    .padding(8.dp)
+                                                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                            )
+                                        }
+
+                                    } else {
+                                        // Standard Image Render
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(LocalContext.current).data(media.uri).crossfade(true).build(),
+                                            contentDescription = "Media Preview",
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(16.dp)) 
+                                                .clickable { 
+                                                    keyboardController?.hide()
+                                                    focusManager.clearFocus()
+                                                    fullscreenMedia = media 
+                                                },
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
                                     
                                     Box(
                                         modifier = Modifier
@@ -257,7 +335,7 @@ fun CreatePostScreen(
                                             .size(24.dp)
                                             .clip(CircleShape)
                                             .background(Color.Black.copy(alpha = 0.65f))
-                                            .clickable { selectedMediaUris = selectedMediaUris - uri },
+                                            .clickable { selectedMedia = selectedMedia - media },
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
@@ -267,27 +345,32 @@ fun CreatePostScreen(
                         }
                     }
 
+                    // 🚨 MASSIVE MIN HEIGHT FIX: 
+                    // This allows the text field to naturally span the entire empty area. 
+                    // Tapping anywhere triggers the interaction source natively for perfect cursor behavior!
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
                         maxLength = 1000, 
                         placeholderText = "What's happening?",
                         focusRequester = focusRequester,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 160.dp) // Takes up the empty space!
+                            .padding(horizontal = 8.dp),
                         primaryColor = primaryOrange,
                         surfaceColor = surfaceColor, 
                         textColor = textColor,
                         subTextColor = Color.Gray
                     )
 
-                    // 🚨 STREAMLINED BOTTOM BAR (Counter is aligned to the right!)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween // Pushes icons left, counter right
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
@@ -296,7 +379,7 @@ fun CreatePostScreen(
                                     .clip(CircleShape)
                                     .background(liquidPickerBg)
                                     .clickable { 
-                                        if (selectedMediaUris.size < 3) {
+                                        if (selectedMedia.size < 3) {
                                             imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                         } else {
                                             Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
@@ -304,7 +387,6 @@ fun CreatePostScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                // 🚨 Modern Adaptive Outlined Icon
                                 Icon(Icons.Outlined.Image, contentDescription = "Add Image", tint = textColor, modifier = Modifier.size(22.dp))
                             }
                             
@@ -316,7 +398,7 @@ fun CreatePostScreen(
                                     .clip(CircleShape)
                                     .background(liquidPickerBg)
                                     .clickable { 
-                                        if (selectedMediaUris.size < 3) {
+                                        if (selectedMedia.size < 3) {
                                             videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
                                         } else {
                                             Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
@@ -324,12 +406,10 @@ fun CreatePostScreen(
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
-                                // 🚨 Modern Adaptive Outlined Icon
                                 Icon(Icons.Outlined.Videocam, contentDescription = "Add Video", tint = textColor, modifier = Modifier.size(24.dp))
                             }
                         }
                         
-                        // 🚨 Horizontally Aligned Character Counter
                         Text(
                             text = "${caption.text.length}/1000",
                             color = Color.Gray,
@@ -374,9 +454,9 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 PERFECTLY SYMMETRICAL IMMERSIVE VIEWER ANIMATIONS
+        // 🚨 IMMERSIVE VIEWER WITH EXOPLAYER SUPPORT
         AnimatedVisibility(
-            visible = fullscreenMediaUri != null,
+            visible = fullscreenMedia != null,
             enter = fadeIn(animationSpec = tween(250)) + scaleIn(animationSpec = tween(250), initialScale = 0.9f),
             exit = fadeOut(animationSpec = tween(250)) + scaleOut(animationSpec = tween(250), targetScale = 0.9f),
             modifier = Modifier.fillMaxSize()
@@ -387,13 +467,45 @@ fun CreatePostScreen(
                     .background(Color.Black)
                     .pointerInput(Unit) { detectTapGestures { } } 
             ) {
-                if (fullscreenMediaUri != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current).data(fullscreenMediaUri).crossfade(true).build(),
-                        contentDescription = "Fullscreen Media",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
+                if (fullscreenMedia != null) {
+                    if (fullscreenMedia!!.isVideo) {
+                        // 🚨 ExoPlayer for Seamless Auto-Play
+                        val exoPlayer = remember { 
+                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE // Loops video automatically
+                                playWhenReady = true // Auto-play enabled
+                            } 
+                        }
+                        
+                        DisposableEffect(fullscreenMedia!!.uri) {
+                            val mediaItem = androidx.media3.common.MediaItem.fromUri(fullscreenMedia!!.uri)
+                            exoPlayer.setMediaItem(mediaItem)
+                            exoPlayer.prepare()
+                            onDispose { exoPlayer.release() }
+                        }
+                        
+                        AndroidView(
+                            factory = { ctx ->
+                                androidx.media3.ui.PlayerView(ctx).apply {
+                                    player = exoPlayer
+                                    useController = false // Removes play/pause UI for a clean, cinematic look
+                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        // Standard Image Viewer
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current).data(fullscreenMedia!!.uri).crossfade(true).build(),
+                            contentDescription = "Fullscreen Media",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
                 
                 Box(
@@ -403,7 +515,7 @@ fun CreatePostScreen(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(highOpacityGlassColor)
-                        .clickable { fullscreenMediaUri = null },
+                        .clickable { fullscreenMedia = null },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = if (isDark) Color.White else Color.Black, modifier = Modifier.size(24.dp))
@@ -457,7 +569,6 @@ private fun PostCaptionTextField(
             },
             interactionSource = interactionSource,
             maxLines = 6, 
-            // 🚨 INTELLIGENT KEYBOARD AUTO-CAPITALIZATION
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = modifier
                 .focusRequester(focusRequester)
@@ -473,7 +584,6 @@ private fun PostCaptionTextField(
                 focusedTextColor = textColor, unfocusedTextColor = textColor, cursorColor = primaryColor
             ),
             placeholder = { Text(placeholderText, color = subTextColor) }
-            // Note: supportingText (Counter) is removed from here to perfectly align it in the Action Bar below!
         )
     }
 }
