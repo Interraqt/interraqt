@@ -12,8 +12,8 @@ import org.json.JSONObject
 import java.util.UUID
 
 object CloudflareManager {
-    // 🚨 Notice: No slash at the very end of this URL!
-    private const val WORKER_URL = "https://interraqt-uploader.hardikkalal360.workers.dev"
+    // 🚨 Updated to your new custom worker URL (No slash at the end!)
+    private const val WORKER_URL = "https://interraqt-uploader.interraqt.workers.dev"
     
     // 🚨 Make absolutely sure this exactly matches your Cloudflare Environment Variable
     private const val APP_SECRET = "InterraqtSecretUploadKey2026" 
