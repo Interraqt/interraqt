@@ -19,11 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -58,6 +55,7 @@ fun ProfileScreen(
     profileUid: String? = null, 
     onNavigateToSettings: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToCreatePost: () -> Unit, // 🚨 NEW PARAMETER ADDED
     onNavigateBack: (() -> Unit)? = null 
 ) {
     val isDark = isSystemInDarkTheme()
@@ -68,9 +66,7 @@ fun ProfileScreen(
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328) 
-    val primaryBlue = Color(0xFF0B57D0) 
     
-    // 🚨 INCREASED OPACITY for glass circles so icons are always visible on ANY background
     val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
 
     val auth = FirebaseAuth.getInstance()
@@ -79,7 +75,7 @@ fun ProfileScreen(
     val targetUid = profileUid ?: currentUserId
     val isOwnProfile = currentUserId == targetUid 
     
-    var showUploadSheet by remember { mutableStateOf(false) }
+    // Removed showUploadSheet variable entirely
 
     var displayUsername by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("...") }
@@ -206,15 +202,13 @@ fun ProfileScreen(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    // 🚨 FLAWLESS GRADIENT OVERLAY (No Eraser)
-                                    // Smoothly transitions from perfectly clear to the solid app background color.
                                     brush = Brush.verticalGradient(
-                                        0.0f to Color.Transparent, // Top: 100% clear
-                                        0.55f to Color.Transparent, // Stays completely clear until the middle
+                                        0.0f to Color.Transparent, 
+                                        0.55f to Color.Transparent, 
                                         0.65f to bgColor.copy(alpha = 0.25f),
                                         0.85f to bgColor.copy(alpha = 0.85f),
                                         0.95f to bgColor.copy(alpha = 0.98f),
-                                        1.0f to bgColor, // Very smoothly hits 100% solid background color at the very bottom
+                                        1.0f to bgColor, 
                                         startY = 0f, 
                                         endY = size.height 
                                     )
@@ -363,7 +357,6 @@ fun ProfileScreen(
 
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter), containerColor = surfaceColor, contentColor = primaryOrange)
 
-        // 🚨 PROTECTIVE TOP BAR ROW 🚨 (Shadow completely removed)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -374,14 +367,14 @@ fun ProfileScreen(
         ) {
             Box(
                 modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { 
-                    if (isOwnProfile) showUploadSheet = true else onNavigateBack?.invoke() 
+                    // 🚨 NOW CALLS THE NAVIGATION HANDLER DIRECTLY
+                    if (isOwnProfile) onNavigateToCreatePost() else onNavigateBack?.invoke() 
                 },
                 contentAlignment = Alignment.Center
             ) { 
                 Icon(if (isOwnProfile) Icons.Default.Add else Icons.Default.ArrowBack, contentDescription = "Action", tint = textColor, modifier = Modifier.size(24.dp)) 
             }
 
-            // Optional: The username is also wrapped in a tiny glass pill so it never gets lost against a white/black image
             Text(
                 text = displayUsername, 
                 fontSize = 20.sp, 
@@ -407,40 +400,7 @@ fun ProfileScreen(
                 }
             }
         }
-
-        if (showUploadSheet) {
-            var caption by remember { mutableStateOf("") }
-            ModalBottomSheet(onDismissRequest = { showUploadSheet = false }, containerColor = surfaceColor) {
-                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                    Text("New Post", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor, modifier = Modifier.padding(bottom = 16.dp))
-                    
-                    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Image, contentDescription = "Image", tint = textColor) }
-                            Text("Image", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Videocam, contentDescription = "Video", tint = textColor) }
-                            Text("Video", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(primaryBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Notes, contentDescription = "Text", tint = textColor) }
-                            Text("Text", color = textColor, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = caption, onValueChange = { caption = it }, placeholder = { Text("Write a caption...") },
-                        modifier = Modifier.fillMaxWidth().height(120.dp).padding(bottom = 16.dp), shape = RoundedCornerShape(16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = primaryBlue, unfocusedBorderColor = Color.DarkGray.copy(alpha = 0.5f), focusedTextColor = textColor, unfocusedTextColor = textColor)
-                    )
-
-                    Button(onClick = { showUploadSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)) { 
-                        Text("Post", color = Color.White, fontWeight = FontWeight.Bold) 
-                    }
-                    Spacer(modifier = Modifier.height(32.dp))
-                }
-            }
-        }
+        
+        // 🚨 BOTTOM SHEET LOGIC COMPLETELY REMOVED!
     }
 }
