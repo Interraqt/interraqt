@@ -17,15 +17,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-// Custom data class to hold search results
-data class UserSearchResult(val uid: String, val username: String, val name: String)
+// 🚨 Added profileImageUrl to hold the image link from Firestore
+data class UserSearchResult(val uid: String, val username: String, val name: String, val profileImageUrl: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,9 +75,10 @@ fun ExploreScreen(
                 val uid = doc.id
                 val username = doc.getString("username") ?: ""
                 val name = doc.getString("name")?.takeIf { it.isNotBlank() } ?: "Update your name"
+                val profileImageUrl = doc.getString("profileImageUrl") ?: "" // 🚨 Fetch the image URL
                 
                 // Don't show ourselves in the search results!
-                if (uid != currentUserId) UserSearchResult(uid, username, name) else null
+                if (uid != currentUserId) UserSearchResult(uid, username, name, profileImageUrl) else null
             }
             searchResults = results
         } catch (e: Exception) {
@@ -135,12 +140,25 @@ fun ExploreScreen(
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Dummy Profile Picture
+                            
+                            // 🚨 Replaced dummy icon with AsyncImage for real profile pictures
                             Box(
                                 modifier = Modifier.size(50.dp).clip(CircleShape).background(bgColor),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Person, contentDescription = "Profile", tint = subTextColor)
+                                if (user.profileImageUrl.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(user.profileImageUrl)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Person, contentDescription = "Profile", tint = subTextColor)
+                                }
                             }
                             
                             Spacer(modifier = Modifier.width(16.dp))
