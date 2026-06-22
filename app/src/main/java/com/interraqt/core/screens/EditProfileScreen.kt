@@ -136,7 +136,6 @@ fun EditProfileScreen(
             if (uri != null) {
                 isUploadingImage = true
                 coroutineScope.launch {
-                    // 🚨 Passed isBanner = false
                     val url = CloudflareManager.uploadImage(context, uri, isBanner = false)
                     if (url != null) {
                         profileImageUrl = url
@@ -157,7 +156,6 @@ fun EditProfileScreen(
             if (uri != null) {
                 isUploadingBanner = true
                 coroutineScope.launch {
-                    // 🚨 Passed isBanner = true
                     val url = CloudflareManager.uploadImage(context, uri, isBanner = true)
                     if (url != null) {
                         bannerImageUrl = url
@@ -323,7 +321,7 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
             }
             
-            // 🚨 ALIGNMENT FIX: Removed offsets. The standard padding(horizontal = 24.dp) perfectly frames the edges now.
+            // 🚨 ALIGNMENT RESTORED: Back Arrow gets -12.dp offset, Save gets 0 offset. 
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -333,7 +331,7 @@ fun EditProfileScreen(
             ) {
                 IconButton(
                     onClick = onNavigateBack, 
-                    modifier = Modifier.align(Alignment.CenterStart) // 🚨 Removed .offset()
+                    modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp) // 🚨 Restored offset
                 ) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
                 }
@@ -354,7 +352,7 @@ fun EditProfileScreen(
                 } else {
                     TextButton(
                         onClick = { keyboardController?.hide(); focusManager.clearFocus(); saveProfile() },
-                        modifier = Modifier.align(Alignment.CenterEnd) // 🚨 Removed .offset()
+                        modifier = Modifier.align(Alignment.CenterEnd) // 🚨 Matches original Row spacing
                     ) {
                         Text("Save", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
