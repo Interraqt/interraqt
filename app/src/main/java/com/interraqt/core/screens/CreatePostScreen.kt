@@ -2,15 +2,20 @@ package com.interraqt.core.screens
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -20,11 +25,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -33,6 +43,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.interraqt.core.network.CloudflareManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -56,44 +67,45 @@ fun CreatePostScreen(
     val textColor = if (isDark) Color.White else Color.Black
     val primaryOrange = Color(0xFFFF6328)
 
+    // 🚨 UPDATED: Using TextFieldValue for the Smart Cursor logic
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var caption by remember { mutableStateOf("") }
+    var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
+
+    // 🚨 ADDED: BackHandler for the Android system back gesture
+    BackHandler {
+        if (!isPublishing) onNavigateBack()
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> if (uri != null) selectedImageUri = uri }
     )
 
-    // 🚨 FIXED: Converted to a standard function so we can use normal 'return'
     fun publishPost() {
         if (selectedImageUri == null) {
             Toast.makeText(context, "Please select an image first", Toast.LENGTH_SHORT).show()
-            return // Safe return without labels!
+            return 
         }
         
         isPublishing = true
         coroutineScope.launch {
-            // 1. Upload to Cloudflare
             val imageUrl = CloudflareManager.uploadImage(context, selectedImageUri!!, isBanner = true)
             
             if (imageUrl != null) {
-                // 2. Prepare Post Data for Firebase
                 val postId = UUID.randomUUID().toString()
                 val postMap = hashMapOf(
                     "postId" to postId,
                     "userId" to currentUserId,
-                    "caption" to caption.trim(),
+                    "caption" to caption.text.trim(), // Extracted text string
                     "imageUrl" to imageUrl,
                     "timestamp" to System.currentTimeMillis(),
                     "likesCount" to 0,
                     "commentsCount" to 0
                 )
 
-                // 3. Save to "posts" collection
                 firestore.collection("posts").document(postId).set(postMap)
                     .addOnSuccessListener {
-                        // 4. Increase user's post count
                         firestore.collection("users").document(currentUserId)
                             .update("postsCount", FieldValue.increment(1))
                             .addOnSuccessListener {
@@ -113,7 +125,15 @@ fun CreatePostScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(bgColor).clickable { focusManager.clearFocus() }) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgColor)
+            // 🚨 FIXED: pointerInput stops the screen from blinking grey on tap!
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { focusManager.clearFocus() })
+            }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -152,22 +172,17 @@ fun CreatePostScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- Caption Field ---
-            OutlinedTextField(
+            // 🚨 UPDATED: Replaced OutlinedTextField with your beautiful SmartCursorTextField logic
+            PostCaptionTextField(
                 value = caption,
                 onValueChange = { caption = it },
-                placeholder = { Text("Write a caption...", color = Color.Gray) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    focusedBorderColor = primaryOrange,
-                    unfocusedBorderColor = Color.Transparent,
-                    containerColor = surfaceColor,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor
-                )
+                maxLength = 2200, // Standard Instagram limit
+                placeholderText = "Write a caption...",
+                modifier = Modifier.fillMaxWidth().height(150.dp),
+                primaryColor = primaryOrange,
+                surfaceColor = surfaceColor,
+                textColor = textColor,
+                subTextColor = Color.Gray
             )
             
             Spacer(modifier = Modifier.height(100.dp))
@@ -192,7 +207,7 @@ fun CreatePostScreen(
 
             Box(modifier = Modifier.align(Alignment.CenterEnd), contentAlignment = Alignment.Center) {
                 TextButton(
-                    onClick = { if (!isPublishing) { focusManager.clearFocus(); publishPost() } }, // 🚨 Fixed method call
+                    onClick = { if (!isPublishing) { focusManager.clearFocus(); publishPost() } }, 
                     enabled = !isPublishing
                 ) {
                     Text("Share", color = if (isPublishing) Color.Transparent else primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
@@ -203,5 +218,65 @@ fun CreatePostScreen(
                 }
             }
         }
+    }
+}
+
+// 🚨 SMART CURSOR LOGIC: Private implementation customized for the Post Screen with a Placeholder
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PostCaptionTextField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    maxLength: Int,
+    modifier: Modifier = Modifier,
+    placeholderText: String,
+    primaryColor: Color,
+    surfaceColor: Color,
+    textColor: Color,
+    subTextColor: Color
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    var showHandle by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
+    var forceCursorToEnd by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isPressed) { if (isPressed && isFocused && !forceCursorToEnd) showHandle = true }
+    LaunchedEffect(showHandle, value.selection) { if (showHandle) { delay(10000); showHandle = false } }
+
+    val customSelectionColors = TextSelectionColors(
+        handleColor = if (showHandle || !value.selection.collapsed) primaryColor else Color.Transparent,
+        backgroundColor = primaryColor.copy(alpha = 0.4f)
+    )
+
+    CompositionLocalProvider(LocalTextSelectionColors provides customSelectionColors) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                if (newValue.text.length <= maxLength) {
+                    var finalValue = newValue
+                    if (forceCursorToEnd) {
+                        finalValue = finalValue.copy(selection = TextRange(finalValue.text.length))
+                        forceCursorToEnd = false 
+                    }
+                    if (finalValue.text != value.text) showHandle = false 
+                    onValueChange(finalValue)
+                }
+            },
+            interactionSource = interactionSource,
+            modifier = modifier.onFocusChanged { state ->
+                if (state.isFocused && !isFocused) { forceCursorToEnd = true; showHandle = false }
+                if (!state.isFocused) { showHandle = false; forceCursorToEnd = false }
+                isFocused = state.isFocused
+            },
+            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
+            shape = RoundedCornerShape(16.dp),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                containerColor = surfaceColor, focusedBorderColor = primaryColor, unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = textColor, unfocusedTextColor = textColor, cursorColor = primaryColor
+            ),
+            placeholder = { Text(placeholderText, color = subTextColor) },
+            supportingText = { Text("${value.text.length}/$maxLength", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+        )
     }
 }
