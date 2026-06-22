@@ -321,7 +321,7 @@ fun EditProfileScreen(
                 Spacer(modifier = Modifier.height(40.dp))
             }
             
-            // 🚨 ALIGNMENT RESTORED: Back Arrow gets -12.dp offset, Save gets 0 offset. 
+            // 🚨 TOP BAR ALIGNMENT 
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -331,7 +331,7 @@ fun EditProfileScreen(
             ) {
                 IconButton(
                     onClick = onNavigateBack, 
-                    modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp) // 🚨 Restored offset
+                    modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp) 
                 ) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
                 }
@@ -344,17 +344,35 @@ fun EditProfileScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        color = primaryOrange, 
-                        modifier = Modifier.align(Alignment.CenterEnd).size(24.dp)
-                    )
-                } else {
+                // 🚨 PERFECT SPINNER ALIGNMENT FIX 🚨
+                // Wraps both the button and the spinner together.
+                Box(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    contentAlignment = Alignment.Center
+                ) {
                     TextButton(
-                        onClick = { keyboardController?.hide(); focusManager.clearFocus(); saveProfile() },
-                        modifier = Modifier.align(Alignment.CenterEnd) // 🚨 Matches original Row spacing
+                        onClick = { 
+                            if (!isSaving) { 
+                                keyboardController?.hide(); focusManager.clearFocus(); saveProfile() 
+                            } 
+                        }
                     ) {
-                        Text("Save", color = primaryOrange, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        // We keep the word "Save" here so the button never changes width!
+                        // We just make it invisible when saving so the spinner can be drawn perfectly over it.
+                        Text(
+                            text = "Save", 
+                            color = if (isSaving) Color.Transparent else primaryOrange, 
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 16.sp
+                        )
+                    }
+                    
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            color = primaryOrange, 
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.5.dp
+                        )
                     }
                 }
             }
