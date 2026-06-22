@@ -12,10 +12,10 @@ import org.json.JSONObject
 import java.util.UUID
 
 object CloudflareManager {
-    // 🚨 Replace with your actual Cloudflare Worker URL
-    private const val WORKER_URL = "https://interraqt-uploader.your-username.workers.dev"
+    // 🚨 Notice: No slash at the very end of this URL!
+    private const val WORKER_URL = "https://interraqt-uploader.hardikkalal360.workers.dev"
     
-    // 🚨 Replace with the exact APP_SECRET you put in the Cloudflare Dashboard
+    // 🚨 Make absolutely sure this exactly matches your Cloudflare Environment Variable
     private const val APP_SECRET = "InterraqtSecretUploadKey2026" 
     
     private val client = OkHttpClient()
@@ -44,6 +44,9 @@ object CloudflareManager {
                     val jsonString = response.body?.string() ?: ""
                     // Parses the {"url": "https://cdn.interraqt.com/..."} response from the Worker
                     return@withContext JSONObject(jsonString).getString("url")
+                } else {
+                    // Optional: Print the error to Logcat to see exactly why Cloudflare rejected it
+                    println("Cloudflare Error: ${response.code} - ${response.body?.string()}")
                 }
             }
         } catch (e: Exception) {
