@@ -25,14 +25,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,8 +52,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -91,7 +92,6 @@ fun CreatePostScreen(
     val textColor = if (isDark) Color.White else Color.Black
     val primaryOrange = Color(0xFFFF6328)
     
-    // Custom colors for the immersive UI
     val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
     val highOpacityGlassColor = if (isDark) Color.Black.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f)
     val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
@@ -101,7 +101,6 @@ fun CreatePostScreen(
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
-    // 🚨 HIDES THE STATUS BAR DURING FULLSCREEN MODE
     DisposableEffect(fullscreenMediaUri) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
@@ -204,7 +203,6 @@ fun CreatePostScreen(
         ) {
             Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 80.dp))
 
-            // 🚨 THE UNIFIED COMPOSER BOX (Upgraded Shadow, Corner Radius, & Tap-to-Focus)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -218,15 +216,14 @@ fun CreatePostScreen(
                     .background(surfaceColor)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
-                        indication = null // Traps the tap without the ripple blink effect
+                        indication = null 
                     ) {
                         focusRequester.requestFocus()
                         keyboardController?.show()
                     }
-                    .padding(vertical = 16.dp)
+                    .padding(top = 16.dp, bottom = 12.dp) // 🚨 Reduced bottom padding to perfectly hug the icons
             ) {
                 Column {
-                    // --- Horizontal Media Previews ---
                     if (selectedMediaUris.isNotEmpty()) {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -237,16 +234,15 @@ fun CreatePostScreen(
                                 Box(
                                     modifier = Modifier
                                         .width(84.dp)
-                                        .height(112.dp) // 🚨 3:4 Aspect Ratio!
+                                        .height(112.dp) 
                                 ) {
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(true).build(),
                                         contentDescription = "Media Preview",
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .clip(RoundedCornerShape(16.dp)) // 🚨 Softer corners
+                                            .clip(RoundedCornerShape(16.dp)) 
                                             .clickable { 
-                                                // Drop keyboard immediately before launching viewer
                                                 keyboardController?.hide()
                                                 focusManager.clearFocus()
                                                 fullscreenMediaUri = uri 
@@ -271,60 +267,76 @@ fun CreatePostScreen(
                         }
                     }
 
-                    // --- Caption Text Field ---
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
                         maxLength = 1000, 
                         placeholderText = "What's happening?",
-                        focusRequester = focusRequester, // Connects the background tap to the cursor
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp).padding(horizontal = 8.dp),
+                        focusRequester = focusRequester,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 8.dp),
                         primaryColor = primaryOrange,
                         surfaceColor = surfaceColor, 
                         textColor = textColor,
                         subTextColor = Color.Gray
                     )
 
-                    // --- Bottom-Left Pickers (Liquid Glass Style) ---
+                    // 🚨 STREAMLINED BOTTOM BAR (Counter is aligned to the right!)
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween // Pushes icons left, counter right
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(liquidPickerBg)
-                                .clickable { 
-                                    if (selectedMediaUris.size < 3) {
-                                        imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                    } else {
-                                        Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Image, contentDescription = "Add Image", tint = primaryOrange, modifier = Modifier.size(22.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(liquidPickerBg)
+                                    .clickable { 
+                                        if (selectedMediaUris.size < 3) {
+                                            imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                        } else {
+                                            Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // 🚨 Modern Adaptive Outlined Icon
+                                Icon(Icons.Outlined.Image, contentDescription = "Add Image", tint = textColor, modifier = Modifier.size(22.dp))
+                            }
+                            
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(liquidPickerBg)
+                                    .clickable { 
+                                        if (selectedMediaUris.size < 3) {
+                                            videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                                        } else {
+                                            Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                // 🚨 Modern Adaptive Outlined Icon
+                                Icon(Icons.Outlined.Videocam, contentDescription = "Add Video", tint = textColor, modifier = Modifier.size(24.dp))
+                            }
                         }
                         
-                        Spacer(modifier = Modifier.width(12.dp))
-                        
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(liquidPickerBg)
-                                .clickable { 
-                                    if (selectedMediaUris.size < 3) {
-                                        videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-                                    } else {
-                                        Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Videocam, contentDescription = "Add Video", tint = primaryOrange, modifier = Modifier.size(22.dp))
-                        }
+                        // 🚨 Horizontally Aligned Character Counter
+                        Text(
+                            text = "${caption.text.length}/1000",
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
                     }
                 }
             }
@@ -332,7 +344,6 @@ fun CreatePostScreen(
             Spacer(modifier = Modifier.height(100.dp))
         }
 
-        // --- Top Navigation Bar ---
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -363,11 +374,11 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 FULLSCREEN IMMERSIVE VIEWER 🚨
+        // 🚨 PERFECTLY SYMMETRICAL IMMERSIVE VIEWER ANIMATIONS
         AnimatedVisibility(
             visible = fullscreenMediaUri != null,
-            enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300), initialScale = 0.8f),
-            exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300), targetScale = 0.8f),
+            enter = fadeIn(animationSpec = tween(250)) + scaleIn(animationSpec = tween(250), initialScale = 0.9f),
+            exit = fadeOut(animationSpec = tween(250)) + scaleOut(animationSpec = tween(250), targetScale = 0.9f),
             modifier = Modifier.fillMaxSize()
         ) {
             Box(
@@ -385,7 +396,6 @@ fun CreatePostScreen(
                     )
                 }
                 
-                // 🚨 Higher Opacity Profile-Style Close Button
                 Box(
                     modifier = Modifier
                         .statusBarsPadding()
@@ -446,8 +456,9 @@ private fun PostCaptionTextField(
                 }
             },
             interactionSource = interactionSource,
-            // 🚨 Automatically expands, then scrolls at 6 lines
             maxLines = 6, 
+            // 🚨 INTELLIGENT KEYBOARD AUTO-CAPITALIZATION
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = modifier
                 .focusRequester(focusRequester)
                 .onFocusChanged { state ->
@@ -461,8 +472,8 @@ private fun PostCaptionTextField(
                 containerColor = surfaceColor, focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
                 focusedTextColor = textColor, unfocusedTextColor = textColor, cursorColor = primaryColor
             ),
-            placeholder = { Text(placeholderText, color = subTextColor) },
-            supportingText = { Text("${value.text.length}/$maxLength", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+            placeholder = { Text(placeholderText, color = subTextColor) }
+            // Note: supportingText (Counter) is removed from here to perfectly align it in the Action Bar below!
         )
     }
 }
