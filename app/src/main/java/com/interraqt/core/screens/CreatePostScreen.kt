@@ -1,5 +1,6 @@
 package com.interraqt.core.screens
 
+import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -37,18 +38,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
@@ -65,11 +74,14 @@ fun CreatePostScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
     val auth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
     val currentUserId = auth.currentUser?.uid ?: return
 
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -78,14 +90,34 @@ fun CreatePostScreen(
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val primaryOrange = Color(0xFFFF6328)
+    
+    // Custom colors for the immersive UI
     val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
+    val highOpacityGlassColor = if (isDark) Color.Black.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f)
+    val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
     var selectedMediaUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var fullscreenMediaUri by remember { mutableStateOf<Uri?>(null) } // Controls the immersive viewer
+    var fullscreenMediaUri by remember { mutableStateOf<Uri?>(null) }
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
-    // 🚨 Intelligent BackHandler: Closes fullscreen viewer first, or exits screen if not publishing
+    // 🚨 HIDES THE STATUS BAR DURING FULLSCREEN MODE
+    DisposableEffect(fullscreenMediaUri) {
+        val window = (context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
+        if (fullscreenMediaUri != null) {
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        } else {
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+        }
+        
+        onDispose {
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     BackHandler {
         if (fullscreenMediaUri != null) {
             fullscreenMediaUri = null
@@ -94,7 +126,6 @@ fun CreatePostScreen(
         }
     }
 
-    // 🚨 Pickers designed for up to 3 multi-item selections
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3),
         onResult = { uris -> 
@@ -119,7 +150,6 @@ fun CreatePostScreen(
         
         isPublishing = true
         coroutineScope.launch {
-            // 1. Sequentially upload all selected media to Cloudflare
             val uploadedUrls = mutableListOf<String>()
             for (uri in selectedMediaUris) {
                 val url = CloudflareManager.uploadImage(context, uri, isBanner = true)
@@ -132,19 +162,17 @@ fun CreatePostScreen(
                 return@launch
             }
             
-            // 2. Prepare Post Data for Firebase (Using "mediaUrls" array for Carousel support)
             val postId = UUID.randomUUID().toString()
             val postMap = hashMapOf(
                 "postId" to postId,
                 "userId" to currentUserId,
                 "caption" to caption.text.trim(),
-                "mediaUrls" to uploadedUrls, // 🚨 Saved as a list for the Home Feed carousel
+                "mediaUrls" to uploadedUrls, 
                 "timestamp" to System.currentTimeMillis(),
                 "likesCount" to 0,
                 "commentsCount" to 0
             )
 
-            // 3. Save to "posts" collection
             firestore.collection("posts").document(postId).set(postMap)
                 .addOnSuccessListener {
                     firestore.collection("users").document(currentUserId)
@@ -176,16 +204,29 @@ fun CreatePostScreen(
         ) {
             Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 80.dp))
 
-            // 🚨 THE UNIFIED COMPOSER BOX
+            // 🚨 THE UNIFIED COMPOSER BOX (Upgraded Shadow, Corner Radius, & Tap-to-Focus)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .shadow(
+                        elevation = 12.dp, 
+                        shape = RoundedCornerShape(24.dp), 
+                        ambientColor = Color.Black.copy(alpha = 0.05f), 
+                        spotColor = Color.Black.copy(alpha = 0.1f)
+                    )
+                    .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null // Traps the tap without the ripple blink effect
+                    ) {
+                        focusRequester.requestFocus()
+                        keyboardController?.show()
+                    }
                     .padding(vertical = 16.dp)
             ) {
                 Column {
-                    // --- Top-Left Area: Horizontal Media Previews ---
+                    // --- Horizontal Media Previews ---
                     if (selectedMediaUris.isNotEmpty()) {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -195,28 +236,31 @@ fun CreatePostScreen(
                             items(selectedMediaUris) { uri ->
                                 Box(
                                     modifier = Modifier
-                                        .width(80.dp)
-                                        .height(100.dp) // 🚨 4:5 Aspect Ratio, Compact Size
+                                        .width(84.dp)
+                                        .height(112.dp) // 🚨 3:4 Aspect Ratio!
                                 ) {
-                                    // Thumbnail (Tap to view fullscreen)
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(true).build(),
                                         contentDescription = "Media Preview",
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .clickable { fullscreenMediaUri = uri },
+                                            .clip(RoundedCornerShape(16.dp)) // 🚨 Softer corners
+                                            .clickable { 
+                                                // Drop keyboard immediately before launching viewer
+                                                keyboardController?.hide()
+                                                focusManager.clearFocus()
+                                                fullscreenMediaUri = uri 
+                                            },
                                         contentScale = ContentScale.Crop
                                     )
                                     
-                                    // The 'X' Remove Badge (Top Right of thumbnail)
                                     Box(
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
-                                            .padding(4.dp)
-                                            .size(22.dp)
+                                            .padding(6.dp)
+                                            .size(24.dp)
                                             .clip(CircleShape)
-                                            .background(Color.Black.copy(alpha = 0.6f))
+                                            .background(Color.Black.copy(alpha = 0.65f))
                                             .clickable { selectedMediaUris = selectedMediaUris - uri },
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -227,51 +271,59 @@ fun CreatePostScreen(
                         }
                     }
 
-                    // --- The Seamless Caption Text Field ---
+                    // --- Caption Text Field ---
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
-                        maxLength = 1000, // 🚨 Downsized to 1,000 characters
+                        maxLength = 1000, 
                         placeholderText = "What's happening?",
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp).padding(horizontal = 8.dp),
+                        focusRequester = focusRequester, // Connects the background tap to the cursor
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp).padding(horizontal = 8.dp),
                         primaryColor = primaryOrange,
-                        surfaceColor = surfaceColor, // Blends perfectly with the box
+                        surfaceColor = surfaceColor, 
                         textColor = textColor,
                         subTextColor = Color.Gray
                     )
 
-                    // --- Bottom-Left Area: Media Picker Icons ---
+                    // --- Bottom-Left Pickers (Liquid Glass Style) ---
                     Row(
-                        // 🚨 FIXED: Separated the horizontal and top padding calls
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = { 
-                                if (selectedMediaUris.size < 3) {
-                                    imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                } else {
-                                    Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.size(40.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(liquidPickerBg)
+                                .clickable { 
+                                    if (selectedMediaUris.size < 3) {
+                                        imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    } else {
+                                        Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Image, contentDescription = "Add Image", tint = primaryOrange)
+                            Icon(Icons.Default.Image, contentDescription = "Add Image", tint = primaryOrange, modifier = Modifier.size(22.dp))
                         }
                         
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         
-                        IconButton(
-                            onClick = { 
-                                if (selectedMediaUris.size < 3) {
-                                    videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
-                                } else {
-                                    Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.size(40.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(liquidPickerBg)
+                                .clickable { 
+                                    if (selectedMediaUris.size < 3) {
+                                        videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                                    } else {
+                                        Toast.makeText(context, "Maximum 3 items allowed", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Videocam, contentDescription = "Add Video", tint = primaryOrange)
+                            Icon(Icons.Default.Videocam, contentDescription = "Add Video", tint = primaryOrange, modifier = Modifier.size(22.dp))
                         }
                     }
                 }
@@ -311,7 +363,7 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 THREADS-STYLE FULLSCREEN IMMERSIVE VIEWER 🚨
+        // 🚨 FULLSCREEN IMMERSIVE VIEWER 🚨
         AnimatedVisibility(
             visible = fullscreenMediaUri != null,
             enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300), initialScale = 0.8f),
@@ -322,7 +374,7 @@ fun CreatePostScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black)
-                    .pointerInput(Unit) { detectTapGestures { } } // Traps touches so they don't hit the screen behind it
+                    .pointerInput(Unit) { detectTapGestures { } } 
             ) {
                 if (fullscreenMediaUri != null) {
                     AsyncImage(
@@ -333,14 +385,14 @@ fun CreatePostScreen(
                     )
                 }
                 
-                // Profile-Style Glass Close Button (Top Start)
+                // 🚨 Higher Opacity Profile-Style Close Button
                 Box(
                     modifier = Modifier
                         .statusBarsPadding()
                         .padding(16.dp)
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(glassColor)
+                        .background(highOpacityGlassColor)
                         .clickable { fullscreenMediaUri = null },
                     contentAlignment = Alignment.Center
                 ) {
@@ -357,6 +409,7 @@ private fun PostCaptionTextField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     maxLength: Int,
+    focusRequester: FocusRequester,
     modifier: Modifier = Modifier,
     placeholderText: String,
     primaryColor: Color,
@@ -393,14 +446,17 @@ private fun PostCaptionTextField(
                 }
             },
             interactionSource = interactionSource,
-            modifier = modifier.onFocusChanged { state ->
-                if (state.isFocused && !isFocused) { forceCursorToEnd = true; showHandle = false }
-                if (!state.isFocused) { showHandle = false; forceCursorToEnd = false }
-                isFocused = state.isFocused
-            },
+            // 🚨 Automatically expands, then scrolls at 6 lines
+            maxLines = 6, 
+            modifier = modifier
+                .focusRequester(focusRequester)
+                .onFocusChanged { state ->
+                    if (state.isFocused && !isFocused) { forceCursorToEnd = true; showHandle = false }
+                    if (!state.isFocused) { showHandle = false; forceCursorToEnd = false }
+                    isFocused = state.isFocused
+                },
             textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
             shape = RoundedCornerShape(16.dp),
-            // 🚨 The transparent borders make it sit seamlessly inside the parent Box!
             colors = TextFieldDefaults.outlinedTextFieldColors(
                 containerColor = surfaceColor, focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
                 focusedTextColor = textColor, unfocusedTextColor = textColor, cursorColor = primaryColor
