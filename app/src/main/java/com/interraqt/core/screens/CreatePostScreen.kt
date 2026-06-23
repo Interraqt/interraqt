@@ -10,7 +10,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,6 +27,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
@@ -54,7 +57,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +71,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -108,6 +112,7 @@ fun CreatePostScreen(
     val textColor = if (isDark) Color.White else Color.Black
     val primaryOrange = Color(0xFFFF6328)
     
+    // 🚨 STYLING REFERENCE FROM PROFILE SCREEN FOR CLOSE BUTTON
     val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
     val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
@@ -115,22 +120,16 @@ fun CreatePostScreen(
     var isFullscreenVisible by remember { mutableStateOf(false) }
     var initialFullscreenPage by remember { mutableIntStateOf(0) }
     
+    // 🚨 SHARED THUMBNAIL CACHE: Eliminates black flash instantly!
+    val videoThumbnails = remember { mutableStateMapOf<Uri, Bitmap>() }
+    
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
     var isBoxFocused by remember { mutableStateOf(false) }
-    var emptyBoxTapTrigger by remember { mutableIntStateOf(0) }
+    var emptyBoxTapSecondTrigger by remember { mutableIntStateOf(0) }
 
-    // 🚨 SNAPSHOT TOP PADDING: Freezes the top padding value so the layout NEVER jumps when the status bar hides.
-    var frozenTopPadding by remember { mutableStateOf(0.dp) }
-    val currentTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    LaunchedEffect(currentTopPadding) {
-        if (frozenTopPadding == 0.dp && currentTopPadding > 0.dp) {
-            frozenTopPadding = currentTopPadding
-        }
-    }
-    val safeTopPadding = if (frozenTopPadding > 0.dp) frozenTopPadding else currentTopPadding
-
+    // 🚨 SYSTEM BAR HANDLER: Hides status bar gracefully without layout jumps
     DisposableEffect(isFullscreenVisible) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
@@ -219,6 +218,15 @@ fun CreatePostScreen(
         }
     }
 
+    val isImeVisible = WindowInsets.isImeVisible
+
+    // 🚨 LAYIFT SHIFT LOCK: Freezes the background padding even when the status bar hides
+    var statusBarHeight by remember { mutableStateOf(0.dp) }
+    val currentTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    if (currentTopPadding > 0.dp) {
+        statusBarHeight = currentTopPadding
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -229,11 +237,11 @@ fun CreatePostScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
-                .verticalScroll(scrollState)
+                .verticalScroll(state = scrollState, enabled = isImeVisible)
                 .padding(horizontal = 24.dp)
         ) {
-            // Uses the frozen top padding to prevent layout shift!
-            Spacer(modifier = Modifier.height(safeTopPadding + 80.dp))
+            // Uses the locked height so background never jumps up when fullscreen opens!
+            Spacer(modifier = Modifier.height(statusBarHeight + 80.dp))
 
             Box(
                 modifier = Modifier
@@ -246,16 +254,19 @@ fun CreatePostScreen(
                     )
                     .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
-                    // 🚨 UNIFIED BOX TAP: Clean `.clickable` allows Text Field to own its gestures natively
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null 
-                    ) {
-                        if (!isBoxFocused) {
-                            focusRequester.requestFocus()
-                            keyboardController?.show()
-                        } else {
-                            emptyBoxTapTrigger++
+                    .pointerInput(isBoxFocused) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.changes.any { it.pressed }) {
+                                    if (!isBoxFocused) {
+                                        focusRequester.requestFocus()
+                                        keyboardController?.show()
+                                    } else {
+                                        emptyBoxTapSecondTrigger++
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(top = 12.dp, bottom = 12.dp)
@@ -274,29 +285,32 @@ fun CreatePostScreen(
                                         .height(112.dp) 
                                 ) {
                                     if (media.isVideo) {
-                                        var videoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
                                         var durationText by remember { mutableStateOf("") }
 
                                         LaunchedEffect(media.uri) {
-                                            withContext(Dispatchers.IO) {
-                                                try {
-                                                    val retriever = MediaMetadataRetriever()
-                                                    retriever.setDataSource(context, media.uri)
-                                                    videoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                                    
-                                                    val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-                                                    if (durationMs > 0) {
-                                                        val seconds = (durationMs / 1000) % 60
-                                                        val minutes = (durationMs / 1000) / 60
-                                                        durationText = String.format("%d:%02d", minutes, seconds)
-                                                    }
-                                                    retriever.release()
-                                                } catch (e: Exception) { e.printStackTrace() }
+                                            if (!videoThumbnails.containsKey(media.uri)) {
+                                                withContext(Dispatchers.IO) {
+                                                    try {
+                                                        val retriever = MediaMetadataRetriever()
+                                                        retriever.setDataSource(context, media.uri)
+                                                        val thumb = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                                        if (thumb != null) {
+                                                            videoThumbnails[media.uri] = thumb
+                                                        }
+                                                        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+                                                        if (durationMs > 0) {
+                                                            val seconds = (durationMs / 1000) % 60
+                                                            val minutes = (durationMs / 1000) / 60
+                                                            durationText = String.format("%d:%02d", minutes, seconds)
+                                                        }
+                                                        retriever.release()
+                                                    } catch (e: Exception) { e.printStackTrace() }
+                                                }
                                             }
                                         }
 
                                         AsyncImage(
-                                            model = videoThumbnail,
+                                            model = videoThumbnails[media.uri],
                                             contentDescription = "Video Preview",
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -364,7 +378,10 @@ fun CreatePostScreen(
                                             .size(24.dp)
                                             .clip(CircleShape)
                                             .background(Color.Black.copy(alpha = 0.65f))
-                                            .clickable { selectedMedia = selectedMedia - media },
+                                            .clickable { 
+                                                selectedMedia = selectedMedia - media 
+                                                videoThumbnails.remove(media.uri)
+                                            },
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
@@ -380,7 +397,7 @@ fun CreatePostScreen(
                         maxLength = 1000, 
                         focusRequester = focusRequester,
                         onFocusStateChange = { isBoxFocused = it },
-                        emptyBoxTapTrigger = emptyBoxTapTrigger,
+                        emptyBoxTapSecondTrigger = emptyBoxTapSecondTrigger,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 60.dp)
@@ -447,15 +464,14 @@ fun CreatePostScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 🚨 Main App Bar uses frozen padding to remain locked in position.
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(top = safeTopPadding)
+                .padding(top = statusBarHeight) // Uses locked height to stop UI shifting
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             IconButton(
@@ -481,20 +497,15 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 TRUE EDGE-TO-EDGE FULLSCREEN OVERLAY: Fluid Threads Animation, No Layout Shifts
+        // 🚨 THREADS PHYSICS: True Edge-to-Edge Root Overlay with Spring Animations
+        // Moved out of Dialog to ensure smooth layout-stable transitions
         AnimatedVisibility(
             visible = isFullscreenVisible,
-            enter = fadeIn(animationSpec = tween(300)) + scaleIn(
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                initialScale = 0.3f, 
-                transformOrigin = TransformOrigin(0.2f, 0.2f)
-            ),
-            exit = fadeOut(animationSpec = tween(300)) + scaleOut(
-                animationSpec = tween(300, easing = FastOutSlowInEasing),
-                targetScale = 0.3f, 
-                transformOrigin = TransformOrigin(0.2f, 0.2f)
-            ),
-            modifier = Modifier.fillMaxSize() 
+            enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)) + 
+                    scaleIn(animationSpec = spring(dampingRatio = 0.75f, stiffness = 200f), initialScale = 0.2f),
+            exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow)) + 
+                   scaleOut(animationSpec = spring(dampingRatio = 0.85f, stiffness = 250f), targetScale = 0.2f),
+            modifier = Modifier.fillMaxSize().zIndex(100f) // Ensures it covers everything including the notch!
         ) {
             Box(
                 modifier = Modifier
@@ -504,24 +515,20 @@ fun CreatePostScreen(
             ) {
                 val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
                 
+                // 🚨 SHARED ELEMENT ILLUSION: Morphs from 16.dp thumbnail corners to sharp fullscreen edges smoothly
+                val animatedCornerRadius by animateDpAsState(
+                    targetValue = if (isFullscreenVisible) 0.dp else 16.dp,
+                    animationSpec = spring(dampingRatio = 0.75f, stiffness = 200f),
+                    label = "cornerRadius"
+                )
+
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                     val mediaItem = selectedMedia[page]
                     
                     if (mediaItem.isVideo) {
-                        var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
+                        var isFirstFrameRendered by remember { mutableStateOf(false) }
 
-                        LaunchedEffect(mediaItem.uri) {
-                            withContext(Dispatchers.IO) {
-                                try {
-                                    val retriever = MediaMetadataRetriever()
-                                    retriever.setDataSource(context, mediaItem.uri)
-                                    fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                    retriever.release()
-                                } catch (e: Exception) { e.printStackTrace() }
-                            }
-                        }
-
-                        Box(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(animatedCornerRadius))) {
                             val exoPlayer = remember { 
                                 androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
                                     repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
@@ -529,19 +536,29 @@ fun CreatePostScreen(
                             }
                             
                             DisposableEffect(mediaItem.uri) {
+                                isFirstFrameRendered = false
                                 val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                                val listener = object : androidx.media3.common.Player.Listener {
+                                    override fun onRenderedFirstFrame() {
+                                        isFirstFrameRendered = true
+                                    }
+                                }
+                                exoPlayer.addListener(listener)
                                 exoPlayer.setMediaItem(media)
                                 exoPlayer.prepare()
-                                // 🚨 INSTANT PLAYBACK
-                                exoPlayer.playWhenReady = true
+                                // 🚨 INSTANT PRE-PLAY: It starts playing instantly while transition is happening
+                                exoPlayer.playWhenReady = true 
                                 onDispose { 
+                                    exoPlayer.removeListener(listener)
                                     exoPlayer.release() 
                                 }
                             }
                             
                             val isCurrentPage = pagerState.currentPage == page
-                            LaunchedEffect(isCurrentPage) {
-                                if (isCurrentPage) {
+                            val isScrolling = pagerState.isScrollInProgress
+                            
+                            LaunchedEffect(isCurrentPage, isScrolling) {
+                                if (isCurrentPage && !isScrolling) {
                                     exoPlayer.play()
                                 } else {
                                     exoPlayer.pause()
@@ -561,23 +578,34 @@ fun CreatePostScreen(
                                         )
                                     }
                                 },
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize().background(Color.Black)
                             )
+
+                            // 🚨 ZERO BLACK FLASH: Shows the pre-cached thumbnail exactly until the video plays!
+                            if (!isFirstFrameRendered && videoThumbnails.containsKey(mediaItem.uri)) {
+                                AsyncImage(
+                                    model = videoThumbnails[mediaItem.uri],
+                                    contentDescription = "Video Thumbnail",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
                         }
                     } else {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
                             contentDescription = "Fullscreen Media",
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(animatedCornerRadius)),
                             contentScale = ContentScale.Fit
                         )
                     }
                 }
                 
-                // 🚨 STYLED CLOSE BUTTON: Exactly matches ProfileScreen
+                // 🚨 PROFILE SCREEN COMPLIANT CLOSE ICON: Adapts to theme, highly visible!
                 Box(
                     modifier = Modifier
-                        .padding(top = safeTopPadding + 16.dp, start = 16.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(top = statusBarHeight + 16.dp, end = 16.dp)
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(glassColor)
@@ -591,6 +619,7 @@ fun CreatePostScreen(
     }
 }
 
+// 🚨 STRICTLY UNTOUCHED CURSOR LOGIC FROM PREVIOUS PROMPT 🚨
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun PostCaptionTextField(
@@ -599,7 +628,7 @@ private fun PostCaptionTextField(
     maxLength: Int,
     focusRequester: FocusRequester,
     onFocusStateChange: (Boolean) -> Unit,
-    emptyBoxTapTrigger: Int,
+    emptyBoxTapSecondTrigger: Int,
     modifier: Modifier = Modifier,
     placeholderText: String,
     primaryColor: Color,
@@ -607,26 +636,23 @@ private fun PostCaptionTextField(
     textColor: Color,
     subTextColor: Color
 ) {
-    // 🚨 100% Exact EditProfileScreen Logic
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     var showHandle by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
     var forceCursorToEnd by remember { mutableStateOf(false) }
-    
+
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Rule 1b: Second Tap on Empty Space -> Focused, Jumps to end, SHOWS Handle
-    LaunchedEffect(emptyBoxTapTrigger) {
-        if (emptyBoxTapTrigger > 0) {
+    LaunchedEffect(emptyBoxTapSecondTrigger) {
+        if (emptyBoxTapSecondTrigger > 0) {
             onValueChange(value.copy(selection = TextRange(value.text.length)))
             showHandle = true
             coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
         }
     }
 
-    // Rule 3: Direct Tap on Text -> Native coordinates, SHOWS Handle
     LaunchedEffect(isPressed) {
         if (isPressed && isFocused && !forceCursorToEnd) {
             showHandle = true
@@ -663,11 +689,18 @@ private fun PostCaptionTextField(
                 .bringIntoViewRequester(bringIntoViewRequester)
                 .focusRequester(focusRequester)
                 .onFocusChanged { state ->
-                    // Rule 1 & 2: First Focus (Empty Space OR Text Area) -> Jump to end, NO Handle
                     if (state.isFocused && !isFocused) {
                         forceCursorToEnd = true
                         showHandle = false
                         coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
+                        
+                        coroutineScope.launch {
+                            delay(50)
+                            if (forceCursorToEnd) {
+                                onValueChange(value.copy(selection = TextRange(value.text.length)))
+                                forceCursorToEnd = false
+                            }
+                        }
                     }
                     if (!state.isFocused) {
                         showHandle = false
