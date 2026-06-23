@@ -9,18 +9,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -51,14 +49,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
@@ -91,6 +92,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import kotlin.math.absoluteValue
 
 data class MediaAttachment(val uri: Uri, val isVideo: Boolean)
 
@@ -135,8 +137,10 @@ fun CreatePostScreen(
     // Shared Element state tracking
     var rootBounds by remember { mutableStateOf(Rect.Zero) }
     val itemBounds = remember { mutableStateMapOf<Int, Rect>() }
-    var currentOrigin by remember { mutableStateOf(TransformOrigin.Center) }
-    val cornerRadius by animateDpAsState(targetValue = if (isFullscreenVisible) 0.dp else 16.dp, animationSpec = tween(250))
+    
+    // Custom Transition Animators
+    val morphProgress = remember { Animatable(0f) }
+    val dragOffsetAnim = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
 
     // Stable padding to prevent layout shift when system bars hide
     val currentTopPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -148,8 +152,10 @@ fun CreatePostScreen(
     LaunchedEffect(isFullscreenVisible) {
         if (isFullscreenVisible) {
             showFullscreenOverlay = true
+            launch { morphProgress.animateTo(1f, animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow)) }
         } else {
-            delay(350) 
+            launch { dragOffsetAnim.animateTo(Offset.Zero, animationSpec = tween(250)) }
+            morphProgress.animateTo(0f, animationSpec = tween(250))
             showFullscreenOverlay = false
         }
     }
@@ -332,11 +338,6 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    itemBounds[index]?.let { bounds ->
-                                                        val cX = if (rootBounds.width > 0) (bounds.center.x - rootBounds.left) / rootBounds.width else 0.5f
-                                                        val cY = if (rootBounds.height > 0) (bounds.center.y - rootBounds.top) / rootBounds.height else 0.5f
-                                                        currentOrigin = TransformOrigin(cX, cY)
-                                                    }
                                                     initialFullscreenPage = index
                                                     isFullscreenVisible = true
                                                 },
@@ -351,11 +352,6 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    itemBounds[index]?.let { bounds ->
-                                                        val cX = if (rootBounds.width > 0) (bounds.center.x - rootBounds.left) / rootBounds.width else 0.5f
-                                                        val cY = if (rootBounds.height > 0) (bounds.center.y - rootBounds.top) / rootBounds.height else 0.5f
-                                                        currentOrigin = TransformOrigin(cX, cY)
-                                                    }
                                                     initialFullscreenPage = index
                                                     isFullscreenVisible = true
                                                 },
@@ -388,11 +384,6 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    itemBounds[index]?.let { bounds ->
-                                                        val cX = if (rootBounds.width > 0) (bounds.center.x - rootBounds.left) / rootBounds.width else 0.5f
-                                                        val cY = if (rootBounds.height > 0) (bounds.center.y - rootBounds.top) / rootBounds.height else 0.5f
-                                                        currentOrigin = TransformOrigin(cX, cY)
-                                                    }
                                                     initialFullscreenPage = index
                                                     isFullscreenVisible = true
                                                 },
@@ -524,138 +515,175 @@ fun CreatePostScreen(
             }
         }
 
-        // Fullscreen In-Layout Viewer (replaces Dialog to prevent Layout Shifting)
+        // Fullscreen Custom Shared-Element Overlay (Replaces AnimatedVisibility)
         if (showFullscreenOverlay) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(100f)
             ) {
-                AnimatedVisibility(
-                    visible = isFullscreenVisible,
-                    enter = fadeIn(animationSpec = tween(300)) + 
-                            scaleIn(animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow), initialScale = 0.25f, transformOrigin = currentOrigin),
-                    exit = fadeOut(animationSpec = tween(250)) + 
-                           scaleOut(animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), targetScale = 0.25f, transformOrigin = currentOrigin),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black)
-                            .pointerInput(Unit) { detectTapGestures { } } 
-                    ) {
-                        val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
-                        
-                        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                            val mediaItem = selectedMedia[page]
-                            
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(cornerRadius))
-                            ) {
-                                if (mediaItem.isVideo) {
-                                    var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
-                                    var isFirstFrameRendered by remember { mutableStateOf(false) }
+                val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
 
-                                    LaunchedEffect(mediaItem.uri) {
-                                        withContext(Dispatchers.IO) {
-                                            try {
-                                                val retriever = MediaMetadataRetriever()
-                                                retriever.setDataSource(context, mediaItem.uri)
-                                                fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                                retriever.release()
-                                            } catch (e: Exception) { e.printStackTrace() }
+                // Fetch dynamic bounds for the specific item currently being viewed
+                val currentThumbRect = itemBounds[pagerState.currentPage] ?: Rect.Zero
+                val screenCenter = Offset(rootBounds.width / 2f, rootBounds.height / 2f)
+                val thumbCenter = if (currentThumbRect != Rect.Zero) currentThumbRect.center else screenCenter
+
+                val progress = morphProgress.value
+                val currentDrag = dragOffsetAnim.value
+                val maxDragHeight = rootBounds.height.takeIf { it > 0 } ?: 2000f
+
+                // Shrink slightly if dragged
+                val dragScale = 1f - (currentDrag.y.absoluteValue / maxDragHeight).coerceIn(0f, 0.2f)
+
+                // Uniformly interpolate scale from the exact thumbnail width to fullscreen to prevent content stretching
+                val uniformScale = androidx.compose.ui.util.lerp(
+                    start = if (rootBounds.width > 0f) currentThumbRect.width / rootBounds.width else 1f,
+                    stop = 1f,
+                    fraction = progress
+                ) * dragScale
+
+                val transX = androidx.compose.ui.util.lerp(thumbCenter.x - screenCenter.x, 0f, progress) + currentDrag.x
+                val transY = androidx.compose.ui.util.lerp(thumbCenter.y - screenCenter.y, 0f, progress) + currentDrag.y
+                val cornerRad = androidx.compose.ui.unit.lerp(16.dp, 0.dp, progress)
+
+                // Scrim perfectly fades behind the transition layer but over the root layout
+                val bgAlpha = (progress * (1f - (currentDrag.y.absoluteValue / maxDragHeight).coerceIn(0f, 1f))).coerceIn(0f, 1f)
+
+                // 1. Scrim Background
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = bgAlpha)))
+
+                // 2. Transformed Media Layer
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            translationX = transX
+                            translationY = transY
+                            scaleX = uniformScale
+                            scaleY = uniformScale
+                            clip = true
+                            shape = RoundedCornerShape(cornerRad)
+                        }
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    coroutineScope.launch { dragOffsetAnim.snapTo(dragOffsetAnim.value + dragAmount) }
+                                },
+                                onDragEnd = {
+                                    if (dragOffsetAnim.value.y.absoluteValue > 250f || dragOffsetAnim.value.getDistance() > 300f) {
+                                        isFullscreenVisible = false // Trigger closing animation
+                                    } else {
+                                        coroutineScope.launch { dragOffsetAnim.animateTo(Offset.Zero, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium)) }
+                                    }
+                                }
+                            )
+                        }
+                ) {
+                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                        val mediaItem = selectedMedia[page]
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (mediaItem.isVideo) {
+                                var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
+                                var isFirstFrameRendered by remember { mutableStateOf(false) }
+
+                                LaunchedEffect(mediaItem.uri) {
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val retriever = MediaMetadataRetriever()
+                                            retriever.setDataSource(context, mediaItem.uri)
+                                            fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                            retriever.release()
+                                        } catch (e: Exception) { e.printStackTrace() }
+                                    }
+                                }
+
+                                val isCurrentPage = pagerState.currentPage == page
+                                
+                                val exoPlayer = remember { 
+                                    androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                        repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                        playWhenReady = isCurrentPage // Pre-warm playback flag
+                                    } 
+                                }
+                                
+                                DisposableEffect(mediaItem.uri) {
+                                    isFirstFrameRendered = false
+                                    val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                                    val listener = object : androidx.media3.common.Player.Listener {
+                                        override fun onRenderedFirstFrame() {
+                                            isFirstFrameRendered = true
                                         }
                                     }
-
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        val exoPlayer = remember { 
-                                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                            } 
-                                        }
-                                        
-                                        DisposableEffect(mediaItem.uri) {
-                                            isFirstFrameRendered = false
-                                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                                            val listener = object : androidx.media3.common.Player.Listener {
-                                                override fun onRenderedFirstFrame() {
-                                                    isFirstFrameRendered = true
-                                                }
-                                            }
-                                            exoPlayer.addListener(listener)
-                                            exoPlayer.setMediaItem(media)
-                                            exoPlayer.prepare()
-                                            onDispose { 
-                                                exoPlayer.removeListener(listener)
-                                                exoPlayer.release() 
-                                            }
-                                        }
-                                        
-                                        val isCurrentPage = pagerState.currentPage == page
-                                        val isScrolling = pagerState.isScrollInProgress
-                                        
-                                        LaunchedEffect(isCurrentPage, isScrolling) {
-                                            if (isCurrentPage && !isScrolling) {
-                                                exoPlayer.playWhenReady = true
-                                                exoPlayer.play()
-                                            } else {
-                                                exoPlayer.playWhenReady = false
-                                                exoPlayer.pause()
-                                            }
-                                        }
-                                        
-                                        AndroidView(
-                                            factory = { ctx ->
-                                                androidx.media3.ui.PlayerView(ctx).apply {
-                                                    player = exoPlayer
-                                                    useController = false 
-                                                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                                    layoutParams = android.view.ViewGroup.LayoutParams(
-                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                                    )
-                                                }
-                                            },
-                                            modifier = Modifier.fillMaxSize().background(Color.Black)
-                                        )
-
-                                        if (!isFirstFrameRendered) {
-                                            AsyncImage(
-                                                model = fullscreenVideoThumbnail,
-                                                contentDescription = "Video Thumbnail",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = ContentScale.Fit
+                                    exoPlayer.addListener(listener)
+                                    exoPlayer.setMediaItem(media)
+                                    exoPlayer.prepare()
+                                    onDispose { 
+                                        exoPlayer.removeListener(listener)
+                                        exoPlayer.release() 
+                                    }
+                                }
+                                
+                                LaunchedEffect(isCurrentPage) {
+                                    if (isCurrentPage) {
+                                        exoPlayer.playWhenReady = true
+                                        exoPlayer.play()
+                                    } else {
+                                        exoPlayer.playWhenReady = false
+                                        exoPlayer.pause()
+                                    }
+                                }
+                                
+                                AndroidView(
+                                    factory = { ctx ->
+                                        androidx.media3.ui.PlayerView(ctx).apply {
+                                            player = exoPlayer
+                                            useController = false 
+                                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                            setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
                                             )
                                         }
-                                    }
-                                } else {
+                                    },
+                                    modifier = Modifier.fillMaxSize().background(Color.Transparent)
+                                )
+
+                                if (!isFirstFrameRendered) {
                                     AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
-                                        contentDescription = "Fullscreen Media",
+                                        model = fullscreenVideoThumbnail,
+                                        contentDescription = "Video Thumbnail",
                                         modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Fit
+                                        contentScale = ContentScale.Fit 
                                     )
                                 }
+                            } else {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
+                                    contentDescription = "Fullscreen Media",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
                             }
                         }
-                        
-                        // Close Button matches Profile Screen aesthetic
-                        Box(
-                            modifier = Modifier
-                                .padding(top = maxOf(stableTopPadding, currentTopPadding) + 16.dp, start = 16.dp)
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(glassColor)
-                                .clickable { isFullscreenVisible = false }, 
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = textColor, modifier = Modifier.size(24.dp))
-                        }
                     }
+                }
+                
+                // 3. Static Overlay (Close button)
+                Box(
+                    modifier = Modifier
+                        .padding(top = maxOf(stableTopPadding, currentTopPadding) + 16.dp, start = 16.dp)
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(glassColor)
+                        .alpha(progress) // Fade in alongside the morphing animation
+                        .clickable { isFullscreenVisible = false }, 
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = textColor, modifier = Modifier.size(24.dp))
                 }
             }
         }
