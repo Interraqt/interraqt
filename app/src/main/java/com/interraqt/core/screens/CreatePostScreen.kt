@@ -24,6 +24,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,8 +36,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,7 +77,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-// 🚨 Smart Data Class to Track Image vs Video
 data class MediaAttachment(val uri: Uri, val isVideo: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,17 +106,20 @@ fun CreatePostScreen(
     val highOpacityGlassColor = if (isDark) Color.Black.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f)
     val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
-    // 🚨 Track Media Using the New Custom Class
     var selectedMedia by remember { mutableStateOf<List<MediaAttachment>>(emptyList()) }
-    var fullscreenMedia by remember { mutableStateOf<MediaAttachment?>(null) }
+    
+    // 🚨 Navigation States for Fullscreen Carousel
+    var isFullscreenVisible by remember { mutableStateOf(false) }
+    var initialFullscreenPage by remember { mutableIntStateOf(0) }
+    
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
-    DisposableEffect(fullscreenMedia) {
+    DisposableEffect(isFullscreenVisible) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
         
-        if (fullscreenMedia != null) {
+        if (isFullscreenVisible) {
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
@@ -128,8 +132,8 @@ fun CreatePostScreen(
     }
 
     BackHandler {
-        if (fullscreenMedia != null) {
-            fullscreenMedia = null
+        if (isFullscreenVisible) {
+            isFullscreenVisible = false
         } else if (!isPublishing) {
             onNavigateBack()
         }
@@ -224,7 +228,6 @@ fun CreatePostScreen(
                     )
                     .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
-                    // 🚨 Intercepting Clickable REMOVED. Events flow directly to the Text Field now!
                     .padding(top = 16.dp, bottom = 12.dp)
             ) {
                 Column {
@@ -240,7 +243,6 @@ fun CreatePostScreen(
                                         .width(84.dp)
                                         .height(112.dp) 
                                 ) {
-                                    // 🚨 SMART THUMBNAIL GENERATOR
                                     if (media.isVideo) {
                                         var videoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
                                         var durationText by remember { mutableStateOf("") }
@@ -250,10 +252,8 @@ fun CreatePostScreen(
                                                 try {
                                                     val retriever = MediaMetadataRetriever()
                                                     retriever.setDataSource(context, media.uri)
-                                                    // Grabs a frame near the 1-second mark
                                                     videoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                                                     
-                                                    // Grabs video duration
                                                     val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
                                                     if (durationMs > 0) {
                                                         val seconds = (durationMs / 1000) % 60
@@ -265,7 +265,6 @@ fun CreatePostScreen(
                                             }
                                         }
 
-                                        // Render Video Thumbnail
                                         AsyncImage(
                                             model = videoThumbnail,
                                             contentDescription = "Video Preview",
@@ -275,12 +274,13 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    fullscreenMedia = media 
+                                                    // 🚨 Pass index to open exactly on this swipable page
+                                                    initialFullscreenPage = selectedMedia.indexOf(media)
+                                                    isFullscreenVisible = true
                                                 },
                                             contentScale = ContentScale.Crop
                                         )
 
-                                        // 🚨 Premium Video Overlay (Play Button & Dark Tint)
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxSize()
@@ -289,14 +289,15 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    fullscreenMedia = media 
+                                                    initialFullscreenPage = selectedMedia.indexOf(media)
+                                                    isFullscreenVisible = true
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(32.dp))
+                                            // 🚨 Modern Outlined Play Circle
+                                            Icon(Icons.Outlined.PlayCircle, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(32.dp))
                                         }
 
-                                        // 🚨 Duration Badge (e.g. 0:15)
                                         if (durationText.isNotEmpty()) {
                                             Text(
                                                 text = durationText,
@@ -312,7 +313,6 @@ fun CreatePostScreen(
                                         }
 
                                     } else {
-                                        // Standard Image Render
                                         AsyncImage(
                                             model = ImageRequest.Builder(LocalContext.current).data(media.uri).crossfade(true).build(),
                                             contentDescription = "Media Preview",
@@ -322,7 +322,8 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    fullscreenMedia = media 
+                                                    initialFullscreenPage = selectedMedia.indexOf(media)
+                                                    isFullscreenVisible = true
                                                 },
                                             contentScale = ContentScale.Crop
                                         )
@@ -345,9 +346,7 @@ fun CreatePostScreen(
                         }
                     }
 
-                    // 🚨 MASSIVE MIN HEIGHT FIX: 
-                    // This allows the text field to naturally span the entire empty area. 
-                    // Tapping anywhere triggers the interaction source natively for perfect cursor behavior!
+                    // 🚨 Restored native compact size. Tapping natively focuses because it fills the space!
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
@@ -356,7 +355,7 @@ fun CreatePostScreen(
                         focusRequester = focusRequester,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 160.dp) // Takes up the empty space!
+                            .heightIn(min = 100.dp) 
                             .padding(horizontal = 8.dp),
                         primaryColor = primaryOrange,
                         surfaceColor = surfaceColor, 
@@ -454,9 +453,9 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 IMMERSIVE VIEWER WITH EXOPLAYER SUPPORT
+        // 🚨 FULLSCREEN VIEWER: Now uses a boolean so the reverse animation executes properly!
         AnimatedVisibility(
-            visible = fullscreenMedia != null,
+            visible = isFullscreenVisible,
             enter = fadeIn(animationSpec = tween(250)) + scaleIn(animationSpec = tween(250), initialScale = 0.9f),
             exit = fadeOut(animationSpec = tween(250)) + scaleOut(animationSpec = tween(250), targetScale = 0.9f),
             modifier = Modifier.fillMaxSize()
@@ -467,28 +466,42 @@ fun CreatePostScreen(
                     .background(Color.Black)
                     .pointerInput(Unit) { detectTapGestures { } } 
             ) {
-                if (fullscreenMedia != null) {
-                    if (fullscreenMedia!!.isVideo) {
-                        // 🚨 ExoPlayer for Seamless Auto-Play
+                // 🚨 SWIPABLE CAROUSEL
+                val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
+                
+                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                    val mediaItem = selectedMedia[page]
+                    
+                    if (mediaItem.isVideo) {
                         val exoPlayer = remember { 
                             androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE // Loops video automatically
-                                playWhenReady = true // Auto-play enabled
+                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
                             } 
                         }
                         
-                        DisposableEffect(fullscreenMedia!!.uri) {
-                            val mediaItem = androidx.media3.common.MediaItem.fromUri(fullscreenMedia!!.uri)
-                            exoPlayer.setMediaItem(mediaItem)
+                        DisposableEffect(mediaItem.uri) {
+                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                            exoPlayer.setMediaItem(media)
                             exoPlayer.prepare()
                             onDispose { exoPlayer.release() }
+                        }
+                        
+                        // 🚨 Auto-play only if this is the active page being viewed!
+                        val isCurrentPage = pagerState.currentPage == page
+                        LaunchedEffect(isCurrentPage) {
+                            if (isCurrentPage) {
+                                exoPlayer.seekTo(0)
+                                exoPlayer.play()
+                            } else {
+                                exoPlayer.pause()
+                            }
                         }
                         
                         AndroidView(
                             factory = { ctx ->
                                 androidx.media3.ui.PlayerView(ctx).apply {
                                     player = exoPlayer
-                                    useController = false // Removes play/pause UI for a clean, cinematic look
+                                    useController = false 
                                     layoutParams = android.view.ViewGroup.LayoutParams(
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -498,9 +511,8 @@ fun CreatePostScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        // Standard Image Viewer
                         AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current).data(fullscreenMedia!!.uri).crossfade(true).build(),
+                            model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
                             contentDescription = "Fullscreen Media",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
@@ -515,7 +527,7 @@ fun CreatePostScreen(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(highOpacityGlassColor)
-                        .clickable { fullscreenMedia = null },
+                        .clickable { isFullscreenVisible = false }, // Triggers the smooth scaleOut animation!
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = if (isDark) Color.White else Color.Black, modifier = Modifier.size(24.dp))
@@ -545,7 +557,14 @@ private fun PostCaptionTextField(
     var isFocused by remember { mutableStateOf(false) }
     var forceCursorToEnd by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isPressed) { if (isPressed && isFocused && !forceCursorToEnd) showHandle = true }
+    // 🚨 FIXED CURSOR LOGIC: Drop cursor drops INSTANTLY on first and subsequent taps
+    LaunchedEffect(isPressed) { 
+        if (isPressed) { 
+            showHandle = true 
+            forceCursorToEnd = false // Instantly free the cursor to follow the tap!
+        } 
+    }
+    
     LaunchedEffect(showHandle, value.selection) { if (showHandle) { delay(10000); showHandle = false } }
 
     val customSelectionColors = TextSelectionColors(
@@ -573,8 +592,14 @@ private fun PostCaptionTextField(
             modifier = modifier
                 .focusRequester(focusRequester)
                 .onFocusChanged { state ->
-                    if (state.isFocused && !isFocused) { forceCursorToEnd = true; showHandle = false }
-                    if (!state.isFocused) { showHandle = false; forceCursorToEnd = false }
+                    // 🚨 Fixed: Shows the handle perfectly on the initial tap focus!
+                    if (state.isFocused && !isFocused) { 
+                        forceCursorToEnd = true 
+                        showHandle = true 
+                    }
+                    if (!state.isFocused) { 
+                        showHandle = false; forceCursorToEnd = false 
+                    }
                     isFocused = state.isFocused
                 },
             textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
