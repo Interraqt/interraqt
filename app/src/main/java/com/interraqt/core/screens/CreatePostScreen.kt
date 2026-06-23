@@ -57,7 +57,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -71,6 +70,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -117,21 +118,29 @@ fun CreatePostScreen(
 
     var selectedMedia by remember { mutableStateOf<List<MediaAttachment>>(emptyList()) }
     var isFullscreenVisible by remember { mutableStateOf(false) }
+    var showFullscreenDialog by remember { mutableStateOf(false) }
     var initialFullscreenPage by remember { mutableIntStateOf(0) }
     
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
     var isBoxFocused by remember { mutableStateOf(false) }
-    var emptyBoxTapFirstFocusTrigger by remember { mutableIntStateOf(0) }
     var emptyBoxTapSecondTrigger by remember { mutableIntStateOf(0) }
 
-    // 🚨 IMMERSIVE SYSTEM BAR HANDLER
-    DisposableEffect(isFullscreenVisible) {
+    LaunchedEffect(isFullscreenVisible) {
+        if (isFullscreenVisible) {
+            showFullscreenDialog = true
+        } else {
+            delay(350) 
+            showFullscreenDialog = false
+        }
+    }
+
+    DisposableEffect(showFullscreenDialog) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
         
-        if (isFullscreenVisible) {
+        if (showFullscreenDialog) {
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
@@ -215,7 +224,6 @@ fun CreatePostScreen(
         }
     }
 
-    // 🚨 DYNAMIC SCROLL LOCK: Keeps box rigidly anchored until keyboard opens!
     val isImeVisible = WindowInsets.isImeVisible
 
     Box(
@@ -228,7 +236,6 @@ fun CreatePostScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding()
-                // Scrolling disabled when keyboard closed = ZERO unwanted wiggle!
                 .verticalScroll(state = scrollState, enabled = isImeVisible)
                 .padding(horizontal = 24.dp)
         ) {
@@ -245,20 +252,15 @@ fun CreatePostScreen(
                     )
                     .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
-                    .pointerInput(isBoxFocused) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                if (event.changes.any { it.pressed }) {
-                                    if (!isBoxFocused) {
-                                        focusRequester.requestFocus()
-                                        keyboardController?.show()
-                                        emptyBoxTapFirstFocusTrigger++
-                                    } else {
-                                        emptyBoxTapSecondTrigger++
-                                    }
-                                }
-                            }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null 
+                    ) {
+                        if (!isBoxFocused) {
+                            focusRequester.requestFocus()
+                            keyboardController?.show()
+                        } else {
+                            emptyBoxTapSecondTrigger++
                         }
                     }
                     .padding(top = 12.dp, bottom = 12.dp)
@@ -383,8 +385,7 @@ fun CreatePostScreen(
                         maxLength = 1000, 
                         focusRequester = focusRequester,
                         onFocusStateChange = { isBoxFocused = it },
-                        onFirstFocusTrigger = emptyBoxTapFirstFocusTrigger,
-                        onSecondFocusTrigger = emptyBoxTapSecondTrigger,
+                        emptyBoxTapSecondTrigger = emptyBoxTapSecondTrigger,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 60.dp)
@@ -484,131 +485,128 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 THREADS PHYSICS: True Edge-to-Edge Root Overlay with Spring Animations!
-        AnimatedVisibility(
-            visible = isFullscreenVisible,
-            enter = fadeIn(animationSpec = tween(300)) + scaleIn(
-                animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
-                initialScale = 0.2f, 
-                transformOrigin = TransformOrigin(0.15f, 0.35f) // Expands out from the thumbnail position!
-            ),
-            exit = fadeOut(animationSpec = tween(300)) + scaleOut(
-                animationSpec = spring(dampingRatio = 0.95f, stiffness = 350f),
-                targetScale = 0.2f, 
-                transformOrigin = TransformOrigin(0.15f, 0.35f)
-            ),
-            modifier = Modifier.fillMaxSize() // Covers status bar cleanly natively
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .pointerInput(Unit) { detectTapGestures { } } 
+        if (showFullscreenDialog) {
+            Dialog(
+                onDismissRequest = { isFullscreenVisible = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
             ) {
-                val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
-                
-                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                    val mediaItem = selectedMedia[page]
-                    
-                    if (mediaItem.isVideo) {
-                        var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
-                        // 🚨 ZERO BLACK FLASH: Tracks the exact millisecond video pushes pixels
-                        var isFirstFrameRendered by remember { mutableStateOf(false) }
-
-                        LaunchedEffect(mediaItem.uri) {
-                            withContext(Dispatchers.IO) {
-                                try {
-                                    val retriever = MediaMetadataRetriever()
-                                    retriever.setDataSource(context, mediaItem.uri)
-                                    fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                    retriever.release()
-                                } catch (e: Exception) { e.printStackTrace() }
-                            }
-                        }
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            val exoPlayer = remember { 
-                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                    repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                } 
-                            }
+                AnimatedVisibility(
+                    visible = isFullscreenVisible,
+                    enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)) + 
+                            scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.85f, transformOrigin = TransformOrigin(0.15f, 0.35f)),
+                    exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow)) + 
+                           scaleOut(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), targetScale = 0.85f, transformOrigin = TransformOrigin(0.15f, 0.35f)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                            .pointerInput(Unit) { detectTapGestures { } } 
+                    ) {
+                        val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
+                        
+                        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                            val mediaItem = selectedMedia[page]
                             
-                            DisposableEffect(mediaItem.uri) {
-                                isFirstFrameRendered = false
-                                val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                                val listener = object : androidx.media3.common.Player.Listener {
-                                    override fun onRenderedFirstFrame() {
-                                        isFirstFrameRendered = true
+                            if (mediaItem.isVideo) {
+                                var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
+                                var isFirstFrameRendered by remember { mutableStateOf(false) }
+
+                                LaunchedEffect(mediaItem.uri) {
+                                    withContext(Dispatchers.IO) {
+                                        try {
+                                            val retriever = MediaMetadataRetriever()
+                                            retriever.setDataSource(context, mediaItem.uri)
+                                            fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                            retriever.release()
+                                        } catch (e: Exception) { e.printStackTrace() }
                                     }
                                 }
-                                exoPlayer.addListener(listener)
-                                exoPlayer.setMediaItem(media)
-                                exoPlayer.prepare()
-                                onDispose { 
-                                    exoPlayer.removeListener(listener)
-                                    exoPlayer.release() 
-                                }
-                            }
-                            
-                            val isCurrentPage = pagerState.currentPage == page
-                            val isScrolling = pagerState.isScrollInProgress
-                            
-                            LaunchedEffect(isCurrentPage, isScrolling) {
-                                if (isCurrentPage && !isScrolling) {
-                                    exoPlayer.play()
-                                } else {
-                                    exoPlayer.pause()
-                                }
-                            }
-                            
-                            AndroidView(
-                                factory = { ctx ->
-                                    androidx.media3.ui.PlayerView(ctx).apply {
-                                        player = exoPlayer
-                                        useController = false 
-                                        // 🚨 Transparent shutter eliminates black loading screen
-                                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                        layoutParams = android.view.ViewGroup.LayoutParams(
-                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    val exoPlayer = remember { 
+                                        androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                            repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                        } 
+                                    }
+                                    
+                                    DisposableEffect(mediaItem.uri) {
+                                        isFirstFrameRendered = false
+                                        val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                                        val listener = object : androidx.media3.common.Player.Listener {
+                                            override fun onRenderedFirstFrame() {
+                                                isFirstFrameRendered = true
+                                            }
+                                        }
+                                        exoPlayer.addListener(listener)
+                                        exoPlayer.setMediaItem(media)
+                                        exoPlayer.prepare()
+                                        onDispose { 
+                                            exoPlayer.removeListener(listener)
+                                            exoPlayer.release() 
+                                        }
+                                    }
+                                    
+                                    val isCurrentPage = pagerState.currentPage == page
+                                    val isScrolling = pagerState.isScrollInProgress
+                                    
+                                    LaunchedEffect(isCurrentPage, isScrolling) {
+                                        if (isCurrentPage && !isScrolling) {
+                                            exoPlayer.play()
+                                        } else {
+                                            exoPlayer.pause()
+                                        }
+                                    }
+                                    
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            androidx.media3.ui.PlayerView(ctx).apply {
+                                                player = exoPlayer
+                                                useController = false 
+                                                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                                layoutParams = android.view.ViewGroup.LayoutParams(
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize().background(Color.Black)
+                                    )
+
+                                    if (!isFirstFrameRendered) {
+                                        AsyncImage(
+                                            model = fullscreenVideoThumbnail,
+                                            contentDescription = "Video Thumbnail",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Fit
                                         )
                                     }
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-
-                            // 🚨 Perfect Layering: High Quality Thumbnail stays visible until video physically moves
-                            if (!isFirstFrameRendered) {
+                                }
+                            } else {
                                 AsyncImage(
-                                    model = fullscreenVideoThumbnail,
-                                    contentDescription = "Video Thumbnail",
+                                    model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
+                                    contentDescription = "Fullscreen Media",
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Fit
                                 )
                             }
                         }
-                    } else {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
-                            contentDescription = "Fullscreen Media",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .statusBarsPadding()
+                                .padding(16.dp)
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(highOpacityGlassColor)
+                                .clickable { isFullscreenVisible = false }, 
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(24.dp))
+                        }
                     }
-                }
-                
-                Box(
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .padding(16.dp)
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(highOpacityGlassColor)
-                        .clickable { isFullscreenVisible = false }, 
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = if (isDark) Color.White else Color.Black, modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -623,8 +621,7 @@ private fun PostCaptionTextField(
     maxLength: Int,
     focusRequester: FocusRequester,
     onFocusStateChange: (Boolean) -> Unit,
-    onFirstFocusTrigger: Int,
-    onSecondFocusTrigger: Int,
+    emptyBoxTapSecondTrigger: Int,
     modifier: Modifier = Modifier,
     placeholderText: String,
     primaryColor: Color,
@@ -636,46 +633,26 @@ private fun PostCaptionTextField(
     val isPressed by interactionSource.collectIsPressedAsState()
     var showHandle by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
-    
+    var forceCursorToEnd by remember { mutableStateOf(false) }
+
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Function to force scroll so the absolute bottom line is fully visible
-    fun forceScrollToEnd() {
-        coroutineScope.launch {
-            delay(50) // Wait for layout measurement
-            onValueChange(value.copy(selection = TextRange(value.text.length)))
-            delay(50) // Wait for text selection update
-            bringIntoViewRequester.bringIntoView()
-        }
-    }
-
-    // 🚨 1. FIRST TAP (Unfocused -> Focuses, Jumps to end, NO Handle)
-    LaunchedEffect(onFirstFocusTrigger) {
-        if (onFirstFocusTrigger > 0) {
-            onValueChange(value.copy(selection = TextRange(value.text.length)))
-            showHandle = false
-            forceScrollToEnd()
-        }
-    }
-
-    // 🚨 2. SECOND TAP (Focused -> Jumps to end, SHOWS Handle)
-    LaunchedEffect(onSecondFocusTrigger) {
-        if (onSecondFocusTrigger > 0) {
+    LaunchedEffect(emptyBoxTapSecondTrigger) {
+        if (emptyBoxTapSecondTrigger > 0) {
             onValueChange(value.copy(selection = TextRange(value.text.length)))
             showHandle = true
-            forceScrollToEnd()
+            coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
         }
     }
 
-    // 🚨 3. DIRECT TEXT TAP (Places exactly at finger, SHOWS Handle)
-    LaunchedEffect(isPressed) { 
-        if (isPressed) { 
-            showHandle = true 
+    LaunchedEffect(isPressed) {
+        if (isPressed && isFocused && !forceCursorToEnd) {
+            showHandle = true
             coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
-        } 
+        }
     }
-    
+
     LaunchedEffect(showHandle, value.selection) { if (showHandle) { delay(10000); showHandle = false } }
 
     val customSelectionColors = TextSelectionColors(
@@ -683,56 +660,55 @@ private fun PostCaptionTextField(
         backgroundColor = primaryColor.copy(alpha = 0.4f)
     )
 
-    // 🚨 INVISIBLE OVERLAY HACK: Intercepts the *very first tap* so the native field doesn't steal the cursor!
-    Box(modifier = modifier) {
-        CompositionLocalProvider(LocalTextSelectionColors provides customSelectionColors) {
-            OutlinedTextField(
-                value = value,
-                onValueChange = { newValue ->
-                    if (newValue.text.length <= maxLength) {
-                        if (newValue.text != value.text) showHandle = false 
-                        onValueChange(newValue)
-                        coroutineScope.launch { bringIntoViewRequester.bringIntoView() }
+    CompositionLocalProvider(LocalTextSelectionColors provides customSelectionColors) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                if (newValue.text.length <= maxLength) {
+                    var finalValue = newValue
+                    if (forceCursorToEnd) {
+                        finalValue = finalValue.copy(selection = TextRange(finalValue.text.length))
+                        forceCursorToEnd = false
                     }
+                    if (finalValue.text != value.text) showHandle = false
+                    onValueChange(finalValue)
+                    coroutineScope.launch { bringIntoViewRequester.bringIntoView() }
+                }
+            },
+            interactionSource = interactionSource,
+            maxLines = 6,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            modifier = modifier
+                .bringIntoViewRequester(bringIntoViewRequester)
+                .focusRequester(focusRequester)
+                .onFocusChanged { state ->
+                    if (state.isFocused && !isFocused) {
+                        forceCursorToEnd = true
+                        showHandle = false
+                        coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
+                        
+                        coroutineScope.launch {
+                            delay(50)
+                            if (forceCursorToEnd) {
+                                onValueChange(value.copy(selection = TextRange(value.text.length)))
+                                forceCursorToEnd = false
+                            }
+                        }
+                    }
+                    if (!state.isFocused) {
+                        showHandle = false
+                        forceCursorToEnd = false
+                    }
+                    isFocused = state.isFocused
+                    onFocusStateChange(state.isFocused)
                 },
-                interactionSource = interactionSource,
-                maxLines = 6, 
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bringIntoViewRequester(bringIntoViewRequester)
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { state ->
-                        isFocused = state.isFocused
-                        onFocusStateChange(state.isFocused)
-                        if (!state.isFocused) showHandle = false
-                    },
-                textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
-                shape = RoundedCornerShape(16.dp),
-                colors = TextFieldDefaults.outlinedTextFieldColors(
-                    containerColor = surfaceColor, focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
-                    focusedTextColor = textColor, unfocusedTextColor = textColor, cursorColor = primaryColor
-                ),
-                placeholder = { Text(placeholderText, color = subTextColor) }
-            )
-        }
-        
-        // This is the magic. It sits invisibly over the text field ONLY when closed.
-        if (!isFocused) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        // Tapping the text field natively triggers the "First Tap" logic!
-                        focusRequester.requestFocus()
-                        onFocusStateChange(true)
-                        // Trigger the jump-to-end logic in the parent
-                        onValueChange(value.copy(selection = TextRange(value.text.length)))
-                    }
-            )
-        }
+            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
+            shape = RoundedCornerShape(16.dp),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                containerColor = surfaceColor, focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = textColor, unfocusedTextColor = textColor, cursorColor = primaryColor
+            ),
+            placeholder = { Text(placeholderText, color = subTextColor) }
+        )
     }
 }
