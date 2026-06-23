@@ -48,15 +48,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.TextFieldValue
@@ -113,10 +112,6 @@ fun CreatePostScreen(
     
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
-
-    // 🚨 SMART FOCUS STATES: Communicates between the Background Box and the Text Field
-    var isBoxFocused by remember { mutableStateOf(false) }
-    var forceShowHandleTrigger by remember { mutableIntStateOf(0) }
 
     DisposableEffect(isFullscreenVisible) {
         val window = (context as Activity).window
@@ -210,6 +205,7 @@ fun CreatePostScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bgColor)
+            // Touching outer areas of screen hides keyboard naturally
             .pointerInput(Unit) { detectTapGestures(onTap = { focusManager.clearFocus() }) }
     ) {
         Column(
@@ -220,7 +216,7 @@ fun CreatePostScreen(
         ) {
             Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 80.dp))
 
-            // 🚨 PERFECTED CONTENT BOX (Tighter Padding & Smart Background Focus)
+            // 🚨 PREMIUM COMPACT CONTENT BOX
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -232,26 +228,28 @@ fun CreatePostScreen(
                     )
                     .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
-                    .pointerInput(isBoxFocused) {
-                        detectTapGestures(onTap = {
-                            if (!isBoxFocused) {
-                                // Background tap -> Focuses, but drops NO cursor handle
-                                focusRequester.requestFocus()
-                                keyboardController?.show()
-                            } else {
-                                // Focused -> Tapping empty space forces the cursor to drop at the end!
-                                forceShowHandleTrigger++
+                    // 🚨 SILENT FOCUS INTERCEPTOR: Focuses the box without stealing touch events from TextField!
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.changes.any { it.pressed }) {
+                                    focusRequester.requestFocus()
+                                    keyboardController?.show()
+                                }
                             }
-                        })
+                        }
                     }
-                    .padding(top = 12.dp, bottom = 8.dp) // 🚨 Reduced to perfectly hug the internal content
+                    // 🚨 TIGHT PADDING: Creates the perfectly centered look from your screenshot
+                    .padding(top = 12.dp, bottom = 12.dp)
             ) {
                 Column {
                     if (selectedMedia.isNotEmpty()) {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp) // 🚨 Reduced gap
+                            // 🚨 TIGHT REDUCED GAP between media and text
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp) 
                         ) {
                             items(selectedMedia) { media ->
                                 Box(
@@ -360,17 +358,16 @@ fun CreatePostScreen(
                         }
                     }
 
-                    // 🚨 Restored Native Height (Text field hugs the content perfectly)
+                    // 🚨 COMPACT TEXT FIELD: Minimal height to keep the layout snug and premium
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
                         maxLength = 1000, 
                         placeholderText = "What's happening?",
                         focusRequester = focusRequester,
-                        onFocusStateChange = { isBoxFocused = it },
-                        forceHandleTrigger = forceShowHandleTrigger,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 60.dp) // Drastically reduced empty space
                             .padding(horizontal = 8.dp),
                         primaryColor = primaryOrange,
                         surfaceColor = surfaceColor, 
@@ -381,8 +378,8 @@ fun CreatePostScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 4.dp), // 🚨 Reduced gap
+                            .padding(horizontal = 16.dp),
+                            // 🚨 Top padding removed to hug the text field bottom perfectly
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -468,10 +465,11 @@ fun CreatePostScreen(
             }
         }
 
+        // 🚨 SMOOTH THREADS-STYLE ANIMATIONS RESTORED (Enter & Exit are identical)
         AnimatedVisibility(
             visible = isFullscreenVisible,
-            enter = fadeIn(animationSpec = tween(250)) + scaleIn(animationSpec = tween(250), initialScale = 0.9f),
-            exit = fadeOut(animationSpec = tween(250)) + scaleOut(animationSpec = tween(250), targetScale = 0.9f),
+            enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300), initialScale = 0.8f),
+            exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300), targetScale = 0.8f),
             modifier = Modifier.fillMaxSize()
         ) {
             Box(
@@ -486,7 +484,6 @@ fun CreatePostScreen(
                     val mediaItem = selectedMedia[page]
                     
                     if (mediaItem.isVideo) {
-                        // 🚨 LAG FIX: Base layer thumbnail generated via Bitmap prevents stuttering
                         var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
                         LaunchedEffect(mediaItem.uri) {
                             withContext(Dispatchers.IO) {
@@ -500,7 +497,7 @@ fun CreatePostScreen(
                         }
 
                         Box(modifier = Modifier.fillMaxSize()) {
-                            // Smoothly scales in the image
+                            // Keeps the animation flawless behind the video
                             AsyncImage(
                                 model = fullscreenVideoThumbnail,
                                 contentDescription = "Video Thumbnail",
@@ -508,48 +505,44 @@ fun CreatePostScreen(
                                 contentScale = ContentScale.Fit
                             )
                             
-                            // 🚨 DELAYED AUTO-PLAY: ExoPlayer ONLY loads after animation and swipe settles!
-                            val isSettled = pagerState.settledPage == page
-                            var canPlay by remember { mutableStateOf(false) }
+                            val exoPlayer = remember { 
+                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                    repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                } 
+                            }
                             
-                            LaunchedEffect(isFullscreenVisible, isSettled) {
-                                if (isFullscreenVisible && isSettled) {
-                                    delay(300) // Wait for enter/swipe animation to finish perfectly
-                                    canPlay = true
+                            DisposableEffect(mediaItem.uri) {
+                                val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                                exoPlayer.setMediaItem(media)
+                                exoPlayer.prepare()
+                                onDispose { exoPlayer.release() }
+                            }
+                            
+                            // 🚨 INSTANT PLAY + SMART SWIPE: Plays instantly when viewed, waits patiently when swiping!
+                            val isCurrentPage = pagerState.currentPage == page
+                            val isScrolling = pagerState.isScrollInProgress
+                            
+                            LaunchedEffect(isCurrentPage, isScrolling) {
+                                if (isCurrentPage && !isScrolling) {
+                                    exoPlayer.play()
                                 } else {
-                                    canPlay = false
+                                    exoPlayer.pause()
                                 }
                             }
                             
-                            if (canPlay) {
-                                val exoPlayer = remember { 
-                                    androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                        repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                    } 
-                                }
-                                
-                                DisposableEffect(mediaItem.uri) {
-                                    val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                                    exoPlayer.setMediaItem(media)
-                                    exoPlayer.prepare()
-                                    exoPlayer.playWhenReady = true
-                                    onDispose { exoPlayer.release() }
-                                }
-                                
-                                AndroidView(
-                                    factory = { ctx ->
-                                        androidx.media3.ui.PlayerView(ctx).apply {
-                                            player = exoPlayer
-                                            useController = false 
-                                            layoutParams = android.view.ViewGroup.LayoutParams(
-                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxSize().background(Color.Black)
-                                )
-                            }
+                            AndroidView(
+                                factory = { ctx ->
+                                    androidx.media3.ui.PlayerView(ctx).apply {
+                                        player = exoPlayer
+                                        useController = false 
+                                        layoutParams = android.view.ViewGroup.LayoutParams(
+                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     } else {
                         AsyncImage(
@@ -585,8 +578,6 @@ private fun PostCaptionTextField(
     onValueChange: (TextFieldValue) -> Unit,
     maxLength: Int,
     focusRequester: FocusRequester,
-    onFocusStateChange: (Boolean) -> Unit,
-    forceHandleTrigger: Int,
     modifier: Modifier = Modifier,
     placeholderText: String,
     primaryColor: Color,
@@ -594,25 +585,15 @@ private fun PostCaptionTextField(
     textColor: Color,
     subTextColor: Color
 ) {
+    // 🚨 PERFECT NATIVE CURSOR MECHANICS
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     var showHandle by remember { mutableStateOf(false) }
-    var isFocused by remember { mutableStateOf(false) }
-    var forceCursorToEnd by remember { mutableStateOf(false) }
 
-    // 🚨 1. Tapping an Empty Background Area (Drops handle exactly at the end)
-    LaunchedEffect(forceHandleTrigger) {
-        if (forceHandleTrigger > 0) {
-            forceCursorToEnd = true 
-            showHandle = true 
-        }
-    }
-
-    // 🚨 2. Tapping the Text Directly (Drops handle exactly where tapped)
+    // Drop the handle ONLY if they tapped directly on the text field!
     LaunchedEffect(isPressed) { 
         if (isPressed) { 
             showHandle = true 
-            forceCursorToEnd = false 
         } 
     }
     
@@ -628,31 +609,14 @@ private fun PostCaptionTextField(
             value = value,
             onValueChange = { newValue ->
                 if (newValue.text.length <= maxLength) {
-                    var finalValue = newValue
-                    if (forceCursorToEnd) {
-                        finalValue = finalValue.copy(selection = TextRange(finalValue.text.length))
-                        forceCursorToEnd = false 
-                    }
-                    if (finalValue.text != value.text) showHandle = false 
-                    onValueChange(finalValue)
+                    onValueChange(newValue)
                 }
             },
             interactionSource = interactionSource,
             maxLines = 6, 
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = modifier
-                .focusRequester(focusRequester)
-                .onFocusChanged { state ->
-                    // 🚨 3. Intercepts Focus: If NOT pressed, it forces cursor to the end but hides handle!
-                    if (state.isFocused && !isFocused) { 
-                        if (!isPressed) forceCursorToEnd = true 
-                    }
-                    if (!state.isFocused) { 
-                        showHandle = false; forceCursorToEnd = false 
-                    }
-                    isFocused = state.isFocused
-                    onFocusStateChange(state.isFocused)
-                },
+                .focusRequester(focusRequester),
             textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
             shape = RoundedCornerShape(16.dp),
             colors = TextFieldDefaults.outlinedTextFieldColors(
