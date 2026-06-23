@@ -15,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.ExperimentalFoundationApi // 🚨 ADDED IMPORT
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -36,6 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Videocam
@@ -79,7 +81,8 @@ import java.util.UUID
 
 data class MediaAttachment(val uri: Uri, val isVideo: Boolean)
 
-@OptIn(ExperimentalMaterial3Api::class)
+// 🚨 ADDED ExperimentalFoundationApi to the OptIn list
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CreatePostScreen(
     onNavigateBack: () -> Unit
@@ -108,7 +111,7 @@ fun CreatePostScreen(
 
     var selectedMedia by remember { mutableStateOf<List<MediaAttachment>>(emptyList()) }
     
-    // 🚨 Navigation States for Fullscreen Carousel
+    // Navigation States for Fullscreen Carousel
     var isFullscreenVisible by remember { mutableStateOf(false) }
     var initialFullscreenPage by remember { mutableIntStateOf(0) }
     
@@ -274,7 +277,6 @@ fun CreatePostScreen(
                                                 .clickable { 
                                                     keyboardController?.hide()
                                                     focusManager.clearFocus()
-                                                    // 🚨 Pass index to open exactly on this swipable page
                                                     initialFullscreenPage = selectedMedia.indexOf(media)
                                                     isFullscreenVisible = true
                                                 },
@@ -294,7 +296,6 @@ fun CreatePostScreen(
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            // 🚨 Modern Outlined Play Circle
                                             Icon(Icons.Outlined.PlayCircle, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(32.dp))
                                         }
 
@@ -346,7 +347,6 @@ fun CreatePostScreen(
                         }
                     }
 
-                    // 🚨 Restored native compact size. Tapping natively focuses because it fills the space!
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
@@ -453,7 +453,6 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 FULLSCREEN VIEWER: Now uses a boolean so the reverse animation executes properly!
         AnimatedVisibility(
             visible = isFullscreenVisible,
             enter = fadeIn(animationSpec = tween(250)) + scaleIn(animationSpec = tween(250), initialScale = 0.9f),
@@ -466,7 +465,6 @@ fun CreatePostScreen(
                     .background(Color.Black)
                     .pointerInput(Unit) { detectTapGestures { } } 
             ) {
-                // 🚨 SWIPABLE CAROUSEL
                 val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
                 
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
@@ -486,7 +484,6 @@ fun CreatePostScreen(
                             onDispose { exoPlayer.release() }
                         }
                         
-                        // 🚨 Auto-play only if this is the active page being viewed!
                         val isCurrentPage = pagerState.currentPage == page
                         LaunchedEffect(isCurrentPage) {
                             if (isCurrentPage) {
@@ -527,7 +524,7 @@ fun CreatePostScreen(
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(highOpacityGlassColor)
-                        .clickable { isFullscreenVisible = false }, // Triggers the smooth scaleOut animation!
+                        .clickable { isFullscreenVisible = false }, 
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = if (isDark) Color.White else Color.Black, modifier = Modifier.size(24.dp))
@@ -557,11 +554,10 @@ private fun PostCaptionTextField(
     var isFocused by remember { mutableStateOf(false) }
     var forceCursorToEnd by remember { mutableStateOf(false) }
 
-    // 🚨 FIXED CURSOR LOGIC: Drop cursor drops INSTANTLY on first and subsequent taps
     LaunchedEffect(isPressed) { 
         if (isPressed) { 
             showHandle = true 
-            forceCursorToEnd = false // Instantly free the cursor to follow the tap!
+            forceCursorToEnd = false 
         } 
     }
     
@@ -592,7 +588,6 @@ private fun PostCaptionTextField(
             modifier = modifier
                 .focusRequester(focusRequester)
                 .onFocusChanged { state ->
-                    // 🚨 Fixed: Shows the handle perfectly on the initial tap focus!
                     if (state.isFocused && !isFocused) { 
                         forceCursorToEnd = true 
                         showHandle = true 
