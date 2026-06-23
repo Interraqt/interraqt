@@ -10,7 +10,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -27,6 +28,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,6 +53,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -63,6 +67,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -109,21 +115,31 @@ fun CreatePostScreen(
 
     var selectedMedia by remember { mutableStateOf<List<MediaAttachment>>(emptyList()) }
     var isFullscreenVisible by remember { mutableStateOf(false) }
+    var showFullscreenDialog by remember { mutableStateOf(false) }
     var initialFullscreenPage by remember { mutableIntStateOf(0) }
     
     var caption by remember { mutableStateOf(TextFieldValue("")) }
     var isPublishing by remember { mutableStateOf(false) }
 
-    // 🚨 ISOLATED CURSOR TRIGGERS
     var isBoxFocused by remember { mutableStateOf(false) }
     var emptyBoxTapFirstFocusTrigger by remember { mutableIntStateOf(0) }
     var emptyBoxTapSecondTrigger by remember { mutableIntStateOf(0) }
 
-    DisposableEffect(isFullscreenVisible) {
+    // 🚨 DIALOG STATE HANDLER: Keeps Dialog open until smooth exit animation completes
+    LaunchedEffect(isFullscreenVisible) {
+        if (isFullscreenVisible) {
+            showFullscreenDialog = true
+        } else {
+            delay(350) // Wait for exit animation
+            showFullscreenDialog = false
+        }
+    }
+
+    DisposableEffect(showFullscreenDialog) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
         
-        if (isFullscreenVisible) {
+        if (showFullscreenDialog) {
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
@@ -216,7 +232,7 @@ fun CreatePostScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding() // 🚨 CRITICAL FIX: Ensures 6th line perfectly scrolls above the keyboard!
+                .imePadding()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
         ) {
@@ -234,17 +250,20 @@ fun CreatePostScreen(
                     .clip(RoundedCornerShape(24.dp))
                     .background(surfaceColor)
                     .pointerInput(isBoxFocused) {
-                        detectTapGestures(onTap = {
-                            if (!isBoxFocused) {
-                                // 1st Tap on Empty Space -> Focus, jump to end, NO handle.
-                                focusRequester.requestFocus()
-                                keyboardController?.show()
-                                emptyBoxTapFirstFocusTrigger++
-                            } else {
-                                // 2nd Tap on Empty Space -> Jump to end, SHOW handle.
-                                emptyBoxTapSecondTrigger++
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.changes.any { it.pressed }) {
+                                    if (!isBoxFocused) {
+                                        focusRequester.requestFocus()
+                                        keyboardController?.show()
+                                        emptyBoxTapFirstFocusTrigger++
+                                    } else {
+                                        emptyBoxTapSecondTrigger++
+                                    }
+                                }
                             }
-                        })
+                        }
                     }
                     .padding(top = 12.dp, bottom = 12.dp)
             ) {
@@ -253,7 +272,7 @@ fun CreatePostScreen(
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             contentPadding = PaddingValues(horizontal = 16.dp),
-                            modifier = Modifier.fillMaxWidth() // 🚨 Removed bottom padding to bring text higher!
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp) 
                         ) {
                             items(selectedMedia) { media ->
                                 Box(
@@ -362,7 +381,6 @@ fun CreatePostScreen(
                         }
                     }
 
-                    // 🚨 REMOVED MinHeight: Text field now tightly hugs its own content!
                     PostCaptionTextField(
                         value = caption,
                         onValueChange = { caption = it },
@@ -374,6 +392,7 @@ fun CreatePostScreen(
                         emptyBoxTapSecondTrigger = emptyBoxTapSecondTrigger,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 60.dp)
                             .padding(horizontal = 8.dp),
                         primaryColor = primaryOrange,
                         surfaceColor = surfaceColor, 
@@ -385,7 +404,6 @@ fun CreatePostScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                            // 🚨 Top padding completely removed so it sits tight against the text!
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -438,7 +456,8 @@ fun CreatePostScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(100.dp))
+            // 🚨 REMOVED 100.dp Spacer so the screen doesn't unncessarily scroll!
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         Box(
@@ -470,91 +489,138 @@ fun CreatePostScreen(
                 }
             }
         }
+    }
 
-        // 🚨 SMOOTH THREADS-STYLE ANIMATIONS (Instant Video Playback)
-        AnimatedVisibility(
-            visible = isFullscreenVisible,
-            enter = fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = tween(300), initialScale = 0.8f),
-            exit = fadeOut(animationSpec = tween(300)) + scaleOut(animationSpec = tween(300), targetScale = 0.8f),
-            modifier = Modifier.fillMaxSize()
+    // 🚨 DIALOG FOR TRUE EDGE-TO-EDGE FULLSCREEN
+    if (showFullscreenDialog) {
+        Dialog(
+            onDismissRequest = { isFullscreenVisible = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black)
-                    .pointerInput(Unit) { detectTapGestures { } } 
+            // 🚨 FLUID PHYSICS SPRING ANIMATIONS (Threads Style)
+            AnimatedVisibility(
+                visible = isFullscreenVisible,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessLow)) + 
+                        scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.85f),
+                exit = fadeOut(animationSpec = spring(stiffness = Spring.StiffnessLow)) + 
+                       scaleOut(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), targetScale = 0.85f),
+                modifier = Modifier.fillMaxSize()
             ) {
-                val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
-                
-                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                    val mediaItem = selectedMedia[page]
-                    
-                    if (mediaItem.isVideo) {
-                        // 🚨 INSTANT PLAYBACK FIX: ExoPlayer is initialized and displayed instantly
-                        val exoPlayer = remember { 
-                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                            } 
-                        }
-                        
-                        DisposableEffect(mediaItem.uri) {
-                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                            exoPlayer.setMediaItem(media)
-                            exoPlayer.prepare()
-                            onDispose { exoPlayer.release() }
-                        }
-                        
-                        val isCurrentPage = pagerState.currentPage == page
-                        LaunchedEffect(isCurrentPage) {
-                            if (isCurrentPage) {
-                                exoPlayer.seekTo(0)
-                                exoPlayer.play()
-                            } else {
-                                exoPlayer.pause()
-                            }
-                        }
-                        
-                        AndroidView(
-                            factory = { ctx ->
-                                androidx.media3.ui.PlayerView(ctx).apply {
-                                    player = exoPlayer
-                                    useController = false 
-                                    layoutParams = android.view.ViewGroup.LayoutParams(
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize().background(Color.Black)
-                        )
-                    } else {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
-                            contentDescription = "Fullscreen Media",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                }
-                
                 Box(
                     modifier = Modifier
-                        .statusBarsPadding()
-                        .padding(16.dp)
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(highOpacityGlassColor)
-                        .clickable { isFullscreenVisible = false }, 
-                    contentAlignment = Alignment.Center
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .pointerInput(Unit) { detectTapGestures { } } 
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = if (isDark) Color.White else Color.Black, modifier = Modifier.size(24.dp))
+                    val pagerState = rememberPagerState(initialPage = initialFullscreenPage, pageCount = { selectedMedia.size })
+                    
+                    HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                        val mediaItem = selectedMedia[page]
+                        
+                        if (mediaItem.isVideo) {
+                            var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
+                            // 🚨 ZERO BLACK FLASH: Tracks the exact millisecond video pushes pixels
+                            var isFirstFrameRendered by remember { mutableStateOf(false) }
+
+                            LaunchedEffect(mediaItem.uri) {
+                                withContext(Dispatchers.IO) {
+                                    try {
+                                        val retriever = MediaMetadataRetriever()
+                                        retriever.setDataSource(context, mediaItem.uri)
+                                        fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                        retriever.release()
+                                    } catch (e: Exception) { e.printStackTrace() }
+                                }
+                            }
+
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                val exoPlayer = remember { 
+                                    androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                        repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                    } 
+                                }
+                                
+                                DisposableEffect(mediaItem.uri) {
+                                    isFirstFrameRendered = false
+                                    val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                                    val listener = object : androidx.media3.common.Player.Listener {
+                                        override fun onRenderedFirstFrame() {
+                                            isFirstFrameRendered = true
+                                        }
+                                    }
+                                    exoPlayer.addListener(listener)
+                                    exoPlayer.setMediaItem(media)
+                                    exoPlayer.prepare()
+                                    onDispose { 
+                                        exoPlayer.removeListener(listener)
+                                        exoPlayer.release() 
+                                    }
+                                }
+                                
+                                val isCurrentPage = pagerState.currentPage == page
+                                val isScrolling = pagerState.isScrollInProgress
+                                
+                                LaunchedEffect(isCurrentPage, isScrolling) {
+                                    if (isCurrentPage && !isScrolling) {
+                                        exoPlayer.play()
+                                    } else {
+                                        exoPlayer.pause()
+                                    }
+                                }
+                                
+                                AndroidView(
+                                    factory = { ctx ->
+                                        androidx.media3.ui.PlayerView(ctx).apply {
+                                            player = exoPlayer
+                                            useController = false 
+                                            layoutParams = android.view.ViewGroup.LayoutParams(
+                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize().background(Color.Black)
+                                )
+
+                                // Overlay static image until the ExoPlayer frame is confirmed rendered
+                                if (!isFirstFrameRendered) {
+                                    AsyncImage(
+                                        model = fullscreenVideoThumbnail,
+                                        contentDescription = "Video Thumbnail",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                            }
+                        } else {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current).data(mediaItem.uri).crossfade(true).build(),
+                                contentDescription = "Fullscreen Media",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .statusBarsPadding()
+                            .padding(16.dp)
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(highOpacityGlassColor)
+                            .clickable { isFullscreenVisible = false }, 
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun PostCaptionTextField(
     value: TextFieldValue,
@@ -574,28 +640,32 @@ private fun PostCaptionTextField(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     var showHandle by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
+    
+    // 🚨 BRING INTO VIEW: Guarantees 6th line perfectly scrolls up!
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
 
-    // 🚨 1. First Tap on Empty Space (Focus gained, jump to end, NO handle)
     LaunchedEffect(emptyBoxTapFirstFocusTrigger) {
         if (emptyBoxTapFirstFocusTrigger > 0) {
             onValueChange(value.copy(selection = TextRange(value.text.length)))
             showHandle = false
+            coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
         }
     }
 
-    // 🚨 2. Second Tap on Empty Space (Already focused, jump to end, SHOW handle)
     LaunchedEffect(emptyBoxTapSecondTrigger) {
         if (emptyBoxTapSecondTrigger > 0) {
             onValueChange(value.copy(selection = TextRange(value.text.length)))
             showHandle = true
+            coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
         }
     }
 
-    // 🚨 3. Direct Tap on Text (Natively places cursor at exact tap location, SHOW handle)
-    // The native text field handles the selection jumping to the finger natively!
     LaunchedEffect(isPressed) { 
         if (isPressed) { 
             showHandle = true 
+            coroutineScope.launch { delay(100); bringIntoViewRequester.bringIntoView() }
         } 
     }
     
@@ -611,21 +681,28 @@ private fun PostCaptionTextField(
             value = value,
             onValueChange = { newValue ->
                 if (newValue.text.length <= maxLength) {
-                    // Hide handle smoothly if typing
                     if (newValue.text != value.text) showHandle = false 
                     onValueChange(newValue)
+                    coroutineScope.launch { bringIntoViewRequester.bringIntoView() }
                 }
             },
             interactionSource = interactionSource,
             maxLines = 6, 
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = modifier
+                .bringIntoViewRequester(bringIntoViewRequester)
                 .focusRequester(focusRequester)
                 .onFocusChanged { state ->
-                    onFocusStateChange(state.isFocused)
+                    // 🚨 EXACT FIX: If text field natively clicked while unfocused, force to END!
+                    if (state.isFocused && !isFocused) {
+                        onValueChange(value.copy(selection = TextRange(value.text.length)))
+                        showHandle = false
+                    }
                     if (!state.isFocused) {
                         showHandle = false
                     }
+                    isFocused = state.isFocused
+                    onFocusStateChange(state.isFocused)
                 },
             textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
             shape = RoundedCornerShape(16.dp),
