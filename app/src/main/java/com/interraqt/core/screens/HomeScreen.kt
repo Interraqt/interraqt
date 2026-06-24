@@ -10,8 +10,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -35,14 +33,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -102,7 +96,6 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     var posts by remember { mutableStateOf<List<FeedPost>>(emptyList()) }
     var usersMap by remember { mutableStateOf<Map<String, FeedUserProfile>>(emptyMap()) }
     
-    // Pagination States
     var lastVisible by remember { mutableStateOf<DocumentSnapshot?>(null) }
     var isLoadingMore by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
@@ -113,7 +106,6 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     
     val pullRefreshState = rememberPullToRefreshState()
 
-    // Smart Time Formatter
     fun getShortTime(time: Long): String {
         if (time == 0L) return ""
         val diff = System.currentTimeMillis() - time
@@ -128,14 +120,13 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
         }
     }
 
-    // Initial Load & Refresh Logic
     fun loadPosts(isRefresh: Boolean = false) {
         if (isLoadingMore || (!hasMore && !isRefresh)) return
         isLoadingMore = true
         
         var query = firestore.collection("posts")
             .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(5) // Strict memory control for infinite scroll
+            .limit(5)
             
         if (!isRefresh && lastVisible != null) {
             query = query.startAfter(lastVisible!!)
@@ -149,7 +140,6 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                 val newPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
                 posts = if (isRefresh) newPosts else posts + newPosts
                 
-                // Fetch missing users
                 val missingUsers = newPosts.map { it.userId }.distinct().filter { !usersMap.containsKey(it) }
                 missingUsers.forEach { uid ->
                     firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
@@ -173,7 +163,6 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
         LaunchedEffect(true) { loadPosts(isRefresh = true) }
     }
 
-    // Infinite Scroll Trigger
     val shouldLoadMore = remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
@@ -184,9 +173,7 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) loadPosts() }
 
     val density = LocalDensity.current
-    val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
 
     Box(
         modifier = Modifier
@@ -194,21 +181,11 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
             .background(bgColor)
             .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
+        // 1. MAIN FEED (No Feathering, Fluid Scroll)
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { alpha = 0.99f }
-                .drawWithContent {
-                    val gradient = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black),
-                        startY = statusBarHeightPx,
-                        endY = fadeEndPx
-                    )
-                    drawContent()
-                    drawRect(brush = gradient, blendMode = BlendMode.DstIn)
-                },
-            contentPadding = PaddingValues(top = statusBarHeightDp + 60.dp, bottom = 100.dp) 
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp) 
         ) {
             item {
                 MomentsTray(textColor = textColor, subTextColor = subTextColor, primaryOrange = primaryOrange)
@@ -246,18 +223,19 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
             }
         }
 
-        // Refined Liquid Pull to Refresh below the top bar
+        // 2. PULL TO REFRESH (Drops cleanly below the Top Bar)
         PullToRefreshContainer(
             state = pullRefreshState, 
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp + 60.dp), 
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp + 64.dp), 
             containerColor = glassColor, 
             contentColor = textColor
         )
 
-        // LIQUID GLASS TOP BAR
+        // 3. TOP BAR (Solid gradient backdrop prevents posts from muddying the text)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(bgColor, bgColor.copy(alpha = 0.9f), Color.Transparent)))
                 .padding(top = statusBarHeightDp)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .align(Alignment.TopCenter)
@@ -281,7 +259,7 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
             }
         }
 
-        // BOTTOM SHEETS
+        // 4. BOTTOM SHEETS
         if (showOptionsForPost != null) {
             PostOptionsBottomSheet(textColor = textColor, bgColor = bgColor, onDismiss = { showOptionsForPost = null })
         }
@@ -302,7 +280,6 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     }
 }
 
-// MOMENTS (STORIES) COMPONENT
 @Composable
 fun MomentsTray(textColor: Color, subTextColor: Color, primaryOrange: Color) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -312,7 +289,6 @@ fun MomentsTray(textColor: Color, subTextColor: Color, primaryOrange: Color) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
-            // Your own Moment add button
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(modifier = Modifier.size(65.dp).clip(CircleShape).border(2.dp, subTextColor.copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
@@ -345,13 +321,11 @@ fun FeedPostCard(
     val context = LocalContext.current
     val isOwnProfile = post.userId == currentUserId
 
-    // Real-time backend states
     var isLiked by remember { mutableStateOf(false) }
     var isSaved by remember { mutableStateOf(false) }
     var isFollowing by remember { mutableStateOf(false) }
     var localLikesCount by remember { mutableIntStateOf(post.likesCount) }
 
-    // Init Backend Sync
     LaunchedEffect(post.postId) {
         if (currentUserId.isNotEmpty()) {
             firestore.collection("posts").document(post.postId).collection("likes").document(currentUserId).get().addOnSuccessListener { isLiked = it.exists() }
@@ -362,7 +336,6 @@ fun FeedPostCard(
         }
     }
 
-    // Handlers
     val toggleLike = {
         isLiked = !isLiked
         localLikesCount += if (isLiked) 1 else -1
@@ -450,7 +423,7 @@ fun FeedPostCard(
             }
         }
 
-        // Pinch-to-Zoom Media Carousel
+        // Media Carousel (Pinch-to-zoom completely removed for perfect smooth scrolling)
         if (post.mediaUrls.isNotEmpty()) {
             val pagerState = rememberPagerState(pageCount = { post.mediaUrls.size })
             
@@ -461,30 +434,10 @@ fun FeedPostCard(
                     beyondBoundsPageCount = 1,
                     flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
                 ) { page ->
-                    var scale by remember { mutableStateOf(1f) }
-                    var offset by remember { mutableStateOf(Offset.Zero) }
-                    
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(post.mediaUrls[page]).crossfade(true).build(),
                         contentDescription = "Post Media",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                detectTransformGestures { _, pan, zoom, _ ->
-                                    scale = (scale * zoom).coerceIn(1f, 3f)
-                                    val newOffset = offset + pan
-                                    offset = newOffset
-                                }
-                            }
-                            .pointerInput(Unit) {
-                                detectTapGestures(onDoubleTap = { scale = 1f; offset = Offset.Zero })
-                            }
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                                translationX = if (scale > 1f) offset.x else 0f
-                                translationY = if (scale > 1f) offset.y else 0f
-                            },
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -503,53 +456,63 @@ fun FeedPostCard(
             }
         }
 
-        // Premium Liquid Glass Action Bar
+        // Action Bar (Perfect 40dp circles that gracefully stretch into pills)
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Like Pill
+                // Like Button
                 Row(
-                    verticalAlignment = Alignment.CenterVertically, 
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
+                        .height(40.dp)
+                        .defaultMinSize(minWidth = 40.dp)
                         .clip(CircleShape)
                         .background(glassColor)
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { toggleLike() }
                         .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessLow))
-                        .padding(horizontal = if (localLikesCount > 0) 12.dp else 10.dp, vertical = 8.dp)
+                        .padding(horizontal = if (localLikesCount > 0) 12.dp else 0.dp)
                 ) {
                     Icon(if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, contentDescription = "Like", tint = if (isLiked) primaryOrange else textColor, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = likeScale; scaleY = likeScale })
                     if (localLikesCount > 0) Text(text = "$localLikesCount", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
                 }
                 
-                // Comment Pill
+                // Comment Button
                 Row(
                     verticalAlignment = Alignment.CenterVertically, 
+                    horizontalArrangement = Arrangement.Center,
                     modifier = Modifier
+                        .height(40.dp)
+                        .defaultMinSize(minWidth = 40.dp)
                         .clip(CircleShape)
                         .background(glassColor)
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCommentClick() }
-                        .animateContentSize()
-                        .padding(horizontal = if (post.commentsCount > 0) 12.dp else 10.dp, vertical = 8.dp)
+                        .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessLow))
+                        .padding(horizontal = if (post.commentsCount > 0) 12.dp else 0.dp)
                 ) {
                     Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = "Comment", tint = textColor, modifier = Modifier.size(22.dp))
                     if (post.commentsCount > 0) Text(text = "${post.commentsCount}", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
                 }
                 
-                // Share Circle
-                Box(modifier = Modifier.clip(CircleShape).background(glassColor).padding(10.dp)) {
+                // Share Button
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor).clickable { },
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(Icons.Rounded.Send, contentDescription = "Share", tint = textColor, modifier = Modifier.size(22.dp))
                 }
             }
-            // Save Circle
+            // Save Button
             Box(
                 modifier = Modifier
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(glassColor)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { toggleSave() }
-                    .padding(10.dp)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { toggleSave() },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (isSaved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, 
@@ -581,7 +544,11 @@ fun FeedPostCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostOptionsBottomSheet(textColor: Color, bgColor: Color, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = bgColor) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, 
+        containerColor = bgColor,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = textColor.copy(alpha = 0.3f)) }
+    ) {
         Column(modifier = Modifier.padding(bottom = 32.dp)) {
             val options = listOf(
                 Icons.Rounded.ContentCopy to "Copy link",
@@ -620,7 +587,6 @@ fun CommentsBottomSheet(
     var comments by remember { mutableStateOf<List<PostComment>>(emptyList()) }
     var commentText by remember { mutableStateOf("") }
 
-    // Real-time backend comment listener
     DisposableEffect(post.postId) {
         val listener = firestore.collection("posts").document(post.postId).collection("comments")
             .orderBy("timestamp", Query.Direction.ASCENDING)
@@ -642,9 +608,14 @@ fun CommentsBottomSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = bgColor, modifier = Modifier.fillMaxHeight(0.85f)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, 
+        containerColor = bgColor, 
+        modifier = Modifier.fillMaxHeight(0.85f),
+        dragHandle = { BottomSheetDefaults.DragHandle(color = subTextColor.copy(alpha = 0.3f)) }
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Text("Comments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 16.dp))
+            Text("Comments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp))
             HorizontalDivider(color = subTextColor.copy(alpha = 0.1f))
             
             LazyColumn(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
@@ -670,6 +641,7 @@ fun CommentsBottomSheet(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(commenterName, fontWeight = FontWeight.Bold, color = textColor, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(comment.text, color = textColor, fontSize = 14.sp)
                         }
                     }
@@ -679,9 +651,9 @@ fun CommentsBottomSheet(
                 }
             }
             
-            // Comment Input Box
+            // Sleek Floating Input Box
             Box(modifier = Modifier.fillMaxWidth().background(bgColor).padding(16.dp).navigationBarsPadding().imePadding()) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(glassColor).padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(CircleShape).background(glassColor).padding(horizontal = 16.dp, vertical = 6.dp)) {
                     TextField(
                         value = commentText,
                         onValueChange = { commentText = it },
