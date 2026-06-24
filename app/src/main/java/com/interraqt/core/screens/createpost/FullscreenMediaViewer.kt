@@ -90,20 +90,59 @@ fun FullscreenMediaViewer(
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 val mediaItem = selectedMedia[page]
                 
-                if (mediaItem.isVideo) {
-                    var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
-                    var isFirstFrameRendered by remember { mutableStateOf(false) }
-
-                    LaunchedEffect(mediaItem.uri) {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val retriever = MediaMetadataRetriever()
-                                retriever.setDataSource(context, mediaItem.uri)
-                                fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                retriever.release()
-                            } catch (e: Exception) { e.printStackTrace() }
+                                if (mediaItem.isVideo) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        val exoPlayer = remember { 
+                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                playWhenReady = true // 🚨 INSTANT PLAYBACK (No Retriever needed!)
+                            } 
                         }
+                        
+                        DisposableEffect(mediaItem.uri) {
+                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                            exoPlayer.setMediaItem(media)
+                            exoPlayer.prepare()
+                            onDispose { 
+                                exoPlayer.release() 
+                            }
+                        }
+                        
+                        val isCurrentPage = pagerState.currentPage == page
+                        val isScrolling = pagerState.isScrollInProgress
+                        
+                        LaunchedEffect(isCurrentPage, isScrolling) {
+                            if (isCurrentPage && !isScrolling) {
+                                exoPlayer.play()
+                            } else {
+                                exoPlayer.pause()
+                                exoPlayer.seekTo(0)
+                            }
+                        }
+                        
+                        AndroidView(
+                            factory = { ctx ->
+                                androidx.media3.ui.PlayerView(ctx).apply {
+                                    useController = false 
+                                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                }
+                            },
+                            update = { view ->
+                                view.player = exoPlayer
+                            },
+                            onRelease = { view ->
+                                view.player = null // 🚨 CLEAN DETACHMENT: Prevents Memory Leak Crash
+                            },
+                            modifier = Modifier.fillMaxSize().background(Color.Transparent)
+                        )
                     }
+                }
+
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         val exoPlayer = remember { 
