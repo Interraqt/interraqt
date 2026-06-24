@@ -1,6 +1,5 @@
 package com.interraqt.core.screens.createpost
 
-import com.interraqt.core.ui.components.SmartCursorTextField
 import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
@@ -44,13 +43,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.interraqt.core.network.CloudflareManager
+import com.interraqt.core.ui.components.SmartCursorTextField
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 data class MediaAttachment(val uri: Uri, val isVideo: Boolean)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreatePostScreen(
     onNavigateBack: () -> Unit
@@ -73,7 +73,6 @@ fun CreatePostScreen(
     val textColor = if (isDark) Color.White else Color.Black
     val primaryOrange = Color(0xFFFF6328)
     
-    // Matched exactly to ProfileScreen.kt styling
     val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
     val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
@@ -87,15 +86,15 @@ fun CreatePostScreen(
     var isBoxFocused by remember { mutableStateOf(false) }
     var emptyBoxTapSecondTrigger by remember { mutableIntStateOf(0) }
 
-        // 🚨 ANTI-JUMP LOGIC: Freeze the status bar padding so the layout never shifts!
+    // 🚨 ANTI-JUMP LOGIC: Freezes status bar height to prevent layout shifts
     val density = LocalDensity.current
-    val statusBars = WindowInsets.statusBars // Evaluated outside the remember block!
+    val statusBars = WindowInsets.statusBars 
     val frozenStatusBarHeight = remember(density, statusBars) { 
         val px = statusBars.getTop(density)
         with(density) { if (px > 0) px.toDp() else 48.dp } 
     }
 
-    // 🚨 SAFE WINDOW EXTRACTION: Prevents MIUI WindowManager Crashes
+    // 🚨 SAFE EDGE-TO-EDGE LOGIC: Hides bars cleanly without crashing MIUI
     DisposableEffect(isFullscreenVisible) {
         var window = (context as? Activity)?.window
         if (window == null) {
@@ -113,24 +112,22 @@ fun CreatePostScreen(
             try {
                 val insetsController = WindowCompat.getInsetsController(window, view)
                 if (isFullscreenVisible) {
-                    insetsController.hide(WindowInsetsCompat.Type.statusBars())
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
                     insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 } else {
-                    insetsController.show(WindowInsetsCompat.Type.statusBars())
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
                 }
-            } catch (e: Exception) { e.printStackTrace() } // 🚨 Safely absorbs the MIUI layout panic
+            } catch (e: Exception) { e.printStackTrace() } 
         }
         
         onDispose {
             try {
                 window?.let {
-                    WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.statusBars())
+                    WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.systemBars())
                 }
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
-
-
 
     BackHandler {
         if (isFullscreenVisible) {
@@ -204,7 +201,6 @@ fun CreatePostScreen(
         }
     }
 
-    @OptIn(ExperimentalLayoutApi::class)
     val isImeVisible = WindowInsets.isImeVisible
     
     Box(
@@ -220,7 +216,6 @@ fun CreatePostScreen(
                 .verticalScroll(state = scrollState, enabled = isImeVisible)
                 .padding(horizontal = 24.dp)
         ) {
-            // Replaced dynamic calculateTopPadding with frozen layout height
             Spacer(modifier = Modifier.height(frozenStatusBarHeight + 80.dp))
 
             Box(
@@ -310,7 +305,7 @@ fun CreatePostScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(top = frozenStatusBarHeight) // Static padding prevents jumps
+                .padding(top = frozenStatusBarHeight)
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             IconButton(
@@ -336,7 +331,6 @@ fun CreatePostScreen(
             }
         }
 
-        // 🚨 OVERLAY RENDERER: Removed Dialog wrapper to ensure true Edge-to-Edge without shifting
         FullscreenMediaViewer(
             isFullscreenVisible = isFullscreenVisible,
             selectedMedia = selectedMedia,
