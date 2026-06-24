@@ -27,6 +27,7 @@ import com.interraqt.core.auth.SignupScreen
 import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 import kotlin.math.abs
+import com.interraqt.core.screens.createpost.CreatePostScreen
 
 enum class AppScreen {
     Login, Signup, Main, Settings, EditProfile, OtherProfile, CreatePost
