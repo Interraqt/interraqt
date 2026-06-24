@@ -1,4 +1,4 @@
-package com.interraqt.core.screens.ui.components
+package com.interraqt.core.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
