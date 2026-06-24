@@ -87,10 +87,13 @@ fun CreatePostScreen(
     var isBoxFocused by remember { mutableStateOf(false) }
     var emptyBoxTapSecondTrigger by remember { mutableIntStateOf(0) }
 
-    // 🚨 ANTI-JUMP LOGIC: Freeze the status bar padding so the layout never shifts!
+        // 🚨 ANTI-JUMP LOGIC: Freeze the status bar padding so the layout never shifts!
     val density = LocalDensity.current
-    val initialTopPaddingPx = remember { WindowInsets.statusBars.getTop(density) }
-    val frozenStatusBarHeight = remember { with(density) { if (initialTopPaddingPx > 0) initialTopPaddingPx.toDp() else 48.dp } }
+    val statusBars = WindowInsets.statusBars // Evaluated outside the remember block!
+    val frozenStatusBarHeight = remember(density, statusBars) { 
+        val px = statusBars.getTop(density)
+        with(density) { if (px > 0) px.toDp() else 48.dp } 
+    }
 
     DisposableEffect(isFullscreenVisible) {
         val window = (context as Activity).window
