@@ -1,4 +1,4 @@
-package com.interraqt.core.screens
+package com.interraqt.core.screens.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun PostCaptionTextField(
+fun SmartCursorTextField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     maxLength: Int,
