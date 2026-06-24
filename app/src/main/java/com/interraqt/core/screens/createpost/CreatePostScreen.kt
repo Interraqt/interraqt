@@ -184,8 +184,9 @@ fun CreatePostScreen(
         }
     }
 
-    val isImeVisible = WindowInsets.isImeVisible
-
+    @OptIn(ExperimentalLayoutApi::class)
+val isImeVisible = WindowInsets.isImeVisible
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
