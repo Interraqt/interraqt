@@ -241,7 +241,7 @@ fun CreatePostScreen(
                         )
                     }
 
-                    PostCaptionTextField(
+                    SmartCursorTextField(
                         value = caption,
                         onValueChange = { caption = it },
                         maxLength = 1000, 
