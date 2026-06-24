@@ -86,66 +86,104 @@ fun FullscreenMediaViewer(
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 val mediaItem = selectedMedia[page]
                 
-                if (mediaItem.isVideo) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        val exoPlayer = remember { 
-                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                playWhenReady = true // 🚨 INSTANT PLAYBACK (No Retriever needed!)
-                            } 
+                                if (mediaItem.isVideo) {
+                    var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
+                    
+                    // 1. Always load a safe thumbnail to use during animations and swipes
+                    LaunchedEffect(mediaItem.uri) {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                val retriever = MediaMetadataRetriever()
+                                retriever.setDataSource(context, mediaItem.uri)
+                                fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                                retriever.release()
+                            } catch (e: Exception) { e.printStackTrace() }
                         }
-                        
-                        DisposableEffect(mediaItem.uri) {
-                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                            exoPlayer.setMediaItem(media)
-                            exoPlayer.prepare()
-                            onDispose { 
-                                exoPlayer.release() 
-                            }
-                        }
-                        
-                        val isCurrentPage = pagerState.currentPage == page
-                        val isScrolling = pagerState.isScrollInProgress
-                        
-                        LaunchedEffect(isCurrentPage, isScrolling) {
-                            if (isCurrentPage && !isScrolling) {
-                                exoPlayer.play()
-                            } else {
-                                exoPlayer.pause()
-                                exoPlayer.seekTo(0)
-                            }
-                        }
-                        
-                        AndroidView(
-                            factory = { ctx ->
-                                androidx.media3.ui.PlayerView(ctx).apply {
-                                    useController = false 
-                                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                    layoutParams = android.view.ViewGroup.LayoutParams(
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                                }
-                            },
-                            update = { view ->
-                                view.player = exoPlayer
-                            },
-                            onRelease = { view ->
-                                view.player = null // 🚨 CLEAN DETACHMENT: Prevents Memory Leak Crash
-                            },
-                            modifier = Modifier.fillMaxSize().background(Color.Transparent)
-                        )
                     }
-                } else {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
-                        contentDescription = "Fullscreen Media",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                }
-            }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        val isCurrentPage = pagerState.currentPage == page
+                        val isTransitionFinished = animatedCornerRadius == 0.dp
+                        
+                        // 🚨 ANTI-CRASH LOGIC: Only create the Video Player if the scale/clip animation is 100% finished,
+                        // AND it is the currently visible page. This prevents SurfaceView crashes and decoder memory limits.
+                        if (isCurrentPage && isTransitionFinished) {
+                            var isFirstFrameRendered by remember { mutableStateOf(false) }
+                            
+                            val exoPlayer = remember { 
+                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                    repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                    playWhenReady = true 
+                                } 
+                            }
+                            
+                            DisposableEffect(mediaItem.uri) {
+                                val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                                val listener = object : androidx.media3.common.Player.Listener {
+                                    override fun onRenderedFirstFrame() {
+                                        isFirstFrameRendered = true
+                                    }
+                                }
+                                exoPlayer.addListener(listener)
+                                exoPlayer.setMediaItem(media)
+                                exoPlayer.prepare()
+                                
+                                onDispose { 
+                                    exoPlayer.removeListener(listener)
+                                    exoPlayer.release() 
+                                }
+                            }
+                            
+                            val isScrolling = pagerState.isScrollInProgress
+                            LaunchedEffect(isScrolling) {
+                                if (!isScrolling) {
+                                    exoPlayer.play()
+                                } else {
+                                    exoPlayer.pause()
+                                }
+                            }
+                            
+                            AndroidView(
+                                factory = { ctx ->
+                                    androidx.media3.ui.PlayerView(ctx).apply {
+                                        useController = false 
+                                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                        layoutParams = android.view.ViewGroup.LayoutParams(
+                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                        )
+                                    }
+                                },
+                                update = { view ->
+                                    view.player = exoPlayer
+                                },
+                                onRelease = { view ->
+                                    view.player = null 
+                                },
+                                modifier = Modifier.fillMaxSize().background(Color.Transparent)
+                            )
+
+                            // Keep the safe thumbnail visible just until the video renders its very first frame
+                            if (!isFirstFrameRendered) {
+                                AsyncImage(
+                                    model = fullscreenVideoThumbnail,
+                                    contentDescription = "Video Thumbnail",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        } else {
+                            // While animating or swiping, safely show the image thumbnail to prevent crashes
+                            AsyncImage(
+                                model = fullscreenVideoThumbnail,
+                                contentDescription = "Video Thumbnail",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+
             
             // 🚨 PROFILE STYLED BUTTON: Matched exactly to the Profile Screen overlay styles!
             Box(
