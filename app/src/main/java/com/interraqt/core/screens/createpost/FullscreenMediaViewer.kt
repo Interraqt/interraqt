@@ -49,14 +49,37 @@ fun FullscreenMediaViewer(
     textColor: Color,
     statusBarHeight: Dp
 ) {
-    val context = LocalContext.current
+        val context = LocalContext.current
 
-        AnimatedVisibility(
+    // 🚨 RESTORED: Calculates origin point for the photo animation
+    val dynamicOrigin = remember(initialPage) {
+        when (initialPage) {
+            0 -> TransformOrigin(0.15f, 0.35f)
+            1 -> TransformOrigin(0.5f, 0.35f)
+            else -> TransformOrigin(0.85f, 0.35f)
+        }
+    }
+
+    // 🚨 SMART CHECK: Detects if you clicked a video or a photo
+    val isOpeningVideo = remember(initialPage) { 
+        selectedMedia.getOrNull(initialPage)?.isVideo == true 
+    }
+
+    AnimatedVisibility(
         visible = isFullscreenVisible,
-        enter = fadeIn(tween(150)), // 🚨 Quick, smooth fade-in without scaling
-        exit = fadeOut(tween(150)), // 🚨 Quick, smooth fade-out without scaling
+        enter = if (isOpeningVideo) {
+            fadeIn(tween(150)) // VIDEO: Quick, smooth fade
+        } else {
+            fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.8f, transformOrigin = dynamicOrigin) // PHOTO: Beautiful scale and bounce
+        },
+        exit = if (isOpeningVideo) {
+            fadeOut(tween(150)) // VIDEO: Quick, smooth fade
+        } else {
+            fadeOut(animationSpec = tween(250)) + scaleOut(animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), targetScale = 0.8f, transformOrigin = dynamicOrigin) // PHOTO: Beautiful scale and bounce
+        },
         modifier = Modifier.fillMaxSize().zIndex(10f) 
     ) {
+
 
         Box(
             modifier = Modifier
