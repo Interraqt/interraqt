@@ -112,13 +112,13 @@ fun FullscreenMediaViewer(
                     contentAlignment = Alignment.Center
                 ) {
                     if (mediaItem.isVideo) {
-                        // 🚨 FROM YOUR RESEARCH: Tracks exact millisecond video is ready
-                        var isFirstFrameRendered by remember { mutableStateOf(false) }
+                                                // 🚨 FIX 1: Key the state to the URI. This ensures it only resets to false if the actual video file changes!
+                        var isFirstFrameRendered by remember(mediaItem.uri) { mutableStateOf(false) }
 
                         val exoPlayer = remember { 
                             androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
                                 repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT // 🚨 FROM YOUR RESEARCH
+                                videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT 
                                 playWhenReady = isCurrentPage 
                             } 
                         }
@@ -126,7 +126,6 @@ fun FullscreenMediaViewer(
                         DisposableEffect(mediaItem.uri) {
                             val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
                             
-                            // 🚨 FROM YOUR RESEARCH: Listens to the hardware decoder
                             val listener = object : androidx.media3.common.Player.Listener {
                                 override fun onRenderedFirstFrame() {
                                     isFirstFrameRendered = true
@@ -150,10 +149,13 @@ fun FullscreenMediaViewer(
                                 exoPlayer.pause()
                                 if (!isCurrentPage) {
                                     exoPlayer.seekTo(0)
-                                    isFirstFrameRendered = false // Clean reset for adjacent pages
+                                    // 🚨 FIX 2: DELETED "isFirstFrameRendered = false"
+                                    // We MUST NOT hide the video again when swiping away. 
+                                    // The hardware frame is already held safely in memory!
                                 }
                             }
                         }
+
                         
                         // Creates a buttery smooth fade-in veil using your listener logic
                         val playerAlpha by androidx.compose.animation.core.animateFloatAsState(
