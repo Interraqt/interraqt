@@ -89,14 +89,13 @@ fun FullscreenMediaViewer(
     ) {
 
 
-                Box(
+                        Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 🚨 SAFE CLIP: Only applies rounded corners if it's a Photo!
-                .then(if (isOpeningVideo) Modifier else Modifier.clip(RoundedCornerShape(animatedCornerRadius)))
                 .background(Color.Black)
                 .pointerInput(Unit) { detectTapGestures { } } 
         ) {
+
 
             val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { selectedMedia.size })
             
@@ -174,14 +173,17 @@ fun FullscreenMediaViewer(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
-                    } else {
+                                        } else {
                         AsyncImage(
                             model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
                             contentDescription = "Fullscreen Media",
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(animatedCornerRadius)), // 🚨 FIX: Safely clips ONLY the photo, protecting the video from crashing!
                             contentScale = ContentScale.Fit
                         )
                     }
+
                 }
             } 
 
