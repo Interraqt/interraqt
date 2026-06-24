@@ -177,7 +177,7 @@ fun FullscreenMediaViewer(
                                     contentScale = ContentScale.Fit
                                 )
                             }
-                        } else {
+                                                } else {
                             // While animating or swiping, safely show the image thumbnail to prevent crashes
                             AsyncImage(
                                 model = fullscreenVideoThumbnail,
@@ -186,7 +186,20 @@ fun FullscreenMediaViewer(
                                 contentScale = ContentScale.Fit
                             )
                         }
-                    }
+                    } // Closes inner video Box
+                } else {
+                    // Handles standard image rendering (non-video items)
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
+                        contentDescription = "Fullscreen Media",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            } // Closes HorizontalPager
+
+            // 🚨 PROFILE STYLED BUTTON: Matched exactly to the Profile Screen overlay styles!
+
 
             
             // 🚨 PROFILE STYLED BUTTON: Matched exactly to the Profile Screen overlay styles!
