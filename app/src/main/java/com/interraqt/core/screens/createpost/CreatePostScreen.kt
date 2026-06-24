@@ -27,9 +27,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -73,12 +73,12 @@ fun CreatePostScreen(
     val textColor = if (isDark) Color.White else Color.Black
     val primaryOrange = Color(0xFFFF6328)
     
-    val highOpacityGlassColor = if (isDark) Color.Black.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f)
+    // Matched exactly to ProfileScreen.kt styling
+    val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
     val liquidPickerBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f)
 
     var selectedMedia by remember { mutableStateOf<List<MediaAttachment>>(emptyList()) }
     var isFullscreenVisible by remember { mutableStateOf(false) }
-    var showFullscreenDialog by remember { mutableStateOf(false) }
     var initialFullscreenPage by remember { mutableIntStateOf(0) }
     
     var caption by remember { mutableStateOf(TextFieldValue("")) }
@@ -87,28 +87,24 @@ fun CreatePostScreen(
     var isBoxFocused by remember { mutableStateOf(false) }
     var emptyBoxTapSecondTrigger by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(isFullscreenVisible) {
-        if (isFullscreenVisible) {
-            showFullscreenDialog = true
-        } else {
-            delay(350) 
-            showFullscreenDialog = false
-        }
-    }
+    // 🚨 ANTI-JUMP LOGIC: Freeze the status bar padding so the layout never shifts!
+    val density = LocalDensity.current
+    val initialTopPaddingPx = remember { WindowInsets.statusBars.getTop(density) }
+    val frozenStatusBarHeight = remember { with(density) { if (initialTopPaddingPx > 0) initialTopPaddingPx.toDp() else 48.dp } }
 
-    DisposableEffect(showFullscreenDialog) {
+    DisposableEffect(isFullscreenVisible) {
         val window = (context as Activity).window
         val insetsController = WindowCompat.getInsetsController(window, view)
         
-        if (showFullscreenDialog) {
-            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+        if (isFullscreenVisible) {
+            insetsController.hide(WindowInsetsCompat.Type.statusBars())
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
-            insetsController.show(WindowInsetsCompat.Type.systemBars())
+            insetsController.show(WindowInsetsCompat.Type.statusBars())
         }
         
         onDispose {
-            insetsController.show(WindowInsetsCompat.Type.systemBars())
+            insetsController.show(WindowInsetsCompat.Type.statusBars())
         }
     }
 
@@ -185,7 +181,7 @@ fun CreatePostScreen(
     }
 
     @OptIn(ExperimentalLayoutApi::class)
-val isImeVisible = WindowInsets.isImeVisible
+    val isImeVisible = WindowInsets.isImeVisible
     
     Box(
         modifier = Modifier
@@ -200,7 +196,8 @@ val isImeVisible = WindowInsets.isImeVisible
                 .verticalScroll(state = scrollState, enabled = isImeVisible)
                 .padding(horizontal = 24.dp)
         ) {
-            Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 80.dp))
+            // Replaced dynamic calculateTopPadding with frozen layout height
+            Spacer(modifier = Modifier.height(frozenStatusBarHeight + 80.dp))
 
             Box(
                 modifier = Modifier
@@ -289,7 +286,7 @@ val isImeVisible = WindowInsets.isImeVisible
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .statusBarsPadding()
+                .padding(top = frozenStatusBarHeight) // Static padding prevents jumps
                 .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
             IconButton(
@@ -315,15 +312,15 @@ val isImeVisible = WindowInsets.isImeVisible
             }
         }
 
-        if (showFullscreenDialog) {
-            FullscreenMediaViewer(
-                isFullscreenVisible = isFullscreenVisible,
-                selectedMedia = selectedMedia,
-                initialPage = initialFullscreenPage,
-                onDismiss = { isFullscreenVisible = false },
-                isDark = isDark,
-                highOpacityGlassColor = highOpacityGlassColor
-            )
-        }
+        // 🚨 OVERLAY RENDERER: Removed Dialog wrapper to ensure true Edge-to-Edge without shifting
+        FullscreenMediaViewer(
+            isFullscreenVisible = isFullscreenVisible,
+            selectedMedia = selectedMedia,
+            initialPage = initialFullscreenPage,
+            onDismiss = { isFullscreenVisible = false },
+            glassColor = glassColor,
+            textColor = textColor,
+            statusBarHeight = frozenStatusBarHeight
+        )
     }
 }
