@@ -95,7 +95,7 @@ fun CreatePostScreen(
         with(density) { if (px > 0) px.toDp() else 48.dp } 
     }
 
-        // 🚨 SAFE WINDOW EXTRACTION: Prevents ClassCastException Crash
+    // 🚨 SAFE WINDOW EXTRACTION: Prevents MIUI WindowManager Crashes
     DisposableEffect(isFullscreenVisible) {
         var window = (context as? Activity)?.window
         if (window == null) {
@@ -110,21 +110,26 @@ fun CreatePostScreen(
         }
         
         if (window != null) {
-            val insetsController = WindowCompat.getInsetsController(window, view)
-            if (isFullscreenVisible) {
-                insetsController.hide(WindowInsetsCompat.Type.statusBars())
-                insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            } else {
-                insetsController.show(WindowInsetsCompat.Type.statusBars())
-            }
+            try {
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                if (isFullscreenVisible) {
+                    insetsController.hide(WindowInsetsCompat.Type.statusBars())
+                    insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                } else {
+                    insetsController.show(WindowInsetsCompat.Type.statusBars())
+                }
+            } catch (e: Exception) { e.printStackTrace() } // 🚨 Safely absorbs the MIUI layout panic
         }
         
         onDispose {
-            window?.let {
-                WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.statusBars())
-            }
+            try {
+                window?.let {
+                    WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.statusBars())
+                }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
+
 
 
     BackHandler {
