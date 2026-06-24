@@ -36,10 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import android.graphics.Bitmap
-import android.media.MediaMetadataRetriever
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -90,30 +86,14 @@ fun FullscreenMediaViewer(
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 val mediaItem = selectedMedia[page]
                 
-                                if (mediaItem.isVideo) {
-                    var fullscreenVideoThumbnail by remember { mutableStateOf<Bitmap?>(null) }
-                    
-                    // 1. Always load a safe thumbnail to use during animations and swipes
-                    LaunchedEffect(mediaItem.uri) {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val retriever = MediaMetadataRetriever()
-                                retriever.setDataSource(context, mediaItem.uri)
-                                fullscreenVideoThumbnail = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                                retriever.release()
-                            } catch (e: Exception) { e.printStackTrace() }
-                        }
-                    }
-
-                    Box(modifier = Modifier.fillMaxSize()) {
+                if (mediaItem.isVideo) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         val isCurrentPage = pagerState.currentPage == page
-                        val isTransitionFinished = animatedCornerRadius == 0.dp
                         
-                        // 🚨 ANTI-CRASH LOGIC: Only create the Video Player if the scale/clip animation is 100% finished,
-                        // AND it is the currently visible page. This prevents SurfaceView crashes and decoder memory limits.
-                        if (isCurrentPage && isTransitionFinished) {
-                            var isFirstFrameRendered by remember { mutableStateOf(false) }
-                            
+                        // 🚨 ANTI-CRASH FIX 1: Only initialize the video player if it is the currently visible page.
+                        // This prevents the Xiaomi Hardware Decoder from running out of memory when swiping.
+                        // 🚨 ANTI-CRASH FIX 2: Completely removed MediaMetadataRetriever (prevents Hardware Bitmap crashes).
+                        if (isCurrentPage) {
                             val exoPlayer = remember { 
                                 androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
                                     repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
@@ -123,17 +103,9 @@ fun FullscreenMediaViewer(
                             
                             DisposableEffect(mediaItem.uri) {
                                 val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                                val listener = object : androidx.media3.common.Player.Listener {
-                                    override fun onRenderedFirstFrame() {
-                                        isFirstFrameRendered = true
-                                    }
-                                }
-                                exoPlayer.addListener(listener)
                                 exoPlayer.setMediaItem(media)
                                 exoPlayer.prepare()
-                                
                                 onDispose { 
-                                    exoPlayer.removeListener(listener)
                                     exoPlayer.release() 
                                 }
                             }
@@ -165,28 +137,13 @@ fun FullscreenMediaViewer(
                                 onRelease = { view ->
                                     view.player = null 
                                 },
-                                modifier = Modifier.fillMaxSize().background(Color.Transparent)
+                                modifier = Modifier.fillMaxSize()
                             )
-
-                            // Keep the safe thumbnail visible just until the video renders its very first frame
-                            if (!isFirstFrameRendered) {
-                                AsyncImage(
-                                    model = fullscreenVideoThumbnail,
-                                    contentDescription = "Video Thumbnail",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-                                                } else {
-                            // While animating or swiping, safely show the image thumbnail to prevent crashes
-                            AsyncImage(
-                                model = fullscreenVideoThumbnail,
-                                contentDescription = "Video Thumbnail",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
+                        } else {
+                            // Safe off-screen placeholder to save memory and prevent hardware crashes
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Transparent))
                         }
-                    } // Closes inner video Box
+                    }
                 } else {
                     // Handles standard image rendering (non-video items)
                     AsyncImage(
@@ -198,10 +155,6 @@ fun FullscreenMediaViewer(
                 }
             } // Closes HorizontalPager
 
-            // 🚨 PROFILE STYLED BUTTON: Matched exactly to the Profile Screen overlay styles!
-
-
-            
             // 🚨 PROFILE STYLED BUTTON: Matched exactly to the Profile Screen overlay styles!
             Box(
                 modifier = Modifier
