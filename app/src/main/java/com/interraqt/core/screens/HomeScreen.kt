@@ -2,20 +2,23 @@ package com.interraqt.core.screens
 
 import android.text.format.DateUtils
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
@@ -23,9 +26,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -34,11 +36,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -50,9 +54,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // Data Models
 data class FeedPost(
@@ -70,69 +78,115 @@ data class FeedUserProfile(
     val profileImageUrl: String = ""
 )
 
+data class PostComment(
+    val commentId: String = "",
+    val userId: String = "",
+    val text: String = "",
+    val timestamp: Long = 0L
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    onNavigateToCreatePost: () -> Unit
-) {
+fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328)
-    val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
+    val glassColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.08f)
 
     val firestore = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val currentUserId = auth.currentUser?.uid ?: ""
     
-    // State to hold the real data
-    var allPosts by remember { mutableStateOf<List<FeedPost>>(emptyList()) }
-    var randomizedPosts by remember { mutableStateOf<List<FeedPost>>(emptyList()) }
+    var posts by remember { mutableStateOf<List<FeedPost>>(emptyList()) }
     var usersMap by remember { mutableStateOf<Map<String, FeedUserProfile>>(emptyMap()) }
     
-    // Bottom Sheet States
+    // Pagination States
+    var lastVisible by remember { mutableStateOf<DocumentSnapshot?>(null) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+
     var showOptionsForPost by remember { mutableStateOf<FeedPost?>(null) }
     var showCommentsForPost by remember { mutableStateOf<FeedPost?>(null) }
     
     val pullRefreshState = rememberPullToRefreshState()
-    var refreshKey by remember { mutableIntStateOf(0) }
 
-    if (pullRefreshState.isRefreshing) {
-        LaunchedEffect(true) {
-            randomizedPosts = allPosts.shuffled() // 🚨 Randomizes feed instantly on refresh
-            delay(800)
-            pullRefreshState.endRefresh()
+    // Smart Time Formatter
+    fun getShortTime(time: Long): String {
+        if (time == 0L) return ""
+        val diff = System.currentTimeMillis() - time
+        val minutes = diff / (1000 * 60)
+        val hours = minutes / 60
+        val days = hours / 24
+        return when {
+            days > 0 -> "${days}d"
+            hours > 0 -> "${hours}h"
+            minutes > 0 -> "${minutes}m"
+            else -> "Now"
         }
     }
 
-    DisposableEffect(refreshKey) {
-        val listener = firestore.collection("posts")
+    // Initial Load & Refresh Logic
+    fun loadPosts(isRefresh: Boolean = false) {
+        if (isLoadingMore || (!hasMore && !isRefresh)) return
+        isLoadingMore = true
+        
+        var query = firestore.collection("posts")
             .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(30)
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null) {
-                    val fetchedPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
-                    allPosts = fetchedPosts
-                    if (randomizedPosts.isEmpty()) randomizedPosts = fetchedPosts.shuffled() // Initial shuffle
-                    
-                    val userIds = fetchedPosts.map { it.userId }.distinct()
-                    val missingUsers = userIds.filter { !usersMap.containsKey(it) }
-                    
-                    missingUsers.forEach { uid ->
-                        firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
-                            val username = userDoc.getString("username") ?: "Unknown"
-                            val profileImageUrl = userDoc.getString("profileImageUrl") ?: ""
-                            usersMap = usersMap + (uid to FeedUserProfile(username, profileImageUrl))
-                        }
+            .limit(5) // Strict memory control for infinite scroll
+            
+        if (!isRefresh && lastVisible != null) {
+            query = query.startAfter(lastVisible!!)
+        }
+
+        query.get().addOnSuccessListener { snapshot ->
+            if (snapshot.isEmpty) {
+                hasMore = false
+            } else {
+                lastVisible = snapshot.documents.last()
+                val newPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
+                posts = if (isRefresh) newPosts else posts + newPosts
+                
+                // Fetch missing users
+                val missingUsers = newPosts.map { it.userId }.distinct().filter { !usersMap.containsKey(it) }
+                missingUsers.forEach { uid ->
+                    firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
+                        val username = userDoc.getString("username") ?: "Unknown"
+                        val profileImageUrl = userDoc.getString("profileImageUrl") ?: ""
+                        usersMap = usersMap + (uid to FeedUserProfile(username, profileImageUrl))
                     }
                 }
             }
-        onDispose { listener.remove() }
+            isLoadingMore = false
+            if (isRefresh) pullRefreshState.endRefresh()
+        }.addOnFailureListener {
+            isLoadingMore = false
+            if (isRefresh) pullRefreshState.endRefresh()
+        }
     }
+
+    LaunchedEffect(Unit) { loadPosts(isRefresh = true) }
+
+    if (pullRefreshState.isRefreshing) {
+        LaunchedEffect(true) { loadPosts(isRefresh = true) }
+    }
+
+    // Infinite Scroll Trigger
+    val shouldLoadMore = remember {
+        derivedStateOf {
+            val totalItems = listState.layoutInfo.totalItemsCount
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            hasMore && !isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 2
+        }
+    }
+    LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) loadPosts() }
 
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val fadeEndPx = statusBarHeightPx + with(density) { 100.dp.toPx() }
+    val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
 
     Box(
         modifier = Modifier
@@ -140,64 +194,67 @@ fun HomeScreen(
             .background(bgColor)
             .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
-        // 1. THE MAIN FEED WITH FEATHER EFFECT
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { alpha = 0.99f } // Required for DstIn blend mode
+                .graphicsLayer { alpha = 0.99f }
                 .drawWithContent {
                     val gradient = Brush.verticalGradient(
                         colors = listOf(Color.Transparent, Color.Black),
                         startY = statusBarHeightPx,
-                        endY = fadeEndPx // 🚨 Smoothly feathers posts out as they slide under the top bar
+                        endY = fadeEndPx
                     )
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 },
-            contentPadding = PaddingValues(top = statusBarHeightDp + 30.dp, bottom = 100.dp) 
+            contentPadding = PaddingValues(top = statusBarHeightDp + 60.dp, bottom = 100.dp) 
         ) {
-            // MOMENTS (STORIES) TRAY
             item {
                 MomentsTray(textColor = textColor, subTextColor = subTextColor, primaryOrange = primaryOrange)
                 Spacer(modifier = Modifier.height(8.dp))
-                HorizontalDivider(color = subTextColor.copy(alpha = 0.1f), thickness = 0.5.dp)
+                HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
             }
 
-            items(randomizedPosts, key = { it.postId }) { post ->
+            items(posts, key = { it.postId }) { post ->
                 val userProfile = usersMap[post.userId] ?: FeedUserProfile()
                 
                 FeedPostCard(
                     post = post,
                     userProfile = userProfile,
+                    currentUserId = currentUserId,
+                    shortTime = getShortTime(post.timestamp),
                     bgColor = bgColor,
                     textColor = textColor,
                     subTextColor = subTextColor,
                     primaryOrange = primaryOrange,
+                    glassColor = glassColor,
+                    firestore = firestore,
                     onOptionsClick = { showOptionsForPost = post },
                     onCommentClick = { showCommentsForPost = post }
                 )
                 
-                // 🚨 Seamless ultra-thin line separation instead of chunky boxes
-                HorizontalDivider(color = subTextColor.copy(alpha = 0.1f), thickness = 0.5.dp)
+                HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
             }
             
-            if (randomizedPosts.isEmpty()) {
+            if (isLoadingMore && posts.isNotEmpty()) {
                 item {
-                    Box(modifier = Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = primaryOrange)
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     }
                 }
             }
         }
 
+        // Refined Liquid Pull to Refresh below the top bar
         PullToRefreshContainer(
             state = pullRefreshState, 
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), 
-            containerColor = bgColor, 
-            contentColor = primaryOrange
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp + 60.dp), 
+            containerColor = glassColor, 
+            contentColor = textColor
         )
 
-        // 2. THE LIQUID GLASS TOP BAR
+        // LIQUID GLASS TOP BAR
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -210,46 +267,35 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Create Post Button (Larger)
                 Box(
-                    modifier = Modifier.size(48.dp).clip(CircleShape).background(glassColor).clickable { onNavigateToCreatePost() },
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor).clickable { onNavigateToCreatePost() },
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Post", tint = textColor, modifier = Modifier.size(26.dp))
-                }
+                ) { Icon(Icons.Default.Add, contentDescription = "Create", tint = textColor, modifier = Modifier.size(22.dp)) }
 
-                // Center: App Brand (Larger)
-                Text(
-                    text = "Interraqt", 
-                    fontSize = 26.sp, 
-                    fontWeight = FontWeight.ExtraBold, 
-                    color = textColor
-                )
+                Text("Interraqt", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
 
-                // Right: Notifications Button (Larger)
                 Box(
-                    modifier = Modifier.size(48.dp).clip(CircleShape).background(glassColor).clickable { },
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor).clickable { },
                     contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Outlined.FavoriteBorder, contentDescription = "Notifications", tint = textColor, modifier = Modifier.size(26.dp))
-                }
+                ) { Icon(Icons.Rounded.FavoriteBorder, contentDescription = "Notifications", tint = textColor, modifier = Modifier.size(22.dp)) }
             }
         }
 
-        // 3. BOTTOM SHEETS
+        // BOTTOM SHEETS
         if (showOptionsForPost != null) {
-            PostOptionsBottomSheet(
-                textColor = textColor, 
-                bgColor = bgColor, 
-                onDismiss = { showOptionsForPost = null }
-            )
+            PostOptionsBottomSheet(textColor = textColor, bgColor = bgColor, onDismiss = { showOptionsForPost = null })
         }
         
         if (showCommentsForPost != null) {
             CommentsBottomSheet(
+                post = showCommentsForPost!!,
+                currentUserId = currentUserId,
+                firestore = firestore,
                 textColor = textColor, 
+                subTextColor = subTextColor,
                 bgColor = bgColor, 
                 primaryOrange = primaryOrange,
+                glassColor = glassColor,
                 onDismiss = { showCommentsForPost = null }
             )
         }
@@ -260,7 +306,7 @@ fun HomeScreen(
 @Composable
 fun MomentsTray(textColor: Color, subTextColor: Color, primaryOrange: Color) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Text("Moments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+        Text("Moments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
         
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -276,57 +322,87 @@ fun MomentsTray(textColor: Color, subTextColor: Color, primaryOrange: Color) {
                     Text("Add", color = subTextColor, fontSize = 12.sp)
                 }
             }
-            // Dummy Moments placeholders
-            items(8) { index ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(modifier = Modifier.size(65.dp).clip(CircleShape).border(2.5.dp, primaryOrange, CircleShape).padding(4.dp)) {
-                        Box(modifier = Modifier.fillMaxSize().clip(CircleShape).background(subTextColor.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Person, contentDescription = "User", tint = textColor)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("User ${index+1}", color = textColor, fontSize = 12.sp)
-                }
-            }
         }
     }
 }
 
-// THE INDIVIDUAL POST COMPONENT
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FeedPostCard(
     post: FeedPost,
     userProfile: FeedUserProfile,
-    bgColor: Color, // 🚨 Main app background only
+    currentUserId: String,
+    shortTime: String,
+    bgColor: Color,
     textColor: Color,
     subTextColor: Color,
     primaryOrange: Color,
+    glassColor: Color,
+    firestore: FirebaseFirestore,
     onOptionsClick: () -> Unit,
     onCommentClick: () -> Unit
 ) {
     val context = LocalContext.current
-    
-    val timeAgo = remember(post.timestamp) {
-        if (post.timestamp > 0) DateUtils.getRelativeTimeSpanString(post.timestamp, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString() else ""
-    }
+    val isOwnProfile = post.userId == currentUserId
 
-    // Bouncy Interactive States
+    // Real-time backend states
     var isLiked by remember { mutableStateOf(false) }
     var isSaved by remember { mutableStateOf(false) }
     var isFollowing by remember { mutableStateOf(false) }
+    var localLikesCount by remember { mutableIntStateOf(post.likesCount) }
+
+    // Init Backend Sync
+    LaunchedEffect(post.postId) {
+        if (currentUserId.isNotEmpty()) {
+            firestore.collection("posts").document(post.postId).collection("likes").document(currentUserId).get().addOnSuccessListener { isLiked = it.exists() }
+            firestore.collection("users").document(currentUserId).collection("savedPosts").document(post.postId).get().addOnSuccessListener { isSaved = it.exists() }
+            if (!isOwnProfile) {
+                firestore.collection("users").document(currentUserId).collection("following").document(post.userId).get().addOnSuccessListener { isFollowing = it.exists() }
+            }
+        }
+    }
+
+    // Handlers
+    val toggleLike = {
+        isLiked = !isLiked
+        localLikesCount += if (isLiked) 1 else -1
+        val postRef = firestore.collection("posts").document(post.postId)
+        if (isLiked) {
+            postRef.collection("likes").document(currentUserId).set(mapOf("timestamp" to System.currentTimeMillis()))
+            postRef.update("likesCount", FieldValue.increment(1))
+        } else {
+            postRef.collection("likes").document(currentUserId).delete()
+            postRef.update("likesCount", FieldValue.increment(-1))
+        }
+    }
+
+    val toggleSave = {
+        isSaved = !isSaved
+        val saveRef = firestore.collection("users").document(currentUserId).collection("savedPosts").document(post.postId)
+        if (isSaved) saveRef.set(mapOf("timestamp" to System.currentTimeMillis())) else saveRef.delete()
+    }
+    
+    val toggleFollow = {
+        isFollowing = !isFollowing
+        val followingRef = firestore.collection("users").document(currentUserId).collection("following").document(post.userId)
+        val followersRef = firestore.collection("users").document(post.userId).collection("followers").document(currentUserId)
+        if (isFollowing) {
+            followingRef.set(mapOf("timestamp" to System.currentTimeMillis()))
+            followersRef.set(mapOf("timestamp" to System.currentTimeMillis()))
+        } else {
+            followingRef.delete()
+            followersRef.delete()
+        }
+    }
 
     val likeScale by animateFloatAsState(targetValue = if (isLiked) 1.2f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-    val likeColor by animateColorAsState(targetValue = if (isLiked) primaryOrange else textColor)
-
     val saveScale by animateFloatAsState(targetValue = if (isSaved) 1.2f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-    val saveColor by animateColorAsState(targetValue = if (isSaved) primaryOrange else textColor)
 
-    Column(modifier = Modifier.fillMaxWidth().background(bgColor)) { // Seamless background
+    Column(modifier = Modifier.fillMaxWidth().background(bgColor)) {
         
-        // Section A: Header
+        // Header
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -334,12 +410,12 @@ fun FeedPostCard(
                 if (userProfile.profileImageUrl.isNotEmpty()) {
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(userProfile.profileImageUrl).crossfade(true).build(),
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier.size(42.dp).clip(CircleShape),
+                        contentDescription = "Profile",
+                        modifier = Modifier.size(40.dp).clip(CircleShape),
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(Color.Gray.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.Person, contentDescription = "Default", tint = subTextColor)
                     }
                 }
@@ -348,43 +424,67 @@ fun FeedPostCard(
                 
                 Column {
                     Text(text = userProfile.username, fontWeight = FontWeight.Bold, color = textColor, fontSize = 15.sp)
-                    if (timeAgo.isNotEmpty()) Text(text = timeAgo, color = subTextColor, fontSize = 12.sp) // 🚨 Time exactly below username
+                    if (shortTime.isNotEmpty()) Text(text = shortTime, color = subTextColor, fontSize = 12.sp)
                 }
             }
             
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // 🚨 Functional, animated Follow button
-                Text(
-                    text = if (isFollowing) "Following" else "Follow",
-                    color = if (isFollowing) subTextColor else primaryOrange,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() }, indication = null
-                    ) { isFollowing = !isFollowing }.padding(horizontal = 8.dp)
-                )
+                if (!isOwnProfile) {
+                    Text(
+                        text = if (isFollowing) "Following" else "Follow",
+                        color = if (isFollowing) textColor else Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (isFollowing) glassColor else primaryOrange)
+                            .clickable { toggleFollow() }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 
-                IconButton(onClick = onOptionsClick) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "More Options", tint = textColor)
+                IconButton(onClick = onOptionsClick, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Rounded.MoreHoriz, contentDescription = "More", tint = textColor)
                 }
             }
         }
 
-        // Section B: Media Carousel
+        // Pinch-to-Zoom Media Carousel
         if (post.mediaUrls.isNotEmpty()) {
             val pagerState = rememberPagerState(pageCount = { post.mediaUrls.size })
             
             Box(modifier = Modifier.fillMaxWidth()) {
                 HorizontalPager(
                     state = pagerState,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f), // 🚨 4:5 Perfect Ratio
+                    modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f),
                     beyondBoundsPageCount = 1,
-                    flingBehavior = PagerDefaults.flingBehavior(state = pagerState) // 🚨 Fluid Swipe
+                    flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
                 ) { page ->
+                    var scale by remember { mutableStateOf(1f) }
+                    var offset by remember { mutableStateOf(Offset.Zero) }
+                    
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(post.mediaUrls[page]).crossfade(true).build(),
                         contentDescription = "Post Media",
-                        modifier = Modifier.fillMaxSize(), // Fullscreen preview disabled as requested
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    scale = (scale * zoom).coerceIn(1f, 3f)
+                                    val newOffset = offset + pan
+                                    offset = newOffset
+                                }
+                            }
+                            .pointerInput(Unit) {
+                                detectTapGestures(onDoubleTap = { scale = 1f; offset = Offset.Zero })
+                            }
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = if (scale > 1f) offset.x else 0f
+                                translationY = if (scale > 1f) offset.y else 0f
+                            },
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -403,51 +503,76 @@ fun FeedPostCard(
             }
         }
 
-        // Section C: Action Bar
+        // Premium Liquid Glass Action Bar
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Like Button (Bouncy + Numbers)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isLiked = !isLiked }) {
-                    Icon(if (isLiked) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder, contentDescription = "Like", tint = likeColor, modifier = Modifier.size(28.dp).graphicsLayer { scaleX = likeScale; scaleY = likeScale })
-                    if (post.likesCount > 0 || isLiked) Text(text = "${post.likesCount + if (isLiked) 1 else 0}", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Like Pill
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, 
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(glassColor)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { toggleLike() }
+                        .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessLow))
+                        .padding(horizontal = if (localLikesCount > 0) 12.dp else 10.dp, vertical = 8.dp)
+                ) {
+                    Icon(if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, contentDescription = "Like", tint = if (isLiked) primaryOrange else textColor, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = likeScale; scaleY = likeScale })
+                    if (localLikesCount > 0) Text(text = "$localLikesCount", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
                 }
                 
-                // Comment Button (Numbers)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCommentClick() }) {
-                    Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = "Comment", tint = textColor, modifier = Modifier.size(26.dp))
+                // Comment Pill
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, 
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(glassColor)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onCommentClick() }
+                        .animateContentSize()
+                        .padding(horizontal = if (post.commentsCount > 0) 12.dp else 10.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Rounded.ChatBubbleOutline, contentDescription = "Comment", tint = textColor, modifier = Modifier.size(22.dp))
                     if (post.commentsCount > 0) Text(text = "${post.commentsCount}", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
                 }
                 
-                // Share Button (No Numbers)
-                Icon(Icons.Outlined.Send, contentDescription = "Share", tint = textColor, modifier = Modifier.size(26.dp))
+                // Share Circle
+                Box(modifier = Modifier.clip(CircleShape).background(glassColor).padding(10.dp)) {
+                    Icon(Icons.Rounded.Send, contentDescription = "Share", tint = textColor, modifier = Modifier.size(22.dp))
+                }
             }
-            // Save Button (Bouncy, No Numbers)
-            Icon(
-                imageVector = if (isSaved) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder, 
-                contentDescription = "Save", 
-                tint = saveColor, 
-                modifier = Modifier.size(28.dp).graphicsLayer { scaleX = saveScale; scaleY = saveScale }.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { isSaved = !isSaved }
-            )
-        }
-
-        // Section D: Caption
-        Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-            if (post.caption.isNotBlank()) {
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append(userProfile.username) }
-                        append("  ")
-                        append(post.caption)
-                    },
-                    color = textColor,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
+            // Save Circle
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(glassColor)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { toggleSave() }
+                    .padding(10.dp)
+            ) {
+                Icon(
+                    imageVector = if (isSaved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, 
+                    contentDescription = "Save", 
+                    tint = if (isSaved) primaryOrange else textColor, 
+                    modifier = Modifier.size(24.dp).graphicsLayer { scaleX = saveScale; scaleY = saveScale }
                 )
             }
+        }
+
+        // Caption
+        if (post.caption.isNotBlank()) {
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append(userProfile.username) }
+                    append("  ")
+                    append(post.caption)
+                },
+                color = textColor,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
+            )
         }
     }
 }
@@ -459,18 +584,18 @@ fun PostOptionsBottomSheet(textColor: Color, bgColor: Color, onDismiss: () -> Un
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = bgColor) {
         Column(modifier = Modifier.padding(bottom = 32.dp)) {
             val options = listOf(
-                Icons.Outlined.ContentCopy to "Copy link",
-                Icons.Outlined.BookmarkBorder to "Save",
-                Icons.Outlined.SentimentSatisfied to "Interested",
-                Icons.Outlined.SentimentDissatisfied to "Not interested",
-                Icons.Outlined.Flag to "Report"
+                Icons.Rounded.ContentCopy to "Copy link",
+                Icons.Rounded.BookmarkBorder to "Save",
+                Icons.Rounded.SentimentSatisfied to "Interested",
+                Icons.Rounded.SentimentDissatisfied to "Not interested",
+                Icons.Rounded.Flag to "Report"
             )
             options.forEach { (icon, text) ->
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(icon, contentDescription = text, tint = textColor, modifier = Modifier.size(28.dp))
+                    Icon(icon, contentDescription = text, tint = textColor, modifier = Modifier.size(26.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(text, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
@@ -481,32 +606,92 @@ fun PostOptionsBottomSheet(textColor: Color, bgColor: Color, onDismiss: () -> Un
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommentsBottomSheet(textColor: Color, bgColor: Color, primaryOrange: Color, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = bgColor, modifier = Modifier.fillMaxHeight(0.7f)) {
+fun CommentsBottomSheet(
+    post: FeedPost,
+    currentUserId: String,
+    firestore: FirebaseFirestore,
+    textColor: Color, 
+    subTextColor: Color,
+    bgColor: Color, 
+    primaryOrange: Color,
+    glassColor: Color,
+    onDismiss: () -> Unit
+) {
+    var comments by remember { mutableStateOf<List<PostComment>>(emptyList()) }
+    var commentText by remember { mutableStateOf("") }
+
+    // Real-time backend comment listener
+    DisposableEffect(post.postId) {
+        val listener = firestore.collection("posts").document(post.postId).collection("comments")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null) {
+                    comments = snapshot.documents.mapNotNull { it.toObject(PostComment::class.java) }
+                }
+            }
+        onDispose { listener.remove() }
+    }
+
+    val submitComment = {
+        if (commentText.isNotBlank()) {
+            val commentId = java.util.UUID.randomUUID().toString()
+            val commentMap = PostComment(commentId, currentUserId, commentText.trim(), System.currentTimeMillis())
+            firestore.collection("posts").document(post.postId).collection("comments").document(commentId).set(commentMap)
+            firestore.collection("posts").document(post.postId).update("commentsCount", FieldValue.increment(1))
+            commentText = ""
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = bgColor, modifier = Modifier.fillMaxHeight(0.85f)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text("Comments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 16.dp))
-            HorizontalDivider(color = textColor.copy(alpha = 0.1f))
+            HorizontalDivider(color = subTextColor.copy(alpha = 0.1f))
             
-            // Dummy Comments List
             LazyColumn(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                items(3) {
+                items(comments, key = { it.commentId }) { comment ->
+                    var commenterName by remember { mutableStateOf("User") }
+                    var commenterPic by remember { mutableStateOf("") }
+                    
+                    LaunchedEffect(comment.userId) {
+                        firestore.collection("users").document(comment.userId).get().addOnSuccessListener { 
+                            commenterName = it.getString("username") ?: "User"
+                            commenterPic = it.getString("profileImageUrl") ?: ""
+                        }
+                    }
+                    
                     Row(modifier = Modifier.padding(vertical = 12.dp)) {
-                        Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(textColor.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Person, contentDescription = "User", tint = textColor, modifier = Modifier.size(20.dp))
+                        if (commenterPic.isNotEmpty()) {
+                            AsyncImage(model = ImageRequest.Builder(LocalContext.current).data(commenterPic).crossfade(true).build(), contentDescription = null, modifier = Modifier.size(36.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                        } else {
+                            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(glassColor), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Person, contentDescription = "User", tint = subTextColor, modifier = Modifier.size(20.dp))
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Username", fontWeight = FontWeight.Bold, color = textColor, fontSize = 14.sp)
-                            Text("This is an amazing post! 🔥", color = textColor, fontSize = 14.sp)
+                            Text(commenterName, fontWeight = FontWeight.Bold, color = textColor, fontSize = 14.sp)
+                            Text(comment.text, color = textColor, fontSize = 14.sp)
                         }
                     }
+                }
+                if (comments.isEmpty()) {
+                    item { Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { Text("No comments yet. Be the first!", color = subTextColor) } }
                 }
             }
             
             // Comment Input Box
-            Box(modifier = Modifier.fillMaxWidth().background(bgColor).padding(16.dp)) {
-                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(textColor.copy(alpha = 0.05f)).padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Text("Add a comment...", color = textColor.copy(alpha = 0.5f), fontSize = 14.sp)
+            Box(modifier = Modifier.fillMaxWidth().background(bgColor).padding(16.dp).navigationBarsPadding().imePadding()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(glassColor).padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    TextField(
+                        value = commentText,
+                        onValueChange = { commentText = it },
+                        placeholder = { Text("Add a comment...", color = subTextColor) },
+                        colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, cursorColor = primaryOrange),
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (commentText.isNotBlank()) {
+                        IconButton(onClick = { submitComment() }) { Icon(Icons.Rounded.Send, contentDescription = "Post", tint = primaryOrange) }
+                    }
                 }
             }
         }
