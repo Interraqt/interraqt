@@ -154,7 +154,7 @@ fun HomeScreen(
                     drawContent()
                     drawRect(brush = gradient, blendMode = BlendMode.DstIn)
                 },
-            contentPadding = PaddingValues(top = statusBarHeightDp + 70.dp, bottom = 100.dp) 
+            contentPadding = PaddingValues(top = statusBarHeightDp + 30.dp, bottom = 100.dp) 
         ) {
             // MOMENTS (STORIES) TRAY
             item {
