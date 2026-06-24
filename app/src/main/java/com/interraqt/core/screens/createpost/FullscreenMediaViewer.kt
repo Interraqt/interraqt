@@ -51,14 +51,13 @@ fun FullscreenMediaViewer(
 ) {
     val context = LocalContext.current
 
-    AnimatedVisibility(
+        AnimatedVisibility(
         visible = isFullscreenVisible,
-        enter = fadeIn(animationSpec = tween(300)) + 
-                scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.8f, transformOrigin = TransformOrigin.Center),
-        exit = fadeOut(animationSpec = tween(250)) + 
-               scaleOut(animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), targetScale = 0.8f, transformOrigin = TransformOrigin.Center),
+        enter = fadeIn(tween(150)), // 🚨 Quick, smooth fade-in without scaling
+        exit = fadeOut(tween(150)), // 🚨 Quick, smooth fade-out without scaling
         modifier = Modifier.fillMaxSize().zIndex(10f) 
     ) {
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
