@@ -36,7 +36,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import android.view.TextureView
 import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -71,13 +70,13 @@ fun FullscreenMediaViewer(
             HorizontalPager(
                 state = pagerState, 
                 modifier = Modifier.fillMaxSize(),
-                beyondBoundsPageCount = 1, // 🚨 FIX: Pre-loads 1 adjacent item so there are NO MORE BLACK SCREENS when you start swiping
-                flingBehavior = PagerDefaults.flingBehavior(state = pagerState) // 🚨 FIX: Adds fluid, premium swipe physics
+                beyondBoundsPageCount = 1, // Pre-loads 1 adjacent item for smooth swiping
+                flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
             ) { page ->
                 val mediaItem = selectedMedia[page]
                 val isCurrentPage = pagerState.currentPage == page
                 
-                // 🚨 INSTAGRAM SWIPE EFFECT: Calculates distance from center and applies fade/scale
+                // Instagram-style swipe animation
                 val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction)
                 val scale = 1f - (0.08f * pageOffset.absoluteValue.coerceIn(0f, 1f))
                 val itemAlpha = 1f - (0.4f * pageOffset.absoluteValue.coerceIn(0f, 1f))
@@ -93,11 +92,11 @@ fun FullscreenMediaViewer(
                     contentAlignment = Alignment.Center
                 ) {
                     if (mediaItem.isVideo) {
-                        // 🚨 ExoPlayer is now allowed to prep off-screen so there is ZERO LAG when you arrive
                         val exoPlayer = remember { 
                             androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
                                 repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                playWhenReady = true 
+                                // 🚨 FIX 1: Set to FALSE so adjacent videos don't auto-play in the background
+                                playWhenReady = false 
                             } 
                         }
                         
@@ -112,29 +111,33 @@ fun FullscreenMediaViewer(
                         
                         val isScrolling = pagerState.isScrollInProgress
                         LaunchedEffect(isCurrentPage, isScrolling) {
+                            // 🚨 FIX 2: Explicitly manage playback. Only plays if it's the exact center page and swiping has fully stopped.
                             if (isCurrentPage && !isScrolling) {
                                 exoPlayer.play()
                             } else {
                                 exoPlayer.pause()
-                                if (!isCurrentPage) exoPlayer.seekTo(0) // Cleanly resets adjacent videos to frame 0
+                                if (!isCurrentPage) exoPlayer.seekTo(0)
                             }
                         }
                         
-                        // 🚨 TEXTUREVIEW: Crucial for Xiaomi/Android devices so the `graphicsLayer` scale animation doesn't crash the hardware
+                        // 🚨 FIX 3: Restored PlayerView from Code 1 to perfectly handle aspect ratios (prevents stretching)
                         AndroidView(
                             factory = { ctx ->
-                                TextureView(ctx).apply {
+                                androidx.media3.ui.PlayerView(ctx).apply {
+                                    useController = false 
+                                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                                     layoutParams = android.view.ViewGroup.LayoutParams(
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
                                     )
                                 }
                             },
-                            update = { textureView ->
-                                exoPlayer.setVideoTextureView(textureView)
+                            update = { view ->
+                                view.player = exoPlayer
                             },
-                            onRelease = { textureView ->
-                                exoPlayer.clearVideoTextureView(textureView) 
+                            onRelease = { view ->
+                                view.player = null 
                             },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -149,7 +152,7 @@ fun FullscreenMediaViewer(
                 }
             } 
 
-            // 🚨 PROFILE STYLED BUTTON: Edge-to-Edge safe positioning
+            // Edge-to-Edge safe positioning for close button
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
