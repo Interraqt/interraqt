@@ -113,14 +113,15 @@ fun FullscreenMediaViewer(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (mediaItem.isVideo) {
+                                        if (mediaItem.isVideo) {
                         val exoPlayer = remember { 
                             androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
                                 repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                // 🚨 FIX 1: Set to FALSE so adjacent videos don't auto-play in the background
-                                playWhenReady = false 
+                                // 🚨 INSTANT PLAY: Bypasses the Compose delay and commands the player to start immediately upon opening!
+                                playWhenReady = isCurrentPage 
                             } 
                         }
+
                         
                         DisposableEffect(mediaItem.uri) {
                             val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
