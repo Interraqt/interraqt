@@ -1,8 +1,6 @@
 package com.interraqt.core.screens.createpost
 
 import androidx.compose.ui.zIndex
-import android.graphics.Bitmap
-import android.media.MediaMetadataRetriever
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -38,8 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -90,7 +86,7 @@ fun FullscreenMediaViewer(
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 val mediaItem = selectedMedia[page]
                 
-                                if (mediaItem.isVideo) {
+                if (mediaItem.isVideo) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         val exoPlayer = remember { 
                             androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
@@ -140,71 +136,6 @@ fun FullscreenMediaViewer(
                             },
                             modifier = Modifier.fillMaxSize().background(Color.Transparent)
                         )
-                    }
-                }
-
-
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        val exoPlayer = remember { 
-                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                playWhenReady = true // 🚨 INSTANT PLAYBACK PRELOAD
-                            } 
-                        }
-                        
-                        DisposableEffect(mediaItem.uri) {
-                            isFirstFrameRendered = false
-                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                            val listener = object : androidx.media3.common.Player.Listener {
-                                override fun onRenderedFirstFrame() {
-                                    isFirstFrameRendered = true
-                                }
-                            }
-                            exoPlayer.addListener(listener)
-                            exoPlayer.setMediaItem(media)
-                            exoPlayer.prepare()
-                            onDispose { 
-                                exoPlayer.removeListener(listener)
-                                exoPlayer.release() 
-                            }
-                        }
-                        
-                        val isCurrentPage = pagerState.currentPage == page
-                        val isScrolling = pagerState.isScrollInProgress
-                        
-                        LaunchedEffect(isCurrentPage, isScrolling) {
-                            if (isCurrentPage && !isScrolling) {
-                                exoPlayer.play()
-                            } else {
-                                exoPlayer.pause()
-                                exoPlayer.seekTo(0) // Resets playback cleanly
-                            }
-                        }
-                        
-                        AndroidView(
-                            factory = { ctx ->
-                                androidx.media3.ui.PlayerView(ctx).apply {
-                                    player = exoPlayer
-                                    useController = false 
-                                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                    layoutParams = android.view.ViewGroup.LayoutParams(
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize().background(Color.Transparent)
-                        )
-
-                        if (!isFirstFrameRendered) {
-                            AsyncImage(
-                                model = fullscreenVideoThumbnail,
-                                contentDescription = "Video Thumbnail",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
                     }
                 } else {
                     AsyncImage(
