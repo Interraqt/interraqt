@@ -113,43 +113,65 @@ fun FullscreenMediaViewer(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                                        if (mediaItem.isVideo) {
+                                                            if (mediaItem.isVideo) {
+                        // 🚨 FROM YOUR RESEARCH: Tracks exact millisecond video is ready
+                        var isFirstFrameRendered by remember { mutableStateOf(false) }
+
                         val exoPlayer = remember { 
                             androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
                                 repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                // 🚨 INSTANT PLAY: Bypasses the Compose delay and commands the player to start immediately upon opening!
+                                videoScalingMode = androidx.media3.common.C.VIDEO_SCALING_MODE_SCALE_TO_FIT // 🚨 FROM YOUR RESEARCH
                                 playWhenReady = isCurrentPage 
                             } 
                         }
-
                         
                         DisposableEffect(mediaItem.uri) {
                             val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                            
+                            // 🚨 FROM YOUR RESEARCH: Listens to the hardware decoder
+                            val listener = object : androidx.media3.common.Player.Listener {
+                                override fun onRenderedFirstFrame() {
+                                    isFirstFrameRendered = true
+                                }
+                            }
+                            
+                            exoPlayer.addListener(listener)
                             exoPlayer.setMediaItem(media)
                             exoPlayer.prepare()
                             onDispose { 
+                                exoPlayer.removeListener(listener)
                                 exoPlayer.release() 
                             }
                         }
                         
                         val isScrolling = pagerState.isScrollInProgress
                         LaunchedEffect(isCurrentPage, isScrolling) {
-                            // 🚨 FIX 2: Explicitly manage playback. Only plays if it's the exact center page and swiping has fully stopped.
                             if (isCurrentPage && !isScrolling) {
                                 exoPlayer.play()
                             } else {
                                 exoPlayer.pause()
-                                if (!isCurrentPage) exoPlayer.seekTo(0)
+                                if (!isCurrentPage) {
+                                    exoPlayer.seekTo(0)
+                                    isFirstFrameRendered = false // Clean reset for adjacent pages
+                                }
                             }
                         }
                         
-                        // 🚨 FIX 3: Restored PlayerView from Code 1 to perfectly handle aspect ratios (prevents stretching)
+                        // Creates a buttery smooth fade-in veil using your listener logic
+                        val playerAlpha by androidx.compose.animation.core.animateFloatAsState(
+                            targetValue = if (isFirstFrameRendered) 1f else 0f, 
+                            animationSpec = androidx.compose.animation.core.tween(150),
+                            label = "video_veil"
+                        )
+                        
                         AndroidView(
                             factory = { ctx ->
                                 androidx.media3.ui.PlayerView(ctx).apply {
                                     useController = false 
                                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                    keepContentOnPlayerReset = true // 🚨 FROM YOUR RESEARCH: Stops blinking on loop/reset
+                                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                     layoutParams = android.view.ViewGroup.LayoutParams(
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -162,9 +184,11 @@ fun FullscreenMediaViewer(
                             onRelease = { view ->
                                 view.player = null 
                             },
-                            modifier = Modifier.fillMaxSize()
+                            // 🚨 Acts as your "Veil" - keeps player invisible until the frame is fully drawn!
+                            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = playerAlpha } 
                         )
-                    } else {
+                    }
+
                         AsyncImage(
                             model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
                             contentDescription = "Fullscreen Media",
