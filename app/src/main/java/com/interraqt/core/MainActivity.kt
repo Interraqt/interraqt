@@ -128,9 +128,16 @@ fun RootNavigation() {
                 onNavigateBack = { currentScreen = previousScreen },
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
-            AppScreen.EditProfile -> EditProfileScreen(
-                onNavigateBack = { currentScreen = previousScreen }
+                        AppScreen.EditProfile -> EditProfileScreen(
+                onNavigateBack = { 
+                    // 1. Go back to where you came from (Settings or Main)
+                    currentScreen = previousScreen 
+                    
+                    // 2. 🚨 FIX: Reset the memory so Settings can securely go back to Main!
+                    previousScreen = AppScreen.Main 
+                }
             )
+
             AppScreen.CreatePost -> CreatePostScreen(
                 // 🚨 Routes the Back button EXACTLY to the previous screen memory variable
                 onNavigateBack = { currentScreen = previousScreen }
