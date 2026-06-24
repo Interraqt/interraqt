@@ -68,12 +68,12 @@ fun FullscreenMediaViewer(
     AnimatedVisibility(
         visible = isFullscreenVisible,
         enter = if (isOpeningVideo) {
-            fadeIn(tween(150)) // VIDEO: Quick, smooth fade
+            fadeIn(tween(100)) // VIDEO: Quick, smooth fade
         } else {
             fadeIn(animationSpec = tween(300)) + scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.8f, transformOrigin = dynamicOrigin) // PHOTO: Beautiful scale and bounce
         },
         exit = if (isOpeningVideo) {
-            fadeOut(tween(150)) // VIDEO: Quick, smooth fade
+            fadeOut(tween(100)) // VIDEO: Quick, smooth fade
         } else {
             fadeOut(animationSpec = tween(250)) + scaleOut(animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), targetScale = 0.8f, transformOrigin = dynamicOrigin) // PHOTO: Beautiful scale and bounce
         },
