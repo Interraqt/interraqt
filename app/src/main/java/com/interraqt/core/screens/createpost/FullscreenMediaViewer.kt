@@ -49,7 +49,7 @@ fun FullscreenMediaViewer(
     textColor: Color,
     statusBarHeight: Dp
 ) {
-        val context = LocalContext.current
+    val context = LocalContext.current
 
     // 🚨 RESTORED: Calculates origin point for the photo animation
     val dynamicOrigin = remember(initialPage) {
@@ -79,8 +79,6 @@ fun FullscreenMediaViewer(
         },
         modifier = Modifier.fillMaxSize().zIndex(10f) 
     ) {
-
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -113,7 +111,7 @@ fun FullscreenMediaViewer(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                                                            if (mediaItem.isVideo) {
+                    if (mediaItem.isVideo) {
                         // 🚨 FROM YOUR RESEARCH: Tracks exact millisecond video is ready
                         var isFirstFrameRendered by remember { mutableStateOf(false) }
 
@@ -170,7 +168,7 @@ fun FullscreenMediaViewer(
                                     useController = false 
                                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
                                     setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                    keepContentOnPlayerReset = true // 🚨 FROM YOUR RESEARCH: Stops blinking on loop/reset
+                                    setKeepContentOnPlayerReset(true) // 🚨 FIX: Safely sets to true using proper setter
                                     resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                                     layoutParams = android.view.ViewGroup.LayoutParams(
                                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
@@ -187,8 +185,7 @@ fun FullscreenMediaViewer(
                             // 🚨 Acts as your "Veil" - keeps player invisible until the frame is fully drawn!
                             modifier = Modifier.fillMaxSize().graphicsLayer { alpha = playerAlpha } 
                         )
-                    }
-
+                    } else { // 🚨 FIX: Restored the missing 'else' statement
                         AsyncImage(
                             model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
                             contentDescription = "Fullscreen Media",
@@ -196,8 +193,8 @@ fun FullscreenMediaViewer(
                             contentScale = ContentScale.Fit
                         )
                     }
-                }
-            } 
+                } // Closes inner Box
+            } // Closes HorizontalPager
 
             // Edge-to-Edge safe positioning for close button
             Box(
@@ -212,6 +209,6 @@ fun FullscreenMediaViewer(
             ) {
                 Icon(Icons.Default.Close, contentDescription = "Close", tint = textColor, modifier = Modifier.size(24.dp))
             }
-        }
-    }
+        } // Closes outer Box
+    } // Closes AnimatedVisibility
 }
