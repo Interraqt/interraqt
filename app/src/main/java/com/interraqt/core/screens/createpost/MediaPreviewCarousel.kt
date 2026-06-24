@@ -54,12 +54,11 @@ fun MediaPreviewCarousel(
 
                     LaunchedEffect(media.uri) {
                         withContext(Dispatchers.IO) {
-                                                        try {
+                            try {
                                 val retriever = MediaMetadataRetriever()
                                 retriever.setDataSource(context, media.uri)
                                 
-                                // 🚨 XIAOMI CRASH FIX: Converts Hardware Bitmap to Software Bitmap.
-                                // Jetpack Compose crashes if you apply a RoundedCornerShape to a raw Hardware Bitmap.
+                                // 🚨 Converts to Software Bitmap so Jetpack Compose doesn't crash during clipping
                                 val rawFrame = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                                 videoThumbnail = rawFrame?.copy(Bitmap.Config.ARGB_8888, false)
                                 
@@ -71,7 +70,6 @@ fun MediaPreviewCarousel(
                                 }
                                 retriever.release()
                             } catch (e: Exception) { e.printStackTrace() }
-
                         }
                     }
 
