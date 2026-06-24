@@ -1,4 +1,4 @@
-package com.interraqt.core.screens
+package com.interraqt.core.screens.createpost
 
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
