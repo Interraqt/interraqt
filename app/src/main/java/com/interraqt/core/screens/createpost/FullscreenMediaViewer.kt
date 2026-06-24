@@ -1,9 +1,7 @@
 package com.interraqt.core.screens.createpost
 
-import androidx.compose.ui.zIndex
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -18,7 +16,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
@@ -34,9 +31,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import android.view.TextureView // 🚨 ADDED: Required for crash-proof Xiaomi video rendering
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -51,44 +48,33 @@ fun FullscreenMediaViewer(
 ) {
     val context = LocalContext.current
 
-    val dynamicOrigin = remember(initialPage) {
-        when (initialPage) {
-            0 -> TransformOrigin(0.15f, 0.35f)
-            1 -> TransformOrigin(0.5f, 0.35f)
-            else -> TransformOrigin(0.85f, 0.35f)
-        }
-    }
-
-    val animatedCornerRadius by animateDpAsState(
-        targetValue = if (isFullscreenVisible) 0.dp else 16.dp,
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow),
-        label = "corner_radius"
-    )
-
     AnimatedVisibility(
         visible = isFullscreenVisible,
-        enter = fadeIn(animationSpec = tween(250)) + 
-                scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.25f, transformOrigin = dynamicOrigin),
+        enter = fadeIn(animationSpec = tween(300)) + 
+                scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.8f, transformOrigin = TransformOrigin.Center),
         exit = fadeOut(animationSpec = tween(250)) + 
-               scaleOut(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), targetScale = 0.25f, transformOrigin = dynamicOrigin),
+               scaleOut(animationSpec = spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), targetScale = 0.8f, transformOrigin = TransformOrigin.Center),
         modifier = Modifier.fillMaxSize().zIndex(10f) 
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(animatedCornerRadius))
                 .background(Color.Black)
                 .pointerInput(Unit) { detectTapGestures { } } 
         ) {
             val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { selectedMedia.size })
             
-            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+            HorizontalPager(
+                state = pagerState, 
+                modifier = Modifier.fillMaxSize(),
+                beyondBoundsPageCount = 0 // 🚨 Strict memory control: prevents pre-loading heavy videos
+            ) { page ->
                 val mediaItem = selectedMedia[page]
+                val isCurrentPage = pagerState.currentPage == page
                 
                 if (mediaItem.isVideo) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        val isCurrentPage = pagerState.currentPage == page
-                        
+                        // 🚨 Only loads the player if the user is actively looking at this exact page
                         if (isCurrentPage) {
                             val exoPlayer = remember { 
                                 androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
@@ -115,27 +101,29 @@ fun FullscreenMediaViewer(
                                 }
                             }
                             
-                            // 🚨 XIAOMI CRASH FIX: Forces TextureView instead of SurfaceView.
-                            // Animating SurfaceViews causes fatal SIGSEGV crashes on MIUI.
                             AndroidView(
                                 factory = { ctx ->
-                                    TextureView(ctx).apply {
+                                    androidx.media3.ui.PlayerView(ctx).apply {
+                                        useController = false 
+                                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                                         layoutParams = android.view.ViewGroup.LayoutParams(
                                             android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
                                             android.view.ViewGroup.LayoutParams.MATCH_PARENT
                                         )
                                     }
                                 },
-                                update = { textureView ->
-                                    exoPlayer.setVideoTextureView(textureView)
+                                update = { view ->
+                                    view.player = exoPlayer
                                 },
-                                onRelease = { textureView ->
-                                    exoPlayer.clearVideoTextureView(textureView) 
+                                onRelease = { view ->
+                                    view.player = null 
                                 },
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
-                            Box(modifier = Modifier.fillMaxSize().background(Color.Transparent))
+                            // Empty lightweight box for off-screen pages to save memory
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black))
                         }
                     }
                 } else {
@@ -148,6 +136,7 @@ fun FullscreenMediaViewer(
                 }
             } 
 
+            // 🚨 PROFILE STYLED BUTTON: Edge-to-Edge safe positioning
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
