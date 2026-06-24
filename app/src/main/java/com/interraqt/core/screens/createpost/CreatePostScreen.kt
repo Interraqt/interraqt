@@ -1,6 +1,6 @@
 package com.interraqt.core.screens.createpost
 
-com.interraqt.core.ui.components.SmartCursorTextField
+import com.interraqt.core.ui.components.SmartCursorTextField
 import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
