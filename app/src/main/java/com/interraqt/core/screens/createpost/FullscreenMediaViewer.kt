@@ -64,7 +64,13 @@ fun FullscreenMediaViewer(
     val isOpeningVideo = remember(initialPage) { 
         selectedMedia.getOrNull(initialPage)?.isVideo == true 
     }
-
+    // 🚨 RESTORES ROUNDED CORNERS: Animates from 16dp to 0dp for photos
+    val animatedCornerRadius by animateDpAsState(
+        targetValue = if (isFullscreenVisible) 0.dp else 16.dp,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow),
+        label = "corner_radius"
+    )
+    
     AnimatedVisibility(
         visible = isFullscreenVisible,
         enter = if (isOpeningVideo) {
@@ -81,12 +87,15 @@ fun FullscreenMediaViewer(
     ) {
 
 
-        Box(
+                Box(
             modifier = Modifier
                 .fillMaxSize()
+                // 🚨 SAFE CLIP: Only applies rounded corners if it's a Photo!
+                .then(if (isOpeningVideo) Modifier else Modifier.clip(RoundedCornerShape(animatedCornerRadius)))
                 .background(Color.Black)
                 .pointerInput(Unit) { detectTapGestures { } } 
         ) {
+
             val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { selectedMedia.size })
             
             HorizontalPager(
