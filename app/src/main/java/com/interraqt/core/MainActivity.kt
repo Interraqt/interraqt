@@ -137,7 +137,7 @@ fun RootNavigation() {
                 onNavigateBack = { currentScreen = previousScreen },
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
             )
-                        AppScreen.EditProfile -> EditProfileScreen(
+            AppScreen.EditProfile -> EditProfileScreen(
                 onNavigateBack = { 
                     // 1. Go back to where you came from (Settings or Main)
                     currentScreen = previousScreen 
@@ -146,7 +146,6 @@ fun RootNavigation() {
                     previousScreen = AppScreen.Main 
                 }
             )
-
             AppScreen.CreatePost -> CreatePostScreen(
                 // 🚨 Routes the Back button EXACTLY to the previous screen memory variable
                 onNavigateBack = { currentScreen = previousScreen }
@@ -220,7 +219,7 @@ fun InterraqtApp(
                 .background(bgColor)
         ) { page ->
             when (page) {
-                0 -> HomeScreen()
+                0 -> HomeScreen(onNavigateToCreatePost = onNavigateToCreatePost) // 🚨 FIX: Now correctly passes the parameter!
                 1 -> ChatScreen()
                 2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) 
                 3 -> VideoScreen()
