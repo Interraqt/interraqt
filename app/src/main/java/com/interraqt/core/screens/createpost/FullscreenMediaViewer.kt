@@ -1,7 +1,5 @@
 package com.interraqt.core.screens.createpost
 
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -66,13 +64,7 @@ fun FullscreenMediaViewer(
     val isOpeningVideo = remember(initialPage) { 
         selectedMedia.getOrNull(initialPage)?.isVideo == true 
     }
-    // 🚨 RESTORES ROUNDED CORNERS: Animates from 16dp to 0dp for photos
-    val animatedCornerRadius by animateDpAsState(
-        targetValue = if (isFullscreenVisible) 0.dp else 16.dp,
-        animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow),
-        label = "corner_radius"
-    )
-    
+
     AnimatedVisibility(
         visible = isFullscreenVisible,
         enter = if (isOpeningVideo) {
@@ -89,14 +81,12 @@ fun FullscreenMediaViewer(
     ) {
 
 
-                        Box(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
                 .pointerInput(Unit) { detectTapGestures { } } 
         ) {
-
-
             val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { selectedMedia.size })
             
             HorizontalPager(
@@ -173,17 +163,14 @@ fun FullscreenMediaViewer(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
-                                        } else {
+                    } else {
                         AsyncImage(
                             model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
                             contentDescription = "Fullscreen Media",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(animatedCornerRadius)), // 🚨 FIX: Safely clips ONLY the photo, protecting the video from crashing!
+                            modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
                         )
                     }
-
                 }
             } 
 
