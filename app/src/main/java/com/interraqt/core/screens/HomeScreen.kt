@@ -260,7 +260,7 @@ fun HomeScreen(
 @Composable
 fun MomentsTray(textColor: Color, subTextColor: Color, primaryOrange: Color) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text("Moments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 16.dp, bottom = 12.dp))
+            Text("Moments", color = textColor, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
         
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
