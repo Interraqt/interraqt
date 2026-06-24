@@ -95,21 +95,37 @@ fun CreatePostScreen(
         with(density) { if (px > 0) px.toDp() else 48.dp } 
     }
 
+        // 🚨 SAFE WINDOW EXTRACTION: Prevents ClassCastException Crash
     DisposableEffect(isFullscreenVisible) {
-        val window = (context as Activity).window
-        val insetsController = WindowCompat.getInsetsController(window, view)
+        var window = (context as? Activity)?.window
+        if (window == null) {
+            var ctx = context
+            while (ctx is android.content.ContextWrapper) {
+                if (ctx is Activity) {
+                    window = ctx.window
+                    break
+                }
+                ctx = ctx.baseContext
+            }
+        }
         
-        if (isFullscreenVisible) {
-            insetsController.hide(WindowInsetsCompat.Type.statusBars())
-            insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        } else {
-            insetsController.show(WindowInsetsCompat.Type.statusBars())
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            if (isFullscreenVisible) {
+                insetsController.hide(WindowInsetsCompat.Type.statusBars())
+                insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                insetsController.show(WindowInsetsCompat.Type.statusBars())
+            }
         }
         
         onDispose {
-            insetsController.show(WindowInsetsCompat.Type.statusBars())
+            window?.let {
+                WindowCompat.getInsetsController(it, view).show(WindowInsetsCompat.Type.statusBars())
+            }
         }
     }
+
 
     BackHandler {
         if (isFullscreenVisible) {
