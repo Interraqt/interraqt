@@ -1,5 +1,6 @@
 package com.interraqt.core
 
+import android.view.WindowManager
 import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -37,11 +38,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // 🚨 FORCES EDGE-TO-EDGE INTO THE CAMERA NOTCH DURING FULLSCREEN
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode = 
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+
         setContent {
             RootNavigation() 
         }
     }
 }
+
 
 @Composable
 fun RootNavigation() {
