@@ -14,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +36,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import android.view.TextureView
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -67,72 +71,81 @@ fun FullscreenMediaViewer(
             HorizontalPager(
                 state = pagerState, 
                 modifier = Modifier.fillMaxSize(),
-                beyondBoundsPageCount = 0 // 🚨 Strict memory control: prevents pre-loading heavy videos
+                beyondBoundsPageCount = 1, // 🚨 FIX: Pre-loads 1 adjacent item so there are NO MORE BLACK SCREENS when you start swiping
+                flingBehavior = PagerDefaults.flingBehavior(state = pagerState) // 🚨 FIX: Adds fluid, premium swipe physics
             ) { page ->
                 val mediaItem = selectedMedia[page]
                 val isCurrentPage = pagerState.currentPage == page
                 
-                if (mediaItem.isVideo) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        // 🚨 Only loads the player if the user is actively looking at this exact page
-                        if (isCurrentPage) {
-                            val exoPlayer = remember { 
-                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
-                                    repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
-                                    playWhenReady = true 
-                                } 
-                            }
-                            
-                            DisposableEffect(mediaItem.uri) {
-                                val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
-                                exoPlayer.setMediaItem(media)
-                                exoPlayer.prepare()
-                                onDispose { 
-                                    exoPlayer.release() 
-                                }
-                            }
-                            
-                            val isScrolling = pagerState.isScrollInProgress
-                            LaunchedEffect(isScrolling) {
-                                if (!isScrolling) {
-                                    exoPlayer.play()
-                                } else {
-                                    exoPlayer.pause()
-                                }
-                            }
-                            
-                            AndroidView(
-                                factory = { ctx ->
-                                    androidx.media3.ui.PlayerView(ctx).apply {
-                                        useController = false 
-                                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                        layoutParams = android.view.ViewGroup.LayoutParams(
-                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
-                                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                                        )
-                                    }
-                                },
-                                update = { view ->
-                                    view.player = exoPlayer
-                                },
-                                onRelease = { view ->
-                                    view.player = null 
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            // Empty lightweight box for off-screen pages to save memory
-                            Box(modifier = Modifier.fillMaxSize().background(Color.Black))
+                // 🚨 INSTAGRAM SWIPE EFFECT: Calculates distance from center and applies fade/scale
+                val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction)
+                val scale = 1f - (0.08f * pageOffset.absoluteValue.coerceIn(0f, 1f))
+                val itemAlpha = 1f - (0.4f * pageOffset.absoluteValue.coerceIn(0f, 1f))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = itemAlpha
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (mediaItem.isVideo) {
+                        // 🚨 ExoPlayer is now allowed to prep off-screen so there is ZERO LAG when you arrive
+                        val exoPlayer = remember { 
+                            androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                repeatMode = androidx.media3.common.Player.REPEAT_MODE_ONE 
+                                playWhenReady = true 
+                            } 
                         }
+                        
+                        DisposableEffect(mediaItem.uri) {
+                            val media = androidx.media3.common.MediaItem.fromUri(mediaItem.uri)
+                            exoPlayer.setMediaItem(media)
+                            exoPlayer.prepare()
+                            onDispose { 
+                                exoPlayer.release() 
+                            }
+                        }
+                        
+                        val isScrolling = pagerState.isScrollInProgress
+                        LaunchedEffect(isCurrentPage, isScrolling) {
+                            if (isCurrentPage && !isScrolling) {
+                                exoPlayer.play()
+                            } else {
+                                exoPlayer.pause()
+                                if (!isCurrentPage) exoPlayer.seekTo(0) // Cleanly resets adjacent videos to frame 0
+                            }
+                        }
+                        
+                        // 🚨 TEXTUREVIEW: Crucial for Xiaomi/Android devices so the `graphicsLayer` scale animation doesn't crash the hardware
+                        AndroidView(
+                            factory = { ctx ->
+                                TextureView(ctx).apply {
+                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
+                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                }
+                            },
+                            update = { textureView ->
+                                exoPlayer.setVideoTextureView(textureView)
+                            },
+                            onRelease = { textureView ->
+                                exoPlayer.clearVideoTextureView(textureView) 
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
+                            contentDescription = "Fullscreen Media",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
                     }
-                } else {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
-                        contentDescription = "Fullscreen Media",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
                 }
             } 
 
