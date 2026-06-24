@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import android.view.TextureView // 🚨 ADDED: Required for crash-proof Xiaomi video rendering
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -50,7 +51,6 @@ fun FullscreenMediaViewer(
 ) {
     val context = LocalContext.current
 
-    // 🚨 PSEUDO-SHARED ELEMENT: Origin tracks the exact thumbnail tapped based on index
     val dynamicOrigin = remember(initialPage) {
         when (initialPage) {
             0 -> TransformOrigin(0.15f, 0.35f)
@@ -59,7 +59,6 @@ fun FullscreenMediaViewer(
         }
     }
 
-    // 🚨 ROUNDED CORNER TRANSITION: Morphs from 16dp thumbnail to 0dp edge-to-edge
     val animatedCornerRadius by animateDpAsState(
         targetValue = if (isFullscreenVisible) 0.dp else 16.dp,
         animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow),
@@ -72,7 +71,7 @@ fun FullscreenMediaViewer(
                 scaleIn(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), initialScale = 0.25f, transformOrigin = dynamicOrigin),
         exit = fadeOut(animationSpec = tween(250)) + 
                scaleOut(animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessLow), targetScale = 0.25f, transformOrigin = dynamicOrigin),
-        modifier = Modifier.fillMaxSize().zIndex(10f) // Forces to top layer safely
+        modifier = Modifier.fillMaxSize().zIndex(10f) 
     ) {
         Box(
             modifier = Modifier
@@ -90,9 +89,6 @@ fun FullscreenMediaViewer(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         val isCurrentPage = pagerState.currentPage == page
                         
-                        // 🚨 ANTI-CRASH FIX 1: Only initialize the video player if it is the currently visible page.
-                        // This prevents the Xiaomi Hardware Decoder from running out of memory when swiping.
-                        // 🚨 ANTI-CRASH FIX 2: Completely removed MediaMetadataRetriever (prevents Hardware Bitmap crashes).
                         if (isCurrentPage) {
                             val exoPlayer = remember { 
                                 androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
@@ -119,33 +115,30 @@ fun FullscreenMediaViewer(
                                 }
                             }
                             
+                            // 🚨 XIAOMI CRASH FIX: Forces TextureView instead of SurfaceView.
+                            // Animating SurfaceViews causes fatal SIGSEGV crashes on MIUI.
                             AndroidView(
                                 factory = { ctx ->
-                                    androidx.media3.ui.PlayerView(ctx).apply {
-                                        useController = false 
-                                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                                    TextureView(ctx).apply {
                                         layoutParams = android.view.ViewGroup.LayoutParams(
                                             android.view.ViewGroup.LayoutParams.MATCH_PARENT, 
                                             android.view.ViewGroup.LayoutParams.MATCH_PARENT
                                         )
                                     }
                                 },
-                                update = { view ->
-                                    view.player = exoPlayer
+                                update = { textureView ->
+                                    exoPlayer.setVideoTextureView(textureView)
                                 },
-                                onRelease = { view ->
-                                    view.player = null 
+                                onRelease = { textureView ->
+                                    exoPlayer.clearVideoTextureView(textureView) 
                                 },
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
-                            // Safe off-screen placeholder to save memory and prevent hardware crashes
                             Box(modifier = Modifier.fillMaxSize().background(Color.Transparent))
                         }
                     }
                 } else {
-                    // Handles standard image rendering (non-video items)
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(mediaItem.uri).crossfade(true).build(),
                         contentDescription = "Fullscreen Media",
@@ -153,9 +146,8 @@ fun FullscreenMediaViewer(
                         contentScale = ContentScale.Fit
                     )
                 }
-            } // Closes HorizontalPager
+            } 
 
-            // 🚨 PROFILE STYLED BUTTON: Matched exactly to the Profile Screen overlay styles!
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
