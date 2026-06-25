@@ -1,10 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp" android:height="24dp"
-    android:viewportWidth="24.0" android:viewportHeight="24.0">
-    <path android:fillColor="#00000000" android:strokeColor="#FF000000" 
-        android:strokeWidth="2.0" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-    <path android:fillColor="#FF000000" android:strokeColor="#FF000000" android:strokeWidth="2.5" android:strokeLineCap="round" android:pathData="M8 12h.01"/>
-    <path android:fillColor="#FF000000" android:strokeColor="#FF000000" android:strokeWidth="2.5" android:strokeLineCap="round" android:pathData="M12 12h.01"/>
-    <path android:fillColor="#FF000000" android:strokeColor="#FF000000" android:strokeWidth="2.5" android:strokeLineCap="round" android:pathData="M16 12h.01"/>
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M15.19 12.41c0-0.55 0.45-1 1-1 0.56 0 1 0.45 1 1 0 0.56-0.44 1-1 1-0.55 0-1-0.44-1-1Z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M11.18 12.41c0-0.55 0.45-1 1-1 0.56 0 1 0.45 1 1 0 0.56-0.44 1-1 1-0.55 0-1-0.44-1-1Z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M7.17 12.41c0-0.55 0.45-1 1-1h0.01c0.55 0 1 0.45 1 1 0 0.56-0.45 1-1 1-0.56 0-1-0.44-1-1Z"/>
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M18.8 5.46c-3.62-3.61-9.48-3.61-13.09 0-2.83 2.82-3.44 7.01-1.85 10.44l0.01 0.03c0.1 0.23 0.1 0.5 0.09 0.64 0 0.18-0.03 0.4-0.05 0.61l-0.09 0.66v0.05l-0.1 0.75c-0.06 0.52-0.1 1-0.08 1.39 0 0.2 0.03 0.33 0.05 0.43l0.03 0.07 0.07 0.03c0.1 0.02 0.24 0.04 0.43 0.05 0.39 0.02 0.87-0.02 1.39-0.08l0.75-0.1h0.05l0.66-0.09 0.61-0.05c0.15 0 0.4 0 0.64 0.09l0.03 0.01c3.43 1.59 7.62 0.98 10.44-1.85 3.61-3.61 3.62-9.47 0-13.08Zm1.05-1.06c-4.2-4.2-11-4.2-15.2 0-3.26 3.26-3.99 8.08-2.2 12.05v0.08c0 0.11 0 0.27-0.03 0.48l-0.08 0.63-0.01 0.05-0.1 0.78C2.17 19 2.12 19.58 2.14 20.1c0.01 0.26 0.04 0.52 0.1 0.77 0.07 0.24 0.2 0.51 0.41 0.74 0.23 0.22 0.5 0.34 0.74 0.4 0.25 0.07 0.51 0.1 0.77 0.11 0.5 0.02 1.09-0.03 1.62-0.09l0.78-0.1h0.05l0.63-0.09 0.48-0.04H7.8c3.97 1.8 8.79 1.07 12.05-2.19 4.2-4.2 4.2-11 0-15.2Z"/>
 </vector>
