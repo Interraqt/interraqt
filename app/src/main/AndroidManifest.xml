@@ -8,6 +8,8 @@
 
     <application
         android:allowBackup="true"
+        android:icon="@drawable/custom_icon"
+        android:roundIcon="@drawable/custom_icon"
         android:label="Interraqt"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
