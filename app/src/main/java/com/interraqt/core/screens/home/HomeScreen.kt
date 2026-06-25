@@ -1,5 +1,6 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -8,22 +9,26 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -58,6 +63,27 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     
     val pullRefreshState = rememberPullToRefreshState()
 
+    // 🚨 SCROLL DETECTOR: Hides/Shows Top Bar smoothly
+    var isTopBarVisible by remember { mutableStateOf(true) }
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -15) isTopBarVisible = false // Scrolling down
+                if (available.y > 15) isTopBarVisible = true   // Scrolling up
+                return Offset.Zero
+            }
+        }
+    }
+
+    val topBarOffset by animateDpAsState(
+        targetValue = if (isTopBarVisible) 0.dp else (-100).dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = ""
+    )
+    val topBarAlpha by animateFloatAsState(
+        targetValue = if (isTopBarVisible) 1f else 0f,
+        animationSpec = tween(300), label = ""
+    )
+
     fun getShortTime(time: Long): String {
         if (time == 0L) return ""
         val diff = System.currentTimeMillis() - time
@@ -89,10 +115,14 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                 hasMore = false
             } else {
                 lastVisible = snapshot.documents.last()
-                val newPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
-                posts = if (isRefresh) newPosts else posts + newPosts
+                val fetchedPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
                 
-                val missingUsers = newPosts.map { it.userId }.distinct().filter { !usersMap.containsKey(it) }
+                // 🚨 ALGORITHM: Shuffle posts locally before displaying
+                val randomizedBatch = fetchedPosts.shuffled() 
+                
+                posts = if (isRefresh) randomizedBatch else posts + randomizedBatch
+                
+                val missingUsers = randomizedBatch.map { it.userId }.distinct().filter { !usersMap.containsKey(it) }
                 missingUsers.forEach { uid ->
                     firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
                         val username = userDoc.getString("username") ?: "Unknown"
@@ -109,7 +139,12 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
         }
     }
 
-    LaunchedEffect(Unit) { loadPosts(isRefresh = true) }
+    // 🚨 SMART CACHING: Only load if the list is completely empty! Prevents reloading on scroll up.
+    LaunchedEffect(Unit) { 
+        if (posts.isEmpty()) {
+            loadPosts(isRefresh = true) 
+        }
+    }
 
     if (pullRefreshState.isRefreshing) {
         LaunchedEffect(true) { loadPosts(isRefresh = true) }
@@ -124,18 +159,19 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     }
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) loadPosts() }
 
-    val density = LocalDensity.current
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(bgColor)
+            .nestedScroll(nestedScrollConnection) // Applies custom hide/show scroll lock
             .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
+            // 🚨 IMMERSIVE FULLSCREEN: Draws directly under the status bar
             contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp) 
         ) {
             item {
@@ -144,25 +180,31 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                 HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
             }
 
-            items(posts, key = { it.postId }) { post ->
-                val userProfile = usersMap[post.userId] ?: FeedUserProfile()
-                
-                FeedPostCard(
-                    post = post,
-                    userProfile = userProfile,
-                    currentUserId = currentUserId,
-                    shortTime = getShortTime(post.timestamp),
-                    bgColor = bgColor,
-                    textColor = textColor,
-                    subTextColor = subTextColor,
-                    primaryOrange = primaryOrange,
-                    glassColor = glassColor,
-                    firestore = firestore,
-                    onOptionsClick = { showOptionsForPost = post },
-                    onCommentClick = { showCommentsForPost = post }
-                )
-                
-                HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
+            // 🚨 SKELETON LOADING UI
+            if (posts.isEmpty() && isLoadingMore) {
+                items(3) {
+                    ShimmerFeedPostCard(bgColor = bgColor, glassColor = glassColor)
+                    HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
+                }
+            } else {
+                items(posts, key = { it.postId }) { post ->
+                    val userProfile = usersMap[post.userId] ?: FeedUserProfile()
+                    FeedPostCard(
+                        post = post,
+                        userProfile = userProfile,
+                        currentUserId = currentUserId,
+                        shortTime = getShortTime(post.timestamp),
+                        bgColor = bgColor,
+                        textColor = textColor,
+                        subTextColor = subTextColor,
+                        primaryOrange = primaryOrange,
+                        glassColor = glassColor,
+                        firestore = firestore,
+                        onOptionsClick = { showOptionsForPost = post },
+                        onCommentClick = { showCommentsForPost = post }
+                    )
+                    HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
+                }
             }
         }
 
@@ -173,10 +215,12 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
             contentColor = textColor
         )
 
+        // 🚨 AUTO-HIDING TOP BAR (Background removed for full immersion)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(bgColor.copy(alpha = 0.95f))
+                .offset(y = topBarOffset)
+                .alpha(topBarAlpha)
                 .padding(top = statusBarHeightDp)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .align(Alignment.TopCenter)
@@ -193,10 +237,11 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
 
                 Text("Interraqt", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
 
+                // 🚨 UNIFIED NOTIFICATION ICON: Now uses the custom Like icon!
                 Box(
                     modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Rounded.FavoriteBorder, contentDescription = "Notifications", tint = textColor, modifier = Modifier.size(24.dp)) }
+                ) { Icon(HomeScreenIcons.Like, contentDescription = "Notifications", tint = textColor, modifier = Modifier.size(24.dp)) }
             }
         }
 
@@ -249,6 +294,44 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                     TextButton(onClick = { showDeleteDialog = null }) { Text("Cancel", color = Color.Gray) }
                 }
             )
+        }
+    }
+}
+
+// 🚨 SHIMMER SKELETON UI COMPONENT
+@Composable
+fun ShimmerFeedPostCard(bgColor: Color, glassColor: Color) {
+    val transition = rememberInfiniteTransition(label = "")
+    val translateAnim by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutLinearInEasing),
+            repeatMode = RepeatMode.Restart
+        ), label = ""
+    )
+    
+    val shimmerBrush = Brush.linearGradient(
+        colors = listOf(glassColor.copy(alpha = 0.2f), glassColor.copy(alpha = 0.8f), glassColor.copy(alpha = 0.2f)),
+        start = Offset(translateAnim - 400f, translateAnim - 400f),
+        end = Offset(translateAnim, translateAnim)
+    )
+
+    Column(modifier = Modifier.fillMaxWidth().background(bgColor)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(shimmerBrush))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Box(modifier = Modifier.height(14.dp).width(120.dp).clip(RoundedCornerShape(4.dp)).background(shimmerBrush))
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.height(10.dp).width(80.dp).clip(RoundedCornerShape(4.dp)).background(shimmerBrush))
+            }
+        }
+        Box(modifier = Modifier.fillMaxWidth().aspectRatio(4f/5f).background(shimmerBrush))
+        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(shimmerBrush))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(shimmerBrush))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(shimmerBrush))
         }
     }
 }
