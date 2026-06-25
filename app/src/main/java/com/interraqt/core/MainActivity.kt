@@ -30,6 +30,8 @@ import com.interraqt.core.screens.*
 import kotlin.math.abs
 import com.interraqt.core.screens.createpost.CreatePostScreen
 
+import com.interraqt.core.screens.home.HomeScreen
+
 enum class AppScreen {
     Login, Signup, Main, Settings, EditProfile, OtherProfile, CreatePost
 }
