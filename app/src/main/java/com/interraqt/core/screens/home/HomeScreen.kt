@@ -29,32 +29,43 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 
+// 🚨 VIEWMODEL: Keeps your feed cached in memory so it doesn't reload when switching tabs!
+class HomeViewModel : ViewModel() {
+    var posts by mutableStateOf<List<FeedPost>>(emptyList())
+    var usersMap by mutableStateOf<Map<String, FeedUserProfile>>(emptyMap())
+    var lastVisible by mutableStateOf<DocumentSnapshot?>(null)
+    var isLoadingMore by mutableStateOf(false)
+    var hasMore by mutableStateOf(true)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
+fun HomeScreen(
+    onNavigateToCreatePost: () -> Unit,
+    viewModel: HomeViewModel = viewModel() // 🚨 Injects the persistent state
+) {
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328)
+    
     val glassColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.08f)
+    // 🚨 Stronger glass for the top bar to pop against images
+    val strongGlassColor = if (isDark) Color.White.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.15f)
 
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUserId = auth.currentUser?.uid ?: ""
     
-    var posts by remember { mutableStateOf<List<FeedPost>>(emptyList()) }
-    var usersMap by remember { mutableStateOf<Map<String, FeedUserProfile>>(emptyMap()) }
-    
-    var lastVisible by remember { mutableStateOf<DocumentSnapshot?>(null) }
-    var isLoadingMore by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
     val listState = rememberLazyListState()
 
     var showOptionsForPost by remember { mutableStateOf<FeedPost?>(null) }
@@ -63,13 +74,12 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     
     val pullRefreshState = rememberPullToRefreshState()
 
-    // 🚨 SCROLL DETECTOR: Hides/Shows Top Bar smoothly
     var isTopBarVisible by remember { mutableStateOf(true) }
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -15) isTopBarVisible = false // Scrolling down
-                if (available.y > 15) isTopBarVisible = true   // Scrolling up
+                if (available.y < -15) isTopBarVisible = false 
+                if (available.y > 15) isTopBarVisible = true   
                 return Offset.Zero
             }
         }
@@ -99,49 +109,48 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     }
 
     fun loadPosts(isRefresh: Boolean = false) {
-        if (isLoadingMore || (!hasMore && !isRefresh)) return
-        isLoadingMore = true
+        if (viewModel.isLoadingMore || (!viewModel.hasMore && !isRefresh)) return
+        viewModel.isLoadingMore = true
         
         var query = firestore.collection("posts")
             .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(5)
+            .limit(24) // 🚨 Batch increased to 24
             
-        if (!isRefresh && lastVisible != null) {
-            query = query.startAfter(lastVisible!!)
+        if (!isRefresh && viewModel.lastVisible != null) {
+            query = query.startAfter(viewModel.lastVisible!!)
         }
 
         query.get().addOnSuccessListener { snapshot ->
             if (snapshot.isEmpty) {
-                hasMore = false
+                viewModel.hasMore = false
             } else {
-                lastVisible = snapshot.documents.last()
+                viewModel.lastVisible = snapshot.documents.last()
                 val fetchedPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
                 
-                // 🚨 ALGORITHM: Shuffle posts locally before displaying
                 val randomizedBatch = fetchedPosts.shuffled() 
                 
-                posts = if (isRefresh) randomizedBatch else posts + randomizedBatch
+                viewModel.posts = if (isRefresh) randomizedBatch else viewModel.posts + randomizedBatch
                 
-                val missingUsers = randomizedBatch.map { it.userId }.distinct().filter { !usersMap.containsKey(it) }
+                val missingUsers = randomizedBatch.map { it.userId }.distinct().filter { !viewModel.usersMap.containsKey(it) }
                 missingUsers.forEach { uid ->
                     firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
                         val username = userDoc.getString("username") ?: "Unknown"
                         val profileImageUrl = userDoc.getString("profileImageUrl") ?: ""
-                        usersMap = usersMap + (uid to FeedUserProfile(username, profileImageUrl))
+                        viewModel.usersMap = viewModel.usersMap + (uid to FeedUserProfile(username, profileImageUrl))
                     }
                 }
             }
-            isLoadingMore = false
+            viewModel.isLoadingMore = false
             if (isRefresh) pullRefreshState.endRefresh()
         }.addOnFailureListener {
-            isLoadingMore = false
+            viewModel.isLoadingMore = false
             if (isRefresh) pullRefreshState.endRefresh()
         }
     }
 
-    // 🚨 SMART CACHING: Only load if the list is completely empty! Prevents reloading on scroll up.
+    // 🚨 Cache Check: Only load from Firebase if ViewModel is empty!
     LaunchedEffect(Unit) { 
-        if (posts.isEmpty()) {
+        if (viewModel.posts.isEmpty()) {
             loadPosts(isRefresh = true) 
         }
     }
@@ -154,7 +163,7 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            hasMore && !isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 5
+            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 10
         }
     }
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) loadPosts() }
@@ -165,13 +174,12 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(bgColor)
-            .nestedScroll(nestedScrollConnection) // Applies custom hide/show scroll lock
+            .nestedScroll(nestedScrollConnection) 
             .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            // 🚨 IMMERSIVE FULLSCREEN: Draws directly under the status bar
             contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp) 
         ) {
             item {
@@ -180,15 +188,14 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                 HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
             }
 
-            // 🚨 SKELETON LOADING UI
-            if (posts.isEmpty() && isLoadingMore) {
+            if (viewModel.posts.isEmpty() && viewModel.isLoadingMore) {
                 items(3) {
                     ShimmerFeedPostCard(bgColor = bgColor, glassColor = glassColor)
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
             } else {
-                items(posts, key = { it.postId }) { post ->
-                    val userProfile = usersMap[post.userId] ?: FeedUserProfile()
+                items(viewModel.posts, key = { it.postId }) { post ->
+                    val userProfile = viewModel.usersMap[post.userId] ?: FeedUserProfile()
                     FeedPostCard(
                         post = post,
                         userProfile = userProfile,
@@ -211,11 +218,11 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
         PullToRefreshContainer(
             state = pullRefreshState, 
             modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), 
-            containerColor = glassColor, 
-            contentColor = textColor
+            containerColor = Color.Transparent, // 🚨 Removes the ugly permanent circle
+            contentColor = primaryOrange
         )
 
-        // 🚨 AUTO-HIDING TOP BAR (Background removed for full immersion)
+        // 🚨 HIDING TOP BAR WITH UPDATED GLASS
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -231,15 +238,24 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { onNavigateToCreatePost() },
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(strongGlassColor).clickable { onNavigateToCreatePost() },
                     contentAlignment = Alignment.Center
                 ) { Icon(Icons.Default.Add, contentDescription = "Create", tint = textColor, modifier = Modifier.size(24.dp)) }
 
-                Text("Interraqt", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
+                // 🚨 Updated Font & Glass Background
+                Text(
+                    text = "Interraqt", 
+                    fontSize = 22.sp, 
+                    fontWeight = FontWeight.Normal, 
+                    color = textColor,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(strongGlassColor)
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                )
 
-                // 🚨 UNIFIED NOTIFICATION ICON: Now uses the custom Like icon!
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { },
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(strongGlassColor).clickable { },
                     contentAlignment = Alignment.Center
                 ) { Icon(HomeScreenIcons.Like, contentDescription = "Notifications", tint = textColor, modifier = Modifier.size(24.dp)) }
             }
@@ -271,7 +287,7 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                 glassColor = glassColor,
                 onDismiss = { showCommentsForPost = null },
                 onCommentAdded = { 
-                    posts = posts.map { if (it.postId == showCommentsForPost!!.postId) it.copy(commentsCount = it.commentsCount + 1) else it }
+                    viewModel.posts = viewModel.posts.map { if (it.postId == showCommentsForPost!!.postId) it.copy(commentsCount = it.commentsCount + 1) else it }
                 }
             )
         }
@@ -286,7 +302,7 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
                     TextButton(onClick = {
                         val postToDelete = showDeleteDialog!!
                         firestore.collection("posts").document(postToDelete.postId).delete()
-                        posts = posts.filter { it.postId != postToDelete.postId }
+                        viewModel.posts = viewModel.posts.filter { it.postId != postToDelete.postId }
                         showDeleteDialog = null
                     }) { Text("Delete", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold) }
                 },
@@ -298,7 +314,6 @@ fun HomeScreen(onNavigateToCreatePost: () -> Unit) {
     }
 }
 
-// 🚨 SHIMMER SKELETON UI COMPONENT
 @Composable
 fun ShimmerFeedPostCard(bgColor: Color, glassColor: Color) {
     val transition = rememberInfiniteTransition(label = "")
