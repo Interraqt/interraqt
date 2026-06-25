@@ -7,8 +7,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -28,8 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -43,7 +39,6 @@ import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlin.math.abs
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -172,42 +167,10 @@ fun FeedPostCard(
         if (post.mediaUrls.isNotEmpty()) {
             val pagerState = rememberPagerState(pageCount = { post.mediaUrls.size })
             
-            // 🚨 INSTAGRAM SCROLL LOCK LOGIC
-            var allowHorizontalScroll by remember { mutableStateOf(true) }
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            allowHorizontalScroll = true // Reset on new touch
-                            var directionLocked = false
-
-                            while (true) {
-                                // Intercept touch events before the Pager processes them
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull()
-                                if (change == null || !change.pressed) break
-
-                                if (!directionLocked) {
-                                    val dx = abs(change.position.x - down.position.x)
-                                    val dy = abs(change.position.y - down.position.y)
-
-                                    // If user moved finger past the system's deadzone (touch slop)
-                                    if (dx > viewConfiguration.touchSlop || dy > viewConfiguration.touchSlop) {
-                                        directionLocked = true
-                                        // The math: X must strictly dominate Y to swipe images
-                                        allowHorizontalScroll = dx > (dy * 1.2f)
-                                    }
-                                }
-                            }
-                        }
-                    }
-            ) {
+            // 🚨 Removed manual touch block. Compose native Pager handles horizontal/vertical slop instantly.
+            Box(modifier = Modifier.fillMaxWidth()) {
                 HorizontalPager(
                     state = pagerState,
-                    userScrollEnabled = allowHorizontalScroll, // 🚨 Dynamically locks axis based on touch angle
                     modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f),
                     beyondBoundsPageCount = 1,
                     flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
