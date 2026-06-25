@@ -56,7 +56,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.interraqt.R // Ensure your R file is imported for drawables
+import com.interraqt.core.R
 
 // Custom Icons Object
 object HomeScreenIcons {
