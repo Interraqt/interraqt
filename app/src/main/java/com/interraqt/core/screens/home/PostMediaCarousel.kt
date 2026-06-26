@@ -17,7 +17,11 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import coil.compose.SubcomposeAsyncImage
+
+
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 
