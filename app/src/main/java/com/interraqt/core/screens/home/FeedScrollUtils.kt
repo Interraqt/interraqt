@@ -17,8 +17,10 @@ fun directionalScrollConnection(
 
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
         // ... (Your code remains the same)
-        if (source != NestedScrollSource.UserInput) return Offset.Zero
+      
+if (source != NestedScrollSource.Drag) return Offset.Zero
 
+        
         if (pagerState.isScrollInProgress) {
             return Offset(available.x, 0f)
         }
