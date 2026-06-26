@@ -53,7 +53,7 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 state = pagerState,
                 // 🚨 FIX: Makes the swipe feel incredibly effortless. 
                 // A soft, short drag of just 20% of the screen will now glide to the next photo!
-                snapPositionalThreshold = 0.2f
+                snapPositionalThreshold = 0.1f
             ) 
 
         ) { page ->
