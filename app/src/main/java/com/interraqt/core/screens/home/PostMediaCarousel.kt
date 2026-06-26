@@ -39,12 +39,12 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
         HorizontalPager(
             state = pagerState,
          
-                        modifier = Modifier
+                                    modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 5f)
                 .background(Color.Black)
                 .nestedScroll(nestedScrollConnection),
-            beyondBoundsPageCount = 2, // 🚨 FIX: Pre-loads an extra image in memory for faster rapid-swiping
+            beyondBoundsPageCount = 1,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
         ) { page ->
             
@@ -54,11 +54,11 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(mediaUrls[page])
-                    // 🚨 FIX: Removed .crossfade(200). 
-                    // Fading large images while scrolling drops frames. Hard-snapping is much faster!
+                    .crossfade(200)
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .build(),
+
 
              
                 contentDescription = "Post Media",
