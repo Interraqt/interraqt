@@ -7,8 +7,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -28,8 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
@@ -43,7 +40,6 @@ import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlin.math.abs
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -172,42 +168,18 @@ fun FeedPostCard(
         if (post.mediaUrls.isNotEmpty()) {
             val pagerState = rememberPagerState(pageCount = { post.mediaUrls.size })
             
-            // 🚨 FIX 1: Strict Directional Scroll Lock
-            var allowHorizontalScroll by remember { mutableStateOf(true) }
+            // 🚨 FIX 1: Imports logic from your new FeedScrollUtils file
+            var isTabSwipeEnabled by remember { mutableStateOf(true) }
+            val nestedScroll = remember {
+                instagramNestedScrollConnection { isHorizontal ->
+                    isTabSwipeEnabled = isHorizontal
+                }
+            }
             
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(Unit) {
-                        val touchSlop = viewConfiguration.touchSlop
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            allowHorizontalScroll = true 
-                            var directionLocked = false
-
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull()
-                                if (change == null || !change.pressed) break
-
-                                if (!directionLocked) {
-                                    val dx = abs(change.position.x - down.position.x)
-                                    val dy = abs(change.position.y - down.position.y)
-
-                                    if (dx > touchSlop || dy > touchSlop) {
-                                        directionLocked = true
-                                        // X must be strictly greater than Y by 1.5x to permit image swiping
-                                        allowHorizontalScroll = dx > dy * 1.5f
-                                    }
-                                }
-                            }
-                        }
-                    }
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().nestedScroll(nestedScroll)) {
                 HorizontalPager(
                     state = pagerState,
-                    userScrollEnabled = allowHorizontalScroll, // Dynamically cuts off horizontal swipes
-                    // 🚨 FIX 8: Locked 4:5 ratio with Solid Black Background
+                    userScrollEnabled = isTabSwipeEnabled, 
                     modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f).background(Color.Black),
                     beyondBoundsPageCount = 1,
                     flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
@@ -221,8 +193,7 @@ fun FeedPostCard(
                             .build(),
                         contentDescription = "Post Media",
                         modifier = Modifier.fillMaxSize(),
-                        // 🚨 FIX 8: Fit replaces Crop. Square images will perfectly sit inside the black box!
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Fit // 🚨 Keeps full square post inside 4:5 ratio without crop
                     )
                 }
 
