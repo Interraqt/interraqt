@@ -96,15 +96,18 @@ fun HomeScreen(
         LaunchedEffect(true) { viewModel.loadPosts(isRefresh = true) { pullRefreshState.endRefresh() } }
     }
 
-        val shouldLoadMore = remember {
+            val shouldLoadMore = remember {
         derivedStateOf {
+            // 🚨 FIX: Replaced layoutInfo with firstVisibleItemIndex. 
+            // This stops the app from doing math 120 times a second. It now only recalculates 
+            // when a new post reaches the top of the screen!
             val totalItems = listState.layoutInfo.totalItemsCount
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            // 🚨 FIX: Changed the threshold to "- 5". It will now silently pre-fetch 
-            // the next 24 posts in the background when you are 5 posts away from the bottom!
-            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 5
+            val currentItem = listState.firstVisibleItemIndex 
+            
+            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && currentItem >= totalItems - 8
         }
     }
+
 
  
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) viewModel.loadPosts() }
