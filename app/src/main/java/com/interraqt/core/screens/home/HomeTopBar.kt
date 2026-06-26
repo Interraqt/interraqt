@@ -34,11 +34,12 @@ fun HomeTopBar(
     Box(
         modifier = Modifier
             // 🚨 FIX: GraphicsLayer renders smoothly on the GPU without freezing the scroll!
-            .offset { IntOffset(0, topBarOffsetProvider().roundToPx()) }
+                        .offset { IntOffset(0, topBarOffsetProvider().roundToPx()) }
             .graphicsLayer { alpha = topBarAlphaProvider() }
             .fillMaxWidth()
-            .background(bgColor.copy(alpha = 0.95f)) 
+            // 🚨 REMOVED: .background() is gone. Glass icons now float completely transparently!
             .padding(top = statusBarHeightDp)
+
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Row(
