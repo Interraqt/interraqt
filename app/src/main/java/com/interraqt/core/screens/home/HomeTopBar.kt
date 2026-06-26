@@ -13,8 +13,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.isSystemInDarkTheme
+
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -31,17 +35,29 @@ fun HomeTopBar(
     textColor: Color,
     onNavigateToCreatePost: () -> Unit
 ) {
+   
+        val isDark = isSystemInDarkTheme()
+    // 🚨 The subtle protective shadow. Soft white in light mode, soft black in dark mode.
+    val scrimColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f)
+
     Box(
         modifier = Modifier
-            // 🚨 FIX: GraphicsLayer renders smoothly on the GPU without freezing the scroll!
-                        .offset { IntOffset(0, topBarOffsetProvider().roundToPx()) }
+            .offset { IntOffset(0, topBarOffsetProvider().roundToPx()) }
             .graphicsLayer { alpha = topBarAlphaProvider() }
             .fillMaxWidth()
-            // 🚨 REMOVED: .background() is gone. Glass icons now float completely transparently!
+            // 🚨 FIX: A vertical gradient that ONLY covers the battery/time, fading cleanly into transparency!
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(scrimColor, Color.Transparent),
+                    startY = 0f,
+                    endY = Float.POSITIVE_INFINITY 
+                )
+            )
             .padding(top = statusBarHeightDp)
-
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
+
+      
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
