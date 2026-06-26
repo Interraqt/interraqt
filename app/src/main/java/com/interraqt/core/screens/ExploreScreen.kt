@@ -1,5 +1,6 @@
 package com.interraqt.core.screens
 
+import androidx.annotation.Keep
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -29,6 +30,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 // 🚨 Added profileImageUrl to hold the image link from Firestore
+@Keep // 🚨 Protected for absolute safety!
 data class UserSearchResult(val uid: String, val username: String, val name: String, val profileImageUrl: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
