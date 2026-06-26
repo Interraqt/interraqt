@@ -14,7 +14,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+
+
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -146,11 +150,25 @@ fun HomeScreen(
             }
         }
 
-        PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), containerColor = Color.Transparent, contentColor = primaryOrange)
+                PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), containerColor = Color.Transparent, contentColor = primaryOrange)
+
+        // 🚨 PERMANENT SCRIM: Stays pinned to the top even when TopBar scrolls away.
+        // 💡 HOW TO TWEAK OPACITY: Increase 0.5f (Dark) or 0.7f (Light) to make the icons more visible.
+        val scrimAlpha = if (isDark) 0.5f else 0.7f 
+        val scrimColor = if (isDark) Color.Black.copy(alpha = scrimAlpha) else Color.White.copy(alpha = scrimAlpha)
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(statusBarHeightDp + 24.dp)
+                .background(Brush.verticalGradient(colors = listOf(scrimColor, Color.Transparent)))
+                .align(Alignment.TopCenter)
+        )
+
+        HomeTopBar(
 
         
-                HomeTopBar(
-            topBarOffsetProvider = { topBarOffset }, 
+                    topBarOffsetProvider = { topBarOffset }, 
             topBarAlphaProvider = { topBarAlpha },   
             statusBarHeightDp = statusBarHeightDp,
             bgColor = bgColor,
