@@ -1,6 +1,5 @@
 package com.interraqt.core.screens.home
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
@@ -11,32 +10,34 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 
 /**
- * Creates and remembers a smooth directional scroll connection that locks the scroll axis 
- * per-gesture to completely eliminate jitter and heavy vertical scrolling.
+ * Creates and remembers a robust directional scroll connection that locks the scroll axis 
+ * per-gesture. Guarantees clean reset even during high-frequency vertical/horizontal handoffs.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun rememberDirectionalScrollConnection(
     pagerState: PagerState
 ): NestedScrollConnection {
-    // Keeps track of the locked direction for the CURRENT active gesture.
-    // Clears out automatically when the drag ends.
+    // Track lock state using a standard state object
     var currentGestureLock by remember { mutableStateOf<Orientation?>(null) }
 
     return remember(pagerState) {
         object : NestedScrollConnection {
 
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Ignore programmatic scrolls (animations, snap-to-page, etc.)
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
                 val deltaX = abs(available.x)
                 val deltaY = abs(available.y)
 
-                // 1. If no axis is locked yet, wait for a clear intent threshold (e.g., > 3 pixels)
-                if (currentGestureLock == null && (deltaX > 3f || deltaY > 3f)) {
+                // 1. Establish the lock. 
+                // Production tip: Increase threshold slightly to 5f-8f to give the user 
+                // a tiny "dead zone" to establish clear intent, preventing micro-jitters.
+                if (currentGestureLock == null && (deltaX > 5f || deltaY > 5f)) {
                     currentGestureLock = if (deltaY > deltaX) {
                         Orientation.Vertical
                     } else {
@@ -44,15 +45,15 @@ fun rememberDirectionalScrollConnection(
                     }
                 }
 
-                // 2. Enforce the lock for the remainder of this continuous touch gesture
+                // 2. Enforce the axis locking
                 return when (currentGestureLock) {
                     Orientation.Vertical -> {
-                        // User is scrolling vertically. Absorb ALL horizontal deltas 
-                        // so the Pager never sees them and stays perfectly still.
+                        // Vertical scroll intent: absorb horizontal movement entirely
+                        // This prevents the horizontal Pager from breaking out of the vertical scroll.
                         Offset(x = available.x, y = 0f)
                     }
                     Orientation.Horizontal -> {
-                        // User is swiping horizontally. Let it pass through normally.
+                        // Horizontal swipe intent: let it flow through completely to the pager
                         Offset.Zero
                     }
                     else -> Offset.Zero
@@ -66,27 +67,34 @@ fun rememberDirectionalScrollConnection(
             ): Offset {
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
-                // Only allow edge-handoff if the user actually intended to swipe horizontally
                 if (currentGestureLock == Orientation.Horizontal && abs(available.x) > 0f) {
-                    val isSwipingLeft = available.x < 0f  
-                    val isSwipingRight = available.x > 0f 
-                    
+                    val isSwipingLeft = available.x < 0f
+                    val isSwipingRight = available.x > 0f
+
                     val atEnd = !pagerState.canScrollForward
                     val atBeginning = !pagerState.canScrollBackward
-                    
+
                     if ((isSwipingLeft && atEnd) || (isSwipingRight && atBeginning)) {
-                        return Offset.Zero 
+                        return Offset.Zero
                     }
                 }
                 return Offset.Zero
             }
 
-            // 3. CRITICAL FOR SMOOTHNESS: Reset the lock when the user lifts their finger
+            // 3. FIX: intercept at onPreFling
+            // onPreFling is guaranteed to run BEFORE flings hit the system, 
+            // right when the dragging finger lifts off the glass.
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                currentGestureLock = null // Instantly clear lock for the next gesture
+                return Velocity.Zero // Let the velocity pass naturally
+            }
+
             override suspend fun onPostFling(
-                consumed: androidx.compose.ui.unit.Velocity,
-                available: androidx.compose.ui.unit.Velocity
-            ): androidx.compose.ui.unit.Velocity {
-                currentGestureLock = null // Free the lock so the next touch starts fresh
+                consumed: Velocity,
+                available: Velocity
+            ): Velocity {
+                // Backup safety reset
+                currentGestureLock = null 
                 return super.onPostFling(consumed, available)
             }
         }
