@@ -83,7 +83,7 @@ fun rememberDirectionalScrollConnection(
             // 3. Clean up gesture tracks immediately before flings execute
             override suspend fun onPreFling(available: Velocity): Velocity {
                 currentGestureLock = null // Instantly clear lock for the next gesture
-                return Velocity.Zero 
+                return available 
             }
 
             override suspend fun onPostFling(
