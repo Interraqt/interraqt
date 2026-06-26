@@ -37,7 +37,7 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
     Box(modifier = Modifier.fillMaxWidth().nestedScroll(nestedScroll)) {
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = isTabSwipeEnabled, 
+            
             modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f).background(Color.Black),
             beyondBoundsPageCount = 1,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
