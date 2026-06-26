@@ -12,18 +12,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 fun HomeTopBar(
-    topBarOffset: Dp,
-    topBarAlpha: Float,
+    topBarOffsetProvider: () -> Dp, // 🚨 FIX: Lambda prevents recomposition lag
+    topBarAlphaProvider: () -> Float, // 🚨 FIX: Lambda prevents recomposition lag
     statusBarHeightDp: Dp,
     bgColor: Color,
     glassColor: Color,
@@ -32,8 +33,9 @@ fun HomeTopBar(
 ) {
     Box(
         modifier = Modifier
-            .offset(y = topBarOffset)
-            .alpha(topBarAlpha)
+            // 🚨 FIX: GraphicsLayer renders smoothly on the GPU without freezing the scroll!
+            .offset { IntOffset(0, topBarOffsetProvider().roundToPx()) }
+            .graphicsLayer { alpha = topBarAlphaProvider() }
             .fillMaxWidth()
             .background(bgColor.copy(alpha = 0.95f)) 
             .padding(top = statusBarHeightDp)
