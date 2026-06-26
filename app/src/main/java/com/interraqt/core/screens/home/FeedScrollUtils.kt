@@ -11,7 +11,7 @@ import kotlin.math.abs
  * Instantly measures thumb angle. If vertical > horizontal, it locks the pager. 
  * If horizontal > vertical, it locks the feed.
  */
-fun instagramNestedScrollConnection(
+fun directionalScrollConnection(
     onHorizontalScroll: (Boolean) -> Unit
 ): NestedScrollConnection = object : NestedScrollConnection {
     var isHorizontalDrag = false
