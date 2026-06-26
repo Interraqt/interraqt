@@ -141,9 +141,19 @@ fun HomeScreen(
         }
 
         PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), containerColor = Color.Transparent, contentColor = primaryOrange)
-        
-        HomeTopBar(topBarOffset, topBarAlpha, statusBarHeightDp, bgColor, glassColor, textColor, onNavigateToCreatePost)
 
+        
+                HomeTopBar(
+            topBarOffsetProvider = { topBarOffset }, 
+            topBarAlphaProvider = { topBarAlpha },   
+            statusBarHeightDp = statusBarHeightDp,
+            bgColor = bgColor,
+            glassColor = glassColor,
+            textColor = textColor,
+            onNavigateToCreatePost = onNavigateToCreatePost
+        )
+
+        
         if (showOptionsForPost != null) {
             PostOptionsBottomSheet(
                 isOwnProfile = showOptionsForPost!!.userId == viewModel.currentUserId,
