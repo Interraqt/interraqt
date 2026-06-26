@@ -170,8 +170,8 @@ fun FeedPostCard(
             
             // 🚨 FIX 1: Imports logic from your new FeedScrollUtils file
             var isTabSwipeEnabled by remember { mutableStateOf(true) }
-            val nestedScroll = remember {
-                instagramNestedScrollConnection { isHorizontal ->
+                        val nestedScroll = remember {
+                directionalScrollConnection { isHorizontal ->
                     isTabSwipeEnabled = isHorizontal
                 }
             }
