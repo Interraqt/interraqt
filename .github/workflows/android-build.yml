@@ -33,3 +33,5 @@ jobs:
         name: Interraqt-APK
         # 🚨 FIX: The wildcard automatically finds and uploads the APK no matter what folder it is in!
         path: app/build/outputs/apk/**/*.apk
+
+retention-days: 1
