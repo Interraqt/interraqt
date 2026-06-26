@@ -29,16 +29,20 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
     val context = LocalContext.current
     val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
     
-        val nestedScroll = remember(pagerState) {
+    val nestedScroll = remember(pagerState) {
         directionalScrollConnection(pagerState)
     }
 
-    
-    Box(modifier = Modifier.fillMaxWidth().nestedScroll(nestedScroll)) {
+    // 🛠️ FIX 1: Removed .nestedScroll(nestedScroll) from the Box so parent vertical scrolling stays clean
+    Box(modifier = Modifier.fillMaxWidth()) {
         HorizontalPager(
             state = pagerState,
-            
-            modifier = Modifier.fillMaxWidth().aspectRatio(4f / 5f).background(Color.Black),
+            // 🛠️ FIX 2: Attached .nestedScroll(nestedScroll) directly to the HorizontalPager
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 5f)
+                .background(Color.Black)
+                .nestedScroll(nestedScroll), 
             beyondBoundsPageCount = 1,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
         ) { page ->
@@ -57,7 +61,11 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
 
         if (mediaUrls.size > 1) {
             Row(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp).background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp)
+                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 repeat(mediaUrls.size) { iteration ->
