@@ -47,8 +47,11 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
-        ) { page ->
-            AsyncImage(
+                } { page ->
+            val isDark = isSystemInDarkTheme()
+            val skeletonColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
+
+            SubcomposeAsyncImage( // 🚨 FIX: Replaced AsyncImage to track loading state
                 model = ImageRequest.Builder(context)
                     .data(mediaUrls[page])
                     .crossfade(200)
@@ -57,9 +60,13 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                     .build(),
                 contentDescription = "Post Media",
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit 
+                contentScale = ContentScale.Fit,
+                loading = {
+                    Box(modifier = Modifier.fillMaxSize().background(skeletonColor)) // 🚨 Holds the skeleton until the image bytes arrive
+                }
             )
         }
+
 
         if (mediaUrls.size > 1) {
             Row(
