@@ -24,10 +24,12 @@ jobs:
         gradle-version: '8.5'
 
     - name: Build APK
-      run: gradle assembleDebug
+      # 🚨 FIX: Instructs GitHub to build the highly optimized Release version
+      run: gradle assembleRelease
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: Interraqt-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        # 🚨 FIX: The wildcard automatically finds and uploads the APK no matter what folder it is in!
+        path: app/build/outputs/apk/**/*.apk
