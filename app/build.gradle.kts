@@ -17,12 +17,16 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
-    buildTypes {
+        buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // 🚨 FIX: Signs the Release APK with the debug key so your phone allows the installation!
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
