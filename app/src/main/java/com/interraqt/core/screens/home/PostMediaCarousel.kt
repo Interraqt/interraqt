@@ -18,7 +18,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
+
+import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.painter.ColorPainter
+
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 
@@ -55,26 +58,24 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
 
         ) { page ->
             
-            val isDark = isSystemInDarkTheme()
+                        val isDark = isSystemInDarkTheme()
             val skeletonColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
 
-            SubcomposeAsyncImage(
+            // 🚨 FIX: Replaced SubcomposeAsyncImage with AsyncImage + ColorPainter.
+            // Subcomposition causes heavy frame drops during rapid scrolls. 
+            // ColorPainter draws the exact same skeleton UI directly on the GPU with zero lag!
+            AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(mediaUrls[page])
-                    .crossfade(200)
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .build(),
-
-
-             
                 contentDescription = "Post Media",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
-                loading = {
-                    Box(modifier = Modifier.fillMaxSize().background(skeletonColor))
-                }
+                placeholder = ColorPainter(skeletonColor) 
             )
+
         }
 
         if (mediaUrls.size > 1) {
