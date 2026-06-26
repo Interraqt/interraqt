@@ -186,13 +186,14 @@ fun InterraqtApp(
 
     val view = LocalView.current
     if (!view.isInEditMode) {
-        SideEffect {
+                SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = android.graphics.Color.TRANSPARENT 
             window.navigationBarColor = bgColor.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !isDark
+            // 🚨 REMOVED: isAppearanceLightStatusBars overrides. 
+            // By deleting them, the system natively handles auto-contrast for BOTH themes as you scroll!
         }
+
     }
 
     Scaffold(
