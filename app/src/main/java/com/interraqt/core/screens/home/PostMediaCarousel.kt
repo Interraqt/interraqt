@@ -29,22 +29,22 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
     val context = LocalContext.current
     val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
     
-    // 🛠️ CHANGED 1: Call the new, fixed Composable state manager instead of the raw function
+    // Remembers the fixed connection that resets cleanly onPreFling
     val nestedScrollConnection = rememberDirectionalScrollConnection(pagerState)
 
-    // 🛠️ CHANGED 2: Apply .nestedScroll to the top-most Box wrapper. 
-    // This intercepts the touch gesture before it propagates down to the Pager.
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .nestedScroll(nestedScrollConnection)
+        modifier = Modifier.fillMaxWidth()
+        // REMOVED .nestedScroll from here because Box does not naturally dispatch nested scrolls.
     ) {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 5f)
-                .background(Color.Black), // Cleaned up .nestedScroll from here
+                .background(Color.Black)
+                // ADDED HERE: This forces the Pager's gesture dispatcher to filter 
+                // x/y deltas through our directional gesture lock before handling them.
+                .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
         ) { page ->
