@@ -47,7 +47,9 @@ import com.interraqt.core.ui.components.SmartCursorTextField
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
+import androidx.annotation.Keep
 
+@Keep // 🚨 Protects MediaAttachment so the Cloudflare uploader can read it!
 data class MediaAttachment(val uri: Uri, val isVideo: Boolean)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
