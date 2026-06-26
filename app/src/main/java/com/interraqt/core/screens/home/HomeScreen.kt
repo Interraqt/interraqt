@@ -96,13 +96,17 @@ fun HomeScreen(
         LaunchedEffect(true) { viewModel.loadPosts(isRefresh = true) { pullRefreshState.endRefresh() } }
     }
 
-    val shouldLoadMore = remember {
+        val shouldLoadMore = remember {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 10
+            // 🚨 FIX: Changed the threshold to "- 5". It will now silently pre-fetch 
+            // the next 24 posts in the background when you are 5 posts away from the bottom!
+            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 5
         }
     }
+
+ 
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) viewModel.loadPosts() }
 
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -140,6 +144,16 @@ fun HomeScreen(
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
                 
+                                // 🚨 FIX: If they rapid-scroll to the bottom before the background fetch finishes,
+                // this displays a classic Instagram-style circular spinner!
+                if (viewModel.isLoadingMore && viewModel.posts.isNotEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(32.dp))
+                        }
+                    }
+                }
+                
                 if (!viewModel.hasMore && viewModel.posts.isNotEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -149,6 +163,7 @@ fun HomeScreen(
                 }
             }
         }
+
 
                 PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), containerColor = Color.Transparent, contentColor = primaryOrange)
 
