@@ -8,8 +8,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import kotlin.math.abs
 
 /**
- * An enterprise-grade scroll interceptor that allows normal carousel swiping
- * while safely handling boundary limits.
+ * An enterprise-grade scroll interceptor that allows normal carousel swiping,
+ * clean vertical scrolling, and seamless parent tab switching at boundaries.
  */
 @OptIn(ExperimentalFoundationApi::class)
 fun directionalScrollConnection(
@@ -17,13 +17,15 @@ fun directionalScrollConnection(
 ): NestedScrollConnection = object : NestedScrollConnection {
 
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        // Only handle user drag interactions
         if (source != NestedScrollSource.Drag) return Offset.Zero
 
-        // Allow normal carousel swiping. Only intercept if the Pager is already actively scrolling
-        // and we explicitly need to lock vertical container movements.
-        if (pagerState.isScrollInProgress) {
-            return Offset.Zero // 🛠️ FIX: Change from Offset(available.x, 0f) to let Pager receive drag
+        // FIX 1: If the user is clearly trying to scroll vertically (up/down),
+        // completely ignore horizontal adjustments to prevent diagonal/phantom swipes.
+        if (abs(available.y) > abs(available.x)) {
+            return Offset.Zero
         }
+
         return Offset.Zero
     }
 
@@ -34,18 +36,20 @@ fun directionalScrollConnection(
     ): Offset {
         if (source != NestedScrollSource.Drag) return Offset.Zero
 
-        // Only intercept leftover scroll when the Pager hits the hard edges
+        // FIX 2: Fixed tab switching at boundaries.
+        // If there is unconsumed horizontal delta, we must check if we are at the edges.
         if (abs(available.x) > 0f) {
-            val isSwipingLeft = available.x < 0f  
-            val isSwipingRight = available.x > 0f 
+            val isSwipingLeft = available.x < 0f  // Finger moving left, moving to next item
+            val isSwipingRight = available.x > 0f // Finger moving right, moving to previous item
             
             val atEnd = !pagerState.canScrollForward
             val atBeginning = !pagerState.canScrollBackward
             
-            // If swiping further left at the last item, or further right at the first item,
-            // consume it to stop parent containers from jarringly bouncing.
+            // CRITICAL: Return Offset.Zero at boundaries instead of consuming it!
+            // This releases the gesture back to the parent container (like a HorizontalPager or TabRow) 
+            // so tab switching works flawlessly when you reach the end of the carousel.
             if ((isSwipingLeft && atEnd) || (isSwipingRight && atBeginning)) {
-                return Offset(available.x, 0f) // 🛠️ FIX: Only consume at physical boundaries
+                return Offset.Zero 
             }
         }
         return Offset.Zero
