@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -45,6 +44,9 @@ class HomeViewModel : ViewModel() {
     var lastVisible by mutableStateOf<DocumentSnapshot?>(null)
     var isLoadingMore by mutableStateOf(false)
     var hasMore by mutableStateOf(true)
+    
+    // 🚨 FIX 5: Tracks when the feed was last loaded for the 10-min cache
+    var lastFetchTime by mutableLongStateOf(0L) 
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +62,6 @@ fun HomeScreen(
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328)
     
-    // 🚨 FIX 4: Exactly matches ProfileScreen glass opacity
     val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
 
     val firestore = FirebaseFirestore.getInstance()
@@ -76,7 +77,7 @@ fun HomeScreen(
     val pullRefreshState = rememberPullToRefreshState()
 
     var isTopBarVisible by remember { mutableStateOf(true) }
-    val nestedScrollConnection = remember {
+    val topBarScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (available.y < -15) isTopBarVisible = false 
@@ -127,12 +128,13 @@ fun HomeScreen(
         }
 
         query.get().addOnSuccessListener { snapshot ->
+            if (isRefresh) viewModel.lastFetchTime = System.currentTimeMillis() // Save fetch time
+            
             if (snapshot.isEmpty) {
                 viewModel.hasMore = false
             } else {
                 viewModel.lastVisible = snapshot.documents.last()
                 val fetchedPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
-                
                 val randomizedBatch = fetchedPosts.shuffled() 
                 
                 viewModel.posts = if (isRefresh) randomizedBatch else viewModel.posts + randomizedBatch
@@ -154,22 +156,41 @@ fun HomeScreen(
         }
     }
 
-    // 🚨 FIX 6: Automatically refreshes and shuffles when the app is reopened from background
+    // 🚨 FIX 3: Silent check for newly uploaded posts without destroying the feed cache
+    fun checkForNewPosts() {
+        if (viewModel.posts.isEmpty()) return
+        val latestTimestamp = viewModel.posts.maxOfOrNull { it.timestamp } ?: return
+        
+        firestore.collection("posts")
+            .whereGreaterThan("timestamp", latestTimestamp)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (!snapshot.isEmpty) {
+                    val newPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
+                    viewModel.posts = newPosts + viewModel.posts // Injects instantly at the top
+                }
+            }
+    }
+
+    // 🚨 FIX 5: 10-Minute Cache Logic & App Reopen Handler
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                loadPosts(isRefresh = true)
+                isTopBarVisible = true // Instantly reset top bar
+                val currentTime = System.currentTimeMillis()
+                
+                // 10 minutes = 600,000 milliseconds
+                if (currentTime - viewModel.lastFetchTime > 600_000 || viewModel.posts.isEmpty()) {
+                    loadPosts(isRefresh = true) // Full refresh if > 10 mins
+                } else {
+                    checkForNewPosts() // Silent fetch for your newly uploaded posts!
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    LaunchedEffect(Unit) { 
-        if (viewModel.posts.isEmpty()) {
-            loadPosts(isRefresh = true) 
-        }
     }
 
     if (pullRefreshState.isRefreshing) {
@@ -191,7 +212,7 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bgColor)
-            .nestedScroll(nestedScrollConnection) 
+            .nestedScroll(topBarScrollConnection) 
             .nestedScroll(pullRefreshState.nestedScrollConnection)
     ) {
         LazyColumn(
@@ -205,13 +226,13 @@ fun HomeScreen(
                 HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
             }
 
+            // 🚨 FIX 4: Static Skeleton Reverted
             if (viewModel.posts.isEmpty() && viewModel.isLoadingMore) {
                 items(3) {
                     ShimmerFeedPostCard(bgColor = bgColor, glassColor = glassColor)
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
             } else {
-                // 🚨 FIX 7: contentType added for buttery smooth recycling
                 items(items = viewModel.posts, key = { it.postId }, contentType = { "FeedPost" }) { post ->
                     val userProfile = viewModel.usersMap[post.userId] ?: FeedUserProfile()
                     FeedPostCard(
@@ -231,7 +252,6 @@ fun HomeScreen(
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
                 
-                // 🚨 FIX 3: "Reached the end" message
                 if (!viewModel.hasMore && viewModel.posts.isNotEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -249,14 +269,13 @@ fun HomeScreen(
             contentColor = primaryOrange
         )
 
-        // 🚨 FIX 5: Solid Background behind Top Bar so posts don't bleed through text
+        // 🚨 FIX 2 & 6: Removed white background block. Status bar icons now react correctly naturally.
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = topBarOffset)
                 .alpha(topBarAlpha)
                 .fillMaxWidth()
-                .background(bgColor.copy(alpha = 0.95f)) 
                 .padding(top = statusBarHeightDp)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
@@ -341,40 +360,24 @@ fun HomeScreen(
     }
 }
 
-// 🚨 FIX 9: Re-engineered Shimmer Math for active sweeping motion
+// 🚨 FIX 4: Reverted to pure static skeleton 
 @Composable
 fun ShimmerFeedPostCard(bgColor: Color, glassColor: Color) {
-    val transition = rememberInfiniteTransition(label = "")
-    val translateAnim by transition.animateFloat(
-        initialValue = -1000f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ), label = ""
-    )
-    
-    val shimmerBrush = Brush.linearGradient(
-        colors = listOf(glassColor.copy(alpha = 0.1f), glassColor.copy(alpha = 0.5f), glassColor.copy(alpha = 0.1f)),
-        start = Offset(translateAnim, translateAnim),
-        end = Offset(translateAnim + 400f, translateAnim + 400f)
-    )
-
     Column(modifier = Modifier.fillMaxWidth().background(bgColor)) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(shimmerBrush))
+            Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(glassColor))
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Box(modifier = Modifier.height(14.dp).width(120.dp).clip(RoundedCornerShape(4.dp)).background(shimmerBrush))
+                Box(modifier = Modifier.height(14.dp).width(120.dp).clip(RoundedCornerShape(4.dp)).background(glassColor))
                 Spacer(modifier = Modifier.height(8.dp))
-                Box(modifier = Modifier.height(10.dp).width(80.dp).clip(RoundedCornerShape(4.dp)).background(shimmerBrush))
+                Box(modifier = Modifier.height(10.dp).width(80.dp).clip(RoundedCornerShape(4.dp)).background(glassColor))
             }
         }
-        Box(modifier = Modifier.fillMaxWidth().aspectRatio(4f/5f).background(shimmerBrush))
+        Box(modifier = Modifier.fillMaxWidth().aspectRatio(4f/5f).background(glassColor))
         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(shimmerBrush))
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(shimmerBrush))
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(shimmerBrush))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor))
         }
     }
 }
