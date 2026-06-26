@@ -22,29 +22,36 @@ fun rememberDirectionalScrollConnection(
     return remember(pagerState) {
         object : NestedScrollConnection {
 
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
-                // 🚨 FIX 2: STATELESS LOCK
-                // Instantly block horizontal pager movement if the user is scrolling vertically.
-                // Returning Offset(x = available.x) tells the Pager "The swipe was consumed, do not move".
-                // Leaving y = 0f allows the vertical main feed to scroll smoothly.
-                if (abs(available.y) > abs(available.x)) {
+                // 🚨 FIX: Vertical Bias Threshold. 
+                // We multiply X by 0.5f. This forces the carousel to ONLY trigger on 
+                // highly deliberate, straight horizontal swipes. 
+                // Rapid, curved "L" swipes will smoothly fall back to vertical scrolling!
+                if (abs(available.y) > (abs(available.x) * 0.5f)) {
                     return Offset(x = available.x, y = 0f)
                 }
 
                 return Offset.Zero
             }
 
-            override fun onPostScroll(
+
+                        override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
-                // 🚨 FIX 3: PROTECT TABS
+                // 🚨 FIX: Apply the same Vertical Bias here so an arced vertical swipe 
+                // doesn't accidentally trigger a Bottom Tab switch at the edges.
+                if (abs(available.y) > (abs(available.x) * 0.5f)) {
+                    return Offset.Zero 
+                }
+
                 if (abs(available.x) > 0f) {
+
                     val isSwipingLeft = available.x < 0f
                     val isSwipingRight = available.x > 0f
 
