@@ -32,10 +32,15 @@ fun ShimmerFeedPostCard(bgColor: Color, glassColor: Color) {
         }
 
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(4f/5f).background(skeletonColor))
-        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
+                Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
+            }
+            Spacer(modifier = Modifier.weight(1f)) // 🚨 Pushes save icon to the right
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor)) // 🚨 Save icon placeholder
         }
+
     }
 }
