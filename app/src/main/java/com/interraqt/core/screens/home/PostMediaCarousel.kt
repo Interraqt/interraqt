@@ -45,7 +45,14 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 .background(Color.Black)
                 .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
-            flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
+          
+                        flingBehavior = PagerDefaults.flingBehavior(
+                state = pagerState,
+                // 🚨 FIX: Makes the swipe feel incredibly effortless. 
+                // A soft, short drag of just 20% of the screen will now glide to the next photo!
+                snapPositionalThreshold = 0.2f
+            ) 
+
         ) { page ->
             
             val isDark = isSystemInDarkTheme()
