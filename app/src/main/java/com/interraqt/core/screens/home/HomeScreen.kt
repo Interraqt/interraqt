@@ -66,21 +66,27 @@ fun HomeScreen(
     val topBarOffset by animateDpAsState(if (isTopBarVisible) 0.dp else (-100).dp, spring(stiffness = Spring.StiffnessMediumLow), label = "")
     val topBarAlpha by animateFloatAsState(if (isTopBarVisible) 1f else 0f, tween(300), label = "")
 
-    val lifecycleOwner = LocalLifecycleOwner.current
+        val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isTopBarVisible = true 
-                if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000 || viewModel.posts.isEmpty()) {
-                    viewModel.loadPosts(isRefresh = true) 
-                } else {
-                    viewModel.checkForNewPosts() 
+                
+                // 🚨 FIX: If posts are empty, ViewModel's init block is already fetching them. 
+                // Only do the 10-minute check if we are resuming from the background!
+                if (viewModel.posts.isNotEmpty()) {
+                    if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000) {
+                        viewModel.loadPosts(isRefresh = true) 
+                    } else {
+                        viewModel.checkForNewPosts() 
+                    }
                 }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
 
     if (pullRefreshState.isRefreshing) {
         LaunchedEffect(true) { viewModel.loadPosts(isRefresh = true) { pullRefreshState.endRefresh() } }
