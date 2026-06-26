@@ -1,11 +1,13 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi // 🚨 ADDED IMPORT
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import kotlin.math.abs
 
+@OptIn(ExperimentalFoundationApi::class) // 🚨 ADDED OPT-IN ANNOTATION
 fun directionalScrollConnection(
     pagerState: PagerState
 ): NestedScrollConnection = object : NestedScrollConnection {
