@@ -6,11 +6,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import kotlin.math.abs
 
-/**
- * 🚨 INSTAGRAM SCROLL ALGORITHM
- * Instantly measures thumb angle. If vertical > horizontal, it locks the pager. 
- * If horizontal > vertical, it locks the feed.
- */
 fun directionalScrollConnection(
     onHorizontalScroll: (Boolean) -> Unit
 ): NestedScrollConnection = object : NestedScrollConnection {
@@ -18,27 +13,34 @@ fun directionalScrollConnection(
     var isVerticalDrag = false
 
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        // Detect primary direction on the very first pixel of drag
         if (!isHorizontalDrag && !isVerticalDrag) {
-            if (abs(available.x) > abs(available.y) * 1.2f) { // 1.2x multiplier for strictness
+            if (abs(available.x) > abs(available.y) * 1.2f) { 
                 isHorizontalDrag = true
-                onHorizontalScroll(true) // Enable horizontal image swipes
-            } else {
+                onHorizontalScroll(true) 
+            } else if (abs(available.y) > abs(available.x)) {
                 isVerticalDrag = true
-                onHorizontalScroll(false) // Lock horizontal image swipes
+                onHorizontalScroll(false) 
             }
         }
         
-        // If it's a horizontal scroll, consume the event so vertical list doesn't bob up and down
-        return if (isHorizontalDrag) available else Offset.Zero
+        // 🚨 FIX: We MUST return Offset.Zero here so the HorizontalPager actually gets the swipe!
+        return Offset.Zero
     }
 
-    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+    override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource
+    ): Offset {
+        // 🚨 FIX: If the user is swiping horizontally and reaches the end of the image carousel,
+        // we consume the "leftover" swipe here so it DOES NOT trigger the bottom navigation tabs!
+        if (isHorizontalDrag && available.x != 0f) {
+            return Offset(available.x, 0f)
+        }
         return Offset.Zero
     }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
-        // Reset flags instantly when the user lifts their finger
         isHorizontalDrag = false
         isVerticalDrag = false
         onHorizontalScroll(true) 
