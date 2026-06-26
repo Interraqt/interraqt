@@ -53,12 +53,15 @@ fun HomeScreen(
     val topBarScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y < -15) isTopBarVisible = false 
-                if (available.y > 15) isTopBarVisible = true   
+                // 🚨 Only update state if it actually changed, saving performance!
+                if (available.y < -15f && isTopBarVisible) isTopBarVisible = false 
+                if (available.y > 15f && !isTopBarVisible) isTopBarVisible = true   
                 return Offset.Zero
             }
         }
     }
+
+    
 
     val topBarOffset by animateDpAsState(if (isTopBarVisible) 0.dp else (-100).dp, spring(stiffness = Spring.StiffnessMediumLow), label = "")
     val topBarAlpha by animateFloatAsState(if (isTopBarVisible) 1f else 0f, tween(300), label = "")
