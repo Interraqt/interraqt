@@ -15,10 +15,15 @@ class HomeViewModel : ViewModel() {
     var hasMore by mutableStateOf(true)
     var lastFetchTime by mutableLongStateOf(0L)
 
-    private val firestore = FirebaseFirestore.getInstance()
+        private val firestore = FirebaseFirestore.getInstance()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
+    init {
+        loadPosts(isRefresh = true) // 🚨 FIX: Forces a fresh pull instantly on cold boot (app swipe-kill)
+    }
+
     // 🚨 Moved from HomeScreen: Time logic belongs in the ViewModel
+
     fun getShortTime(time: Long): String {
         if (time == 0L) return ""
         val diff = System.currentTimeMillis() - time
