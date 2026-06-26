@@ -29,12 +29,10 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
     val context = LocalContext.current
     val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
     
-    var isTabSwipeEnabled by remember { mutableStateOf(true) }
-    val nestedScroll = remember {
-        directionalScrollConnection { isHorizontal ->
-            isTabSwipeEnabled = isHorizontal
-        }
+        val nestedScroll = remember(pagerState) {
+        directionalScrollConnection(pagerState)
     }
+
     
     Box(modifier = Modifier.fillMaxWidth().nestedScroll(nestedScroll)) {
         HorizontalPager(
