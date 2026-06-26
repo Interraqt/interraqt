@@ -1,5 +1,6 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
@@ -17,6 +18,7 @@ import kotlin.math.abs
  * Creates and remembers a robust directional scroll connection that locks the scroll axis 
  * per-gesture. Guarantees clean reset even during high-frequency vertical/horizontal handoffs.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun rememberDirectionalScrollConnection(
     pagerState: PagerState
@@ -34,9 +36,7 @@ fun rememberDirectionalScrollConnection(
                 val deltaX = abs(available.x)
                 val deltaY = abs(available.y)
 
-                // 1. Establish the lock. 
-                // Production tip: Increase threshold slightly to 5f-8f to give the user 
-                // a tiny "dead zone" to establish clear intent, preventing micro-jitters.
+                // 1. Establish the lock with a safe 5 pixel intent threshold
                 if (currentGestureLock == null && (deltaX > 5f || deltaY > 5f)) {
                     currentGestureLock = if (deltaY > deltaX) {
                         Orientation.Vertical
@@ -49,7 +49,6 @@ fun rememberDirectionalScrollConnection(
                 return when (currentGestureLock) {
                     Orientation.Vertical -> {
                         // Vertical scroll intent: absorb horizontal movement entirely
-                        // This prevents the horizontal Pager from breaking out of the vertical scroll.
                         Offset(x = available.x, y = 0f)
                     }
                     Orientation.Horizontal -> {
@@ -81,20 +80,17 @@ fun rememberDirectionalScrollConnection(
                 return Offset.Zero
             }
 
-            // 3. FIX: intercept at onPreFling
-            // onPreFling is guaranteed to run BEFORE flings hit the system, 
-            // right when the dragging finger lifts off the glass.
+            // 3. Clean up gesture tracks immediately before flings execute
             override suspend fun onPreFling(available: Velocity): Velocity {
                 currentGestureLock = null // Instantly clear lock for the next gesture
-                return Velocity.Zero // Let the velocity pass naturally
+                return Velocity.Zero 
             }
 
             override suspend fun onPostFling(
                 consumed: Velocity,
                 available: Velocity
             ): Velocity {
-                // Backup safety reset
-                currentGestureLock = null 
+                currentGestureLock = null // Backup safety reset
                 return super.onPostFling(consumed, available)
             }
         }
