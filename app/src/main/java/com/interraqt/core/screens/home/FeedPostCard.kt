@@ -50,7 +50,8 @@ fun FeedPostCard(
         }
     }
 
-    val toggleLike = {
+        // 🚨 Added ": () -> Unit" to explicitly tell Kotlin to ignore the Firebase return type
+    val toggleLike: () -> Unit = {
         isLiked = !isLiked
         localLikesCount += if (isLiked) 1 else -1
         val postRef = firestore.collection("posts").document(post.postId)
@@ -63,13 +64,13 @@ fun FeedPostCard(
         }
     }
 
-    val toggleSave = {
+    val toggleSave: () -> Unit = {
         isSaved = !isSaved
         val saveRef = firestore.collection("users").document(currentUserId).collection("savedPosts").document(post.postId)
         if (isSaved) saveRef.set(mapOf("timestamp" to System.currentTimeMillis())) else saveRef.delete()
     }
     
-    val toggleFollow = {
+    val toggleFollow: () -> Unit = {
         isFollowing = !isFollowing
         val followingRef = firestore.collection("users").document(currentUserId).collection("following").document(post.userId)
         val followersRef = firestore.collection("users").document(post.userId).collection("followers").document(currentUserId)
