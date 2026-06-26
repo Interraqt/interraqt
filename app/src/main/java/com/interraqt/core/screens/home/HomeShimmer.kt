@@ -22,12 +22,15 @@ fun ShimmerFeedPostCard(bgColor: Color, glassColor: Color) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(skeletonColor))
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
+                        Column {
                 Box(modifier = Modifier.height(14.dp).width(120.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
                 Spacer(modifier = Modifier.height(8.dp))
                 Box(modifier = Modifier.height(10.dp).width(80.dp).clip(RoundedCornerShape(4.dp)).background(skeletonColor))
             }
+            Spacer(modifier = Modifier.weight(1f)) // 🚨 Pushes the menu icon to the right
+            Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(skeletonColor)) // 🚨 3-dot menu placeholder
         }
+
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(4f/5f).background(skeletonColor))
         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(skeletonColor))
