@@ -36,26 +36,15 @@ fun HomeTopBar(
     onNavigateToCreatePost: () -> Unit
 ) {
    
-        val isDark = isSystemInDarkTheme()
-    // 🚨 The subtle protective shadow. Soft white in light mode, soft black in dark mode.
-    val scrimColor = if (isDark) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.6f)
-
-    Box(
+            Box(
         modifier = Modifier
             .offset { IntOffset(0, topBarOffsetProvider().roundToPx()) }
             .graphicsLayer { alpha = topBarAlphaProvider() }
             .fillMaxWidth()
-            // 🚨 FIX: A vertical gradient that ONLY covers the battery/time, fading cleanly into transparency!
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(scrimColor, Color.Transparent),
-                    startY = 0f,
-                    endY = Float.POSITIVE_INFINITY 
-                )
-            )
             .padding(top = statusBarHeightDp)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
+
 
       
         Row(
