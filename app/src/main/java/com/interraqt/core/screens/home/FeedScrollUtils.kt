@@ -33,7 +33,8 @@ if (source != NestedScrollSource.Drag) return Offset.Zero
         source: NestedScrollSource
     ): Offset {
         // ... (Your code remains the same)
-        if (source != NestedScrollSource.UserInput) return Offset.Zero
+       
+        if (source != NestedScrollSource.Drag) return Offset.Zero
 
         if (abs(available.x) > 0f) {
             val isSwipingLeft = available.x < 0f  
