@@ -29,6 +29,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -36,7 +39,6 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 
-// 🚨 VIEWMODEL: Keeps your feed cached in memory so it doesn't reload when switching tabs!
 class HomeViewModel : ViewModel() {
     var posts by mutableStateOf<List<FeedPost>>(emptyList())
     var usersMap by mutableStateOf<Map<String, FeedUserProfile>>(emptyMap())
@@ -49,7 +51,7 @@ class HomeViewModel : ViewModel() {
 @Composable
 fun HomeScreen(
     onNavigateToCreatePost: () -> Unit,
-    viewModel: HomeViewModel = viewModel() // 🚨 Injects the persistent state
+    viewModel: HomeViewModel = viewModel()
 ) {
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
@@ -58,9 +60,8 @@ fun HomeScreen(
     val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
     val primaryOrange = Color(0xFFFF6328)
     
-    val glassColor = if (isDark) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.08f)
-    // 🚨 Stronger glass for the top bar to pop against images
-    val strongGlassColor = if (isDark) Color.White.copy(alpha = 0.2f) else Color.Black.copy(alpha = 0.15f)
+    // 🚨 FIX 4: Exactly matches ProfileScreen glass opacity
+    val glassColor = if (isDark) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.7f)
 
     val firestore = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
@@ -112,9 +113,14 @@ fun HomeScreen(
         if (viewModel.isLoadingMore || (!viewModel.hasMore && !isRefresh)) return
         viewModel.isLoadingMore = true
         
+        if (isRefresh) {
+            viewModel.lastVisible = null
+            viewModel.hasMore = true
+        }
+        
         var query = firestore.collection("posts")
             .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(24) // 🚨 Batch increased to 24
+            .limit(24)
             
         if (!isRefresh && viewModel.lastVisible != null) {
             query = query.startAfter(viewModel.lastVisible!!)
@@ -148,7 +154,18 @@ fun HomeScreen(
         }
     }
 
-    // 🚨 Cache Check: Only load from Firebase if ViewModel is empty!
+    // 🚨 FIX 6: Automatically refreshes and shuffles when the app is reopened from background
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                loadPosts(isRefresh = true)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LaunchedEffect(Unit) { 
         if (viewModel.posts.isEmpty()) {
             loadPosts(isRefresh = true) 
@@ -194,7 +211,8 @@ fun HomeScreen(
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
             } else {
-                items(viewModel.posts, key = { it.postId }) { post ->
+                // 🚨 FIX 7: contentType added for buttery smooth recycling
+                items(items = viewModel.posts, key = { it.postId }, contentType = { "FeedPost" }) { post ->
                     val userProfile = viewModel.usersMap[post.userId] ?: FeedUserProfile()
                     FeedPostCard(
                         post = post,
@@ -212,25 +230,35 @@ fun HomeScreen(
                     )
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
+                
+                // 🚨 FIX 3: "Reached the end" message
+                if (!viewModel.hasMore && viewModel.posts.isNotEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("You're all caught up!", color = subTextColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
             }
         }
 
         PullToRefreshContainer(
             state = pullRefreshState, 
             modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), 
-            containerColor = Color.Transparent, // 🚨 Removes the ugly permanent circle
+            containerColor = Color.Transparent, 
             contentColor = primaryOrange
         )
 
-        // 🚨 HIDING TOP BAR WITH UPDATED GLASS
+        // 🚨 FIX 5: Solid Background behind Top Bar so posts don't bleed through text
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .align(Alignment.TopCenter)
                 .offset(y = topBarOffset)
                 .alpha(topBarAlpha)
+                .fillMaxWidth()
+                .background(bgColor.copy(alpha = 0.95f)) 
                 .padding(top = statusBarHeightDp)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .align(Alignment.TopCenter)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -238,11 +266,10 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(strongGlassColor).clickable { onNavigateToCreatePost() },
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { onNavigateToCreatePost() },
                     contentAlignment = Alignment.Center
                 ) { Icon(Icons.Default.Add, contentDescription = "Create", tint = textColor, modifier = Modifier.size(24.dp)) }
 
-                // 🚨 Updated Font & Glass Background
                 Text(
                     text = "Interraqt", 
                     fontSize = 22.sp, 
@@ -250,12 +277,12 @@ fun HomeScreen(
                     color = textColor,
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(strongGlassColor)
+                        .background(glassColor)
                         .padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(strongGlassColor).clickable { },
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(glassColor).clickable { },
                     contentAlignment = Alignment.Center
                 ) { Icon(HomeScreenIcons.Like, contentDescription = "Notifications", tint = textColor, modifier = Modifier.size(24.dp)) }
             }
@@ -314,22 +341,23 @@ fun HomeScreen(
     }
 }
 
+// 🚨 FIX 9: Re-engineered Shimmer Math for active sweeping motion
 @Composable
 fun ShimmerFeedPostCard(bgColor: Color, glassColor: Color) {
     val transition = rememberInfiniteTransition(label = "")
     val translateAnim by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 2000f,
+        initialValue = -1000f,
+        targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutLinearInEasing),
+            animation = tween(1200, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ), label = ""
     )
     
     val shimmerBrush = Brush.linearGradient(
-        colors = listOf(glassColor.copy(alpha = 0.2f), glassColor.copy(alpha = 0.8f), glassColor.copy(alpha = 0.2f)),
-        start = Offset(translateAnim - 400f, translateAnim - 400f),
-        end = Offset(translateAnim, translateAnim)
+        colors = listOf(glassColor.copy(alpha = 0.1f), glassColor.copy(alpha = 0.5f), glassColor.copy(alpha = 0.1f)),
+        start = Offset(translateAnim, translateAnim),
+        end = Offset(translateAnim + 400f, translateAnim + 400f)
     )
 
     Column(modifier = Modifier.fillMaxWidth().background(bgColor)) {
