@@ -2,6 +2,7 @@ package com.interraqt.core.screens.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
@@ -17,11 +18,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-
-import androidx.compose.foundation.isSystemInDarkTheme
 import coil.compose.SubcomposeAsyncImage
-
-
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 
@@ -38,7 +35,6 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
 
     Box(
         modifier = Modifier.fillMaxWidth()
-        // REMOVED .nestedScroll from here because Box does not naturally dispatch nested scrolls.
     ) {
         HorizontalPager(
             state = pagerState,
@@ -46,16 +42,16 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 .fillMaxWidth()
                 .aspectRatio(4f / 5f)
                 .background(Color.Black)
-                // ADDED HERE: This forces the Pager's gesture dispatcher to filter 
-                // x/y deltas through our directional gesture lock before handling them.
                 .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
+            // 🚨 FIX: Replaced the incorrect '}' with ')' below
             flingBehavior = PagerDefaults.flingBehavior(state = pagerState) 
-                } { page ->
+        ) { page ->
+            
             val isDark = isSystemInDarkTheme()
             val skeletonColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
 
-            SubcomposeAsyncImage( // 🚨 FIX: Replaced AsyncImage to track loading state
+            SubcomposeAsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(mediaUrls[page])
                     .crossfade(200)
@@ -66,11 +62,10 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit,
                 loading = {
-                    Box(modifier = Modifier.fillMaxSize().background(skeletonColor)) // 🚨 Holds the skeleton until the image bytes arrive
+                    Box(modifier = Modifier.fillMaxSize().background(skeletonColor))
                 }
             )
         }
-
 
         if (mediaUrls.size > 1) {
             Row(
