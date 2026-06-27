@@ -1,7 +1,7 @@
 package com.interraqt.core.screens.home
 
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasin
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
