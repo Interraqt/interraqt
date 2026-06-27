@@ -1,14 +1,18 @@
 package com.interraqt.core.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
+import com.interraqt.core.R
 
-sealed class Screen(val title: String, val selectedIcon: ImageVector, val unselectedIcon: ImageVector) {
-    object Home : Screen("Home", Icons.Filled.Home, Icons.Outlined.Home)
-    object Chat : Screen("Chat", Icons.Filled.ChatBubble, Icons.Outlined.ChatBubbleOutline)
-    object Explore : Screen("Explore", Icons.Filled.Search, Icons.Outlined.Search)
-    object Video : Screen("Video", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircleOutline)
-    object Profile : Screen("Profile", Icons.Filled.AccountCircle, Icons.Outlined.AccountCircle)
+// 🚨 FIX: Changed from ImageVector to Int (@DrawableRes) so it can accept your custom XML files!
+sealed class Screen(val title: String, @DrawableRes val selectedIcon: Int, @DrawableRes val unselectedIcon: Int) {
+    
+    // 🚨 UPDATE: Links to your newly uploaded XML drawables
+    object Home : Screen("Home", R.drawable.ic_home_filled, R.drawable.ic_home_outline)
+    object Chat : Screen("Chat", R.drawable.ic_chat_filled, R.drawable.ic_chat_outline)
+    object Explore : Screen("Explore", R.drawable.ic_search_filled, R.drawable.ic_search_outline)
+    object Video : Screen("Video", R.drawable.ic_video_filled, R.drawable.ic_video_outline)
+    
+    // Note: Make sure you also have profile XMLs created in your drawable folder! 
+    // If you named them differently, just update the names below.
+    object Profile : Screen("Profile", R.drawable.ic_profile_filled, R.drawable.ic_profile_outline) 
 }
