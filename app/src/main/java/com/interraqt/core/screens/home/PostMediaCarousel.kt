@@ -1,5 +1,8 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.animation.core.tween
+
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -49,12 +52,16 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
           
-                        flingBehavior = PagerDefaults.flingBehavior(
+                                    flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
-                // 🚨 FIX: Makes the swipe feel incredibly effortless. 
-                // A soft, short drag of just 20% of the screen will now glide to the next photo!
-                snapPositionalThreshold = 0.1f
+                snapPositionalThreshold = 0.1f,
+                // 🚨 FIX: Kills the 1-second default Spring animation!
+                // This forces the photo to snap into place on a strict, fast timer. 
+                // The instant this timer ends, the horizontal gesture lock is destroyed, 
+                // allowing you to instantly swipe down without any horizontal glitches!
+                snapAnimationSpec = tween(durationMillis = 100)
             ) 
+
 
         ) { page ->
             
