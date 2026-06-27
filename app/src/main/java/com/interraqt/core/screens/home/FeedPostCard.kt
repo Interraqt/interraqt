@@ -39,7 +39,10 @@ fun FeedPostCard(
     var isSaved by remember { mutableStateOf(false) }
     var isFollowing by remember { mutableStateOf(false) }
     var localLikesCount by remember { mutableIntStateOf(post.likesCount) }
+    val coroutineScope = rememberCoroutineScope() // 🚨 ADDED
+    val likeAnimationState = rememberPremiumLikeState() // 🚨 ADDED
 
+    
     LaunchedEffect(post.postId) {
         if (currentUserId.isNotEmpty()) {
             firestore.collection("posts").document(post.postId).collection("likes").document(currentUserId).get().addOnSuccessListener { isLiked = it.exists() }
@@ -101,7 +104,23 @@ fun FeedPostCard(
             onOptionsClick = onOptionsClick
         )
 
-        PostMediaCarousel(mediaUrls = post.mediaUrls)
+                // 🚨 ADDED: Box to hold the carousel and the animation overlay
+        Box(modifier = Modifier.fillMaxWidth()) {
+            PostMediaCarousel(
+                mediaUrls = post.mediaUrls,
+                onDoubleTap = { tapOffset ->
+                    // Trigger the visual animation instantly at the finger location
+                    coroutineScope.launch { likeAnimationState.animate(tapOffset) }
+                    
+                    // Trigger the logical database like if it isn't already liked
+                    if (!isLiked) toggleLike() 
+                }
+            )
+
+            // 🚨 ADDED: The 120fps GPU overlay. It remains entirely invisible and consumes no resources when idle.
+            PremiumLikeOverlay(state = likeAnimationState)
+        }
+
 
         PostActionBar(
             isLiked = isLiked,
