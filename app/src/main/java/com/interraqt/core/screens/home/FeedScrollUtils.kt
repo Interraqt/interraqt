@@ -35,7 +35,7 @@ fun rememberDirectionalScrollConnection(
                 // highly deliberate, straight horizontal swipes. 
                 // Rapid, curved "L" swipes will smoothly fall back to vertical scrolling!
                 if (abs(available.y) > (abs(available.x) * 0.3f)) {
-                    return Offset.Zero
+                    return Offset(x = 0f, y = available.y)
                 }
 
                 return Offset.Zero
