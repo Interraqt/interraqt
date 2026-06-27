@@ -1,5 +1,6 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 
@@ -39,7 +40,13 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
     if (mediaUrls.isEmpty()) return
     
     val context = LocalContext.current
-    val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
+   
+        val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
+    
+    // 🚨 THE SILVER BULLET: Detects if the photo is gliding on its own without your finger
+    val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
+    val isFlinging = pagerState.isScrollInProgress && !isDragged
+
     
     // Remembers the fixed connection that resets cleanly onPreFling
     val nestedScrollConnection = rememberDirectionalScrollConnection(pagerState)
@@ -47,33 +54,29 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
     Box(
         modifier = Modifier.fillMaxWidth()
     ) {
-        HorizontalPager(
+     
+                HorizontalPager(
             state = pagerState,
-         
-                                    modifier = Modifier
+            // 🚨 GHOST MODE: The instant you lift your finger, the carousel ignores all touches. 
+            // Your vertical swipe falls straight through to the feed instantly!
+            userScrollEnabled = !isFlinging, 
+            modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 5f)
                 .background(Color.Black)
                 .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
-          
-                                                            flingBehavior = PagerDefaults.flingBehavior(
+            flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
                 snapPositionalThreshold = 0.1f,
-                // 🚨 FIX: Uses real physics instead of a robotic timer!
-                // Calculates your thumb's actual speed for a butter-smooth glide, 
-                // but applies "Medium Stiffness" brakes to stop the momentum quickly.
-                // The lock is released instantly without ruining the animation!
+                // 🚨 Restores the beautiful, smooth, cinematic glide!
                 snapAnimationSpec = spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMediumLow
                 )
             ) 
-
-
-
-
         ) { page ->
+
             
                         val isDark = isSystemInDarkTheme()
             val skeletonColor = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
