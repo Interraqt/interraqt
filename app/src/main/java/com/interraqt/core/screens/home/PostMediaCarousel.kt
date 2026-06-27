@@ -1,5 +1,6 @@
 package com.interraqt.core.screens.home
 
+import kotlin.math.absoluteValue
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -94,7 +95,26 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                     .diskCachePolicy(CachePolicy.ENABLED)
                     .build(),
                 contentDescription = "Post Media",
-                modifier = Modifier.fillMaxSize(),
+             
+                modifier = Modifier
+    .fillMaxSize()
+    .graphicsLayer {
+        val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+        val absOffset = pageOffset.absoluteValue.coerceIn(0f, 1f)
+        
+        // 1. Fade out slightly as it leaves the screen
+        alpha = 1f - absOffset
+        
+        // 2. Shrink it back by 15% to create a sense of distance
+        val scale = 1f - (absOffset * 0.15f)
+        scaleX = scale
+        scaleY = scale
+        
+        // 3. Parallax scroll: Move the image at 50% speed so it looks "deeper" in the screen
+        translationX = pageOffset * size.width * 0.5f
+    },
+
+              
                 contentScale = ContentScale.Fit,
                 placeholder = ColorPainter(skeletonColor) 
             )
