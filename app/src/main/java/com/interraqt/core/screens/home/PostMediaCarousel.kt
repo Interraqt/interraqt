@@ -1,5 +1,7 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.absoluteValue
 import androidx.compose.animation.core.tween
