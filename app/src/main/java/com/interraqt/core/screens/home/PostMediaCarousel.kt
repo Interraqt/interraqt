@@ -66,7 +66,7 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 // The lock is released instantly without ruining the animation!
                 snapAnimationSpec = spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium
+                    stiffness = Spring.StiffnessMediumLow
                 )
             ) 
 
