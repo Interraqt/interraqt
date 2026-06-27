@@ -115,7 +115,16 @@ fun HomeScreen(
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(topBarScrollConnection).nestedScroll(pullRefreshState.nestedScrollConnection)) {
-        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp)) {
+      
+                LazyColumn(
+            state = listState, 
+            modifier = Modifier.fillMaxSize(), 
+            contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp),
+            // 🚨 FIX: Injects our custom velocity booster here!
+            flingBehavior = rememberBoostedFlingBehavior(velocityMultiplier = 1.6f) 
+        ) {
+
+            
             item {
                 MomentsTray(textColor = textColor, subTextColor = subTextColor, primaryOrange = primaryOrange)
                 Spacer(modifier = Modifier.height(8.dp))
