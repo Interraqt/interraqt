@@ -121,7 +121,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(), 
             contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp),
             // 🚨 FIX: Injects our custom velocity booster here!
-            flingBehavior = rememberBoostedFlingBehavior(velocityMultiplier = 1.6f) 
+            flingBehavior = rememberBoostedFlingBehavior(velocityMultiplier = 2.0f) 
         ) {
 
             
