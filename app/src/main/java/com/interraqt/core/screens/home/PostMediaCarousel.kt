@@ -37,7 +37,10 @@ import coil.request.ImageRequest
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PostMediaCarousel(mediaUrls: List<String>) {
+fun PostMediaCarousel(mediaUrls: List<String>,
+     onDoubleTap: (Offset) -> Unit = {} // 🚨 ADDED: Exposes the exact tap location
+) {
+                     
     if (mediaUrls.isEmpty()) return
     
     val context = LocalContext.current
@@ -61,6 +64,12 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                     awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     gestureLockState.reset()
                 }
+            }
+            // 🚨 ADDED: Detects the double tap and extracts the coordinate offset
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onDoubleTap = { offset -> onDoubleTap(offset) }
+                )
             }
     ) {
         HorizontalPager(
