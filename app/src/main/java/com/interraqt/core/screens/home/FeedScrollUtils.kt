@@ -3,10 +3,6 @@ package com.interraqt.core.screens.home
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.ScrollableDefaults
-
-
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
@@ -15,82 +11,111 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import kotlin.math.abs
 
 /**
- * A stateless, high-performance scroll interceptor.
- * Calculates vector trajectories instantly to prevent axis-locking bugs and recomposition lag.
+ * State machine representing the exclusive ownership of a gesture sequence.
  */
-@OptIn(ExperimentalFoundationApi::class)
+class GestureLockState(private val touchSlop: Float) {
+    enum class Lock { IDLE, EVALUATING, HORIZONTAL, VERTICAL }
+    
+    var currentLock = Lock.IDLE
+        private set
+        
+    private var accX = 0f
+    private var accY = 0f
+
+    /**
+     * Resets the gesture sequence. Must be called immediately on finger down.
+     */
+    fun reset() {
+        currentLock = Lock.IDLE
+        accX = 0f
+        accY = 0f
+    }
+
+    /**
+     * Evaluates accumulated movement to determine user intention.
+     */
+    fun evaluate(dx: Float, dy: Float) {
+        if (currentLock == Lock.HORIZONTAL || currentLock == Lock.VERTICAL) return
+        
+        if (currentLock == Lock.IDLE) {
+            currentLock = Lock.EVALUATING
+        }
+        
+        accX += dx
+        accY += dy
+
+        val absX = abs(accX)
+        val absY = abs(accY)
+
+        // Once the user exceeds the physical touch slop, lock the intention.
+        if (absX > touchSlop || absY > touchSlop) {
+            // Social Media Bias: Users scrolling a feed often have sloppy vertical swipes.
+            // We apply a 0.85 multiplier to X to strongly bias ownership toward the vertical feed.
+            currentLock = if (absY > absX * 0.85f) Lock.VERTICAL else Lock.HORIZONTAL
+        }
+    }
+}
+
+/**
+ * A highly precise connection that routes scroll deltas based on locked intention.
+ */
 @Composable
 fun rememberDirectionalScrollConnection(
-    pagerState: PagerState
+    gestureState: GestureLockState
 ): NestedScrollConnection {
-    // 🚨 FIX 1: Removed mutableStateOf. The connection is now purely mathematical and lag-free.
-    return remember(pagerState) {
+    return remember(gestureState) {
         object : NestedScrollConnection {
-
-                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
-                // 🚨 FIX: Vertical Bias Threshold. 
-                // We multiply X by 0.5f. This forces the carousel to ONLY trigger on 
-                // highly deliberate, straight horizontal swipes. 
-                // Rapid, curved "L" swipes will smoothly fall back to vertical scrolling!
-                if (abs(available.y) > (abs(available.x) * 0.3f)) {
-                    return Offset(x = available.x, y = 0f)
-                }
+                gestureState.evaluate(available.x, available.y)
 
-                return Offset.Zero
+                return when (gestureState.currentLock) {
+                    GestureLockState.Lock.VERTICAL -> {
+                        // EXCLUSIVE VERTICAL: 
+                        // Consume all X movement so the HorizontalPager cannot process it.
+                        // Pass Y through untouched for the LazyColumn.
+                        Offset(x = available.x, y = 0f)
+                    }
+                    GestureLockState.Lock.HORIZONTAL -> {
+                        // EXCLUSIVE HORIZONTAL:
+                        // Consume all Y movement so the LazyColumn cannot process it.
+                        // Pass X through untouched for the HorizontalPager.
+                        Offset(x = 0f, y = available.y)
+                    }
+                    else -> Offset.Zero // Still evaluating, let Compose handle micro-jitters
+                }
             }
 
-
-                        override fun onPostScroll(
+            override fun onPostScroll(
                 consumed: Offset,
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
                 if (source != NestedScrollSource.Drag) return Offset.Zero
 
-                // 🚨 FIX: Apply the same Vertical Bias here so an arced vertical swipe 
-                // doesn't accidentally trigger a Bottom Tab switch at the edges.
-                if (abs(available.y) > (abs(available.x) * 0.3f)) {
-                    return Offset.Zero 
-                }
-
-                if (abs(available.x) > 0f) {
-
-                    val isSwipingLeft = available.x < 0f
-                    val isSwipingRight = available.x > 0f
-
-                    val atEnd = !pagerState.canScrollForward
-                    val atBeginning = !pagerState.canScrollBackward
-
-                    // If at the edge of the carousel, let the swipe pass through to switch Bottom Tabs
-                    if ((isSwipingLeft && atEnd) || (isSwipingRight && atBeginning)) {
-                        return Offset.Zero
-                    }
-
-                    // Otherwise, consume the leftover swipe so the Bottom Tabs don't twitch
-                    return Offset(x = available.x, y = 0f)
+                // If locked horizontally, swallow any unconsumed X movement at the edge 
+                // of the carousel so it doesn't accidentally swipe between Bottom Tabs.
+                if (gestureState.currentLock == GestureLockState.Lock.HORIZONTAL) {
+                    return Offset(available.x, 0f)
                 }
                 
                 return Offset.Zero
             }
-            
-            // Fling overrides are no longer necessary because we aren't maintaining state!
         }
     }
 }
 
 /**
- * Tricks Compose into thinking the user swiped harder than they actually did.
- * This removes the "heavy" friction from LazyColumn and makes scrolling effortless.
+ * Amplifies initial velocity for a physical, heavy-momentum feed feel.
  */
 @Composable
-fun rememberBoostedFlingBehavior(velocityMultiplier: Float = 1.5f): FlingBehavior {
+fun rememberBoostedFlingBehavior(velocityMultiplier: Float = 1.4f): FlingBehavior {
     val baseBehavior = ScrollableDefaults.flingBehavior()
     return remember(baseBehavior, velocityMultiplier) {
         object : FlingBehavior {
             override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
-                // 🚨 FIX: We take your thumb's natural speed and multiply it!
                 return with(baseBehavior) {
                     performFling(initialVelocity * velocityMultiplier)
                 }
@@ -98,6 +123,3 @@ fun rememberBoostedFlingBehavior(velocityMultiplier: Float = 1.5f): FlingBehavio
         }
     }
 }
-
-
-
