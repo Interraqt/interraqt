@@ -69,8 +69,8 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
             flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
                 snapPositionalThreshold = 0.1f,
-            pagerSnapDistance = androidx.compose.foundation.pager.PagerSnapDistance.atMost(3)
-          )
+            pagerSnapDistance = androidx.compose.foundation.pager.PagerSnapDistance.atMost(3),
+          
                 // 🚨 Restores the beautiful, smooth, cinematic glide!
                 snapAnimationSpec = spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
