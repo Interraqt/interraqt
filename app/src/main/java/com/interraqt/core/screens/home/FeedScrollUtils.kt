@@ -34,7 +34,7 @@ fun rememberDirectionalScrollConnection(
                 // We multiply X by 0.5f. This forces the carousel to ONLY trigger on 
                 // highly deliberate, straight horizontal swipes. 
                 // Rapid, curved "L" swipes will smoothly fall back to vertical scrolling!
-                if (abs(available.y) > (abs(available.x) * 0.3f)) {
+                if (abs(available.y) > (abs(available.x) * 1.2f)) {
                     return Offset(x = available.x, y = 0f)
                 }
 
@@ -51,7 +51,7 @@ fun rememberDirectionalScrollConnection(
 
                 // 🚨 FIX: Apply the same Vertical Bias here so an arced vertical swipe 
                 // doesn't accidentally trigger a Bottom Tab switch at the edges.
-                if (abs(available.y) > (abs(available.x) * 0.3f)) {
+                if (abs(available.y) > (abs(available.x) * 1.2f)) {
                     return Offset.Zero 
                 }
 
