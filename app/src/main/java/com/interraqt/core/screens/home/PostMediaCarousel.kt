@@ -70,6 +70,7 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 state = pagerState,
                 snapPositionalThreshold = 0.1f,
             pagerSnapDistance = androidx.compose.foundation.pager.PagerSnapDistance.atMost(3)
+          )
                 // 🚨 Restores the beautiful, smooth, cinematic glide!
                 snapAnimationSpec = spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
