@@ -59,7 +59,7 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
             state = pagerState,
             // 🚨 GHOST MODE: The instant you lift your finger, the carousel ignores all touches. 
             // Your vertical swipe falls straight through to the feed instantly!
-            userScrollEnabled = !isFlinging, 
+            userScrollEnabled = !true, 
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 5f)
