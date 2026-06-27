@@ -1,5 +1,9 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+
+
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 
@@ -53,16 +57,19 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 .nestedScroll(nestedScrollConnection),
             beyondBoundsPageCount = 1,
           
-                                                flingBehavior = PagerDefaults.flingBehavior(
+                                                            flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
                 snapPositionalThreshold = 0.1f,
-                // 🚨 FIX: Brings back the smooth visual glide using an Easing Curve, 
-                // but strictly kills the horizontal lock after a quarter of a second!
-                snapAnimationSpec = tween(
-                    durationMillis = 250, 
-                    easing = FastOutSlowInEasing
+                // 🚨 FIX: Uses real physics instead of a robotic timer!
+                // Calculates your thumb's actual speed for a butter-smooth glide, 
+                // but applies "Medium Stiffness" brakes to stop the momentum quickly.
+                // The lock is released instantly without ruining the animation!
+                snapAnimationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMedium
                 )
             ) 
+
 
 
 
