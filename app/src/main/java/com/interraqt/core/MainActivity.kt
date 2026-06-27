@@ -1,5 +1,9 @@
 package com.interraqt.core
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+
+
 import android.view.WindowManager
 import android.app.Activity
 import android.os.Bundle
@@ -174,11 +178,14 @@ fun InterraqtApp(
     onNavigateToUserProfile: (String) -> Unit, 
     onLogout: () -> Unit
 ) { 
-    val pagerState = rememberPagerState(initialPage = initialTab, pageCount = { 5 })
-    val coroutineScope = rememberCoroutineScope()
+    // 🚨 FIX 1: Replaced HorizontalPager with a direct, instant State tracker
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
+    
+    // 🚨 FIX 2: THE SILVER BULLET! This permanently memorizes your scroll position on every tab!
+    val saveableStateHolder = rememberSaveableStateHolder()
 
-    LaunchedEffect(pagerState.currentPage) {
-        onTabChange(pagerState.currentPage)
+    LaunchedEffect(selectedTab) {
+        onTabChange(selectedTab)
     }
 
     val isDark = isSystemInDarkTheme()
@@ -186,58 +193,66 @@ fun InterraqtApp(
 
     val view = LocalView.current
     if (!view.isInEditMode) {
-            
-                SideEffect {
+        SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = android.graphics.Color.TRANSPARENT 
             window.navigationBarColor = bgColor.toArgb()
-            
-            // 🚨 RESTORED: Forces Black icons in Light Theme and White icons in Dark Theme
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !isDark
         }
-
-
     }
 
     Scaffold(
         containerColor = bgColor, 
         bottomBar = { 
             BottomNavigationBar(
-                selectedIndex = pagerState.currentPage,
+                selectedIndex = selectedTab,
                 onTabSelected = { index ->
-                    coroutineScope.launch {
-                        val currentPage = pagerState.currentPage
-                        if (abs(currentPage - index) > 1) {
-                            val adjacentPage = if (index > currentPage) index - 1 else index + 1
-                            pagerState.scrollToPage(adjacentPage)
-                        }
-                        pagerState.animateScrollToPage(index)
-                    }
+                    selectedTab = index // Instant tab switch!
                 }
             ) 
         }
     ) { innerPadding ->
-        HorizontalPager(
-            state = pagerState,
+        
+        // 🚨 FIX 3: AnimatedContent provides the beautiful native "Back Gesture" slide and fade!
+        AnimatedContent(
+            targetState = selectedTab,
+            transitionSpec = {
+                val duration = 300
+                if (targetState > initialState) {
+                    // Sliding Forward (Right to Left)
+                    (slideInHorizontally(animationSpec = tween(duration)) { width -> width } + fadeIn(animationSpec = tween(duration))) togetherWith 
+                    (slideOutHorizontally(animationSpec = tween(duration)) { width -> -width / 2 } + fadeOut(animationSpec = tween(duration)))
+                } else {
+                    // Sliding Backward (Left to Right) - The classic Back Gesture!
+                    (slideInHorizontally(animationSpec = tween(duration)) { width -> -width / 2 } + fadeIn(animationSpec = tween(duration))) togetherWith 
+                    (slideOutHorizontally(animationSpec = tween(duration)) { width -> width } + fadeOut(animationSpec = tween(duration)))
+                }
+            },
             modifier = Modifier
                 .padding(bottom = innerPadding.calculateBottomPadding()) 
                 .fillMaxSize()
-                .background(bgColor)
+                .background(bgColor),
+            label = "TabAnimation"
         ) { page ->
-            when (page) {
-                0 -> HomeScreen(onNavigateToCreatePost = onNavigateToCreatePost) // 🚨 FIX: Now correctly passes the parameter!
-                1 -> ChatScreen()
-                2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) 
-                3 -> VideoScreen()
-                4 -> ProfileScreen(
-                    profileUid = null, 
-                    onNavigateToSettings = onNavigateToSettings,
-                    onNavigateToEditProfile = onNavigateToEditProfile,
-                    onNavigateToCreatePost = onNavigateToCreatePost,
-                    onNavigateBack = null
-                ) 
+            
+            // 🚨 FIX 4: Wraps the screens so their LazyColumns never lose your scroll progress!
+            saveableStateHolder.SaveableStateProvider(key = page) {
+                when (page) {
+                    0 -> HomeScreen(onNavigateToCreatePost = onNavigateToCreatePost) 
+                    1 -> ChatScreen()
+                    2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) 
+                    3 -> VideoScreen()
+                    4 -> ProfileScreen(
+                        profileUid = null, 
+                        onNavigateToSettings = onNavigateToSettings,
+                        onNavigateToEditProfile = onNavigateToEditProfile,
+                        onNavigateToCreatePost = onNavigateToCreatePost,
+                        onNavigateBack = null
+                    ) 
+                }
             }
         }
     }
 }
+
