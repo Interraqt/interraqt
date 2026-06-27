@@ -103,17 +103,15 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
         val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
         val absOffset = pageOffset.absoluteValue.coerceIn(0f, 1f)
         
-        // 1. Fade out slightly as it leaves the screen
-        alpha = 1f - absOffset
-        
-        // 2. Shrink it back by 15% to create a sense of distance
-        val scale = 1f - (absOffset * 0.15f)
+        // 1. Shrink by exactly 8% to match the Fullscreen Viewer
+        val scale = 1f - (0.08f * absOffset)
         scaleX = scale
         scaleY = scale
         
-        // 3. Parallax scroll: Move the image at 50% speed so it looks "deeper" in the screen
-        translationX = pageOffset * size.width * 0.5f
+        // 2. Fade opacity by exactly 40% to match the Fullscreen Viewer
+        alpha = 1f - (0.4f * absOffset)
     },
+
 
               
                 contentScale = ContentScale.Fit,
