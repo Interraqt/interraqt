@@ -116,13 +116,14 @@ fun HomeScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(topBarScrollConnection).nestedScroll(pullRefreshState.nestedScrollConnection)) {
       
-                LazyColumn(
+                        LazyColumn(
             state = listState, 
             modifier = Modifier.fillMaxSize(), 
             contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp),
-            // 🚨 FIX: Injects our custom velocity booster here!
-            flingBehavior = rememberBoostedFlingBehavior(velocityMultiplier = 2.0f) 
+            // Utilizes the newly tuned physics engine for natural inertia
+            flingBehavior = rememberBoostedFlingBehavior(velocityMultiplier = 1.4f) 
         ) {
+
 
             
             item {
