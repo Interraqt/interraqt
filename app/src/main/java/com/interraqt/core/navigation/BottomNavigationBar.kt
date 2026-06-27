@@ -1,5 +1,7 @@
 package com.interraqt.core.navigation
 
+import androidx.compose.ui.res.painterResource
+
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -104,18 +106,22 @@ fun BottomNavigationBar(selectedIndex: Int, onTabSelected: (Int) -> Unit) {
                             .padding(top = 9.dp), 
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Crossfade(
+                      
+                                                Crossfade(
                             targetState = if (isHovered) screen.selectedIcon else screen.unselectedIcon,
                             animationSpec = tween(durationMillis = 200),
                             label = "IconAnimation"
-                        ) { activeIcon ->
+                        ) { activeIconRes -> // 🚨 Passed the resource ID
                             Icon(
-                                imageVector = activeIcon, 
+                                // 🚨 FIX: Switched from imageVector to painterResource to draw your custom XMLs!
+                                painter = painterResource(id = activeIconRes), 
                                 contentDescription = screen.title,
                                 modifier = Modifier.size(30.dp),
                                 tint = contentColor
                             ) 
                         }
+
+                   
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = screen.title,
