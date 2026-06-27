@@ -1,5 +1,10 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.ScrollableDefaults
+
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
@@ -74,3 +79,26 @@ fun rememberDirectionalScrollConnection(
         }
     }
 }
+
+/**
+ * Tricks Compose into thinking the user swiped harder than they actually did.
+ * This removes the "heavy" friction from LazyColumn and makes scrolling effortless.
+ */
+@Composable
+fun rememberBoostedFlingBehavior(velocityMultiplier: Float = 1.5f): FlingBehavior {
+    val baseBehavior = ScrollableDefaults.flingBehavior()
+    return remember(baseBehavior, velocityMultiplier) {
+        object : FlingBehavior {
+            override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+                // 🚨 FIX: We take your thumb's natural speed and multiply it!
+                return with(baseBehavior) {
+                    performFling(initialVelocity * velocityMultiplier)
+                }
+            }
+        }
+    }
+}
+
+
+
+
