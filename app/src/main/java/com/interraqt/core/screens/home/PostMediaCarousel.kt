@@ -74,10 +74,10 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 snapPositionalThreshold = 0.1f,
                 pagerSnapDistance = PagerSnapDistance.atMost(2),
                 // Cinematic, weighted physical snap
-                snapAnimationSpec = spring(
-                    dampingRatio = 0.85f, 
-                    stiffness = Spring.StiffnessMediumLow
-                )
+                snapAnimationSpec = tween(
+    durationMillis = 400, 
+    easing = FastOutSlowInEasing
+)
             ) 
         ) { page ->
 
