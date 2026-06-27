@@ -78,7 +78,7 @@ fun PostMediaCarousel(mediaUrls: List<String>) {
                 pagerSnapDistance = PagerSnapDistance.atMost(2),
                 // Cinematic, weighted physical snap
                 snapAnimationSpec = tween(
-    durationMillis = 300, 
+    durationMillis = 350, 
     easing = FastOutSlowInEasing
 )
             ) 
