@@ -1,7 +1,7 @@
 package com.interraqt.core.screens.home
 
 import androidx.compose.ui.res.painterResource
-import com.interraqt.R // Assuming this is your root package based on previous files
+import com.interraqt.core.R // Assuming this is your root package based on previous files
 
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.core.*
