@@ -99,14 +99,19 @@ class PremiumLikeState {
                 gradientShift.animateTo(1f, tween(600, easing = LinearEasing))
             }
 
-                        // Floating Physics & Instant Disappear
+                                    // Floating Physics (Shoot Up & Fall Back)
             launch {
                 delay(200)
-                // Move up without reducing opacity
-                riseY.animateTo(-300f, tween(500, easing = FastOutSlowInEasing)) 
-                // Instantly disappear at the exact moment the movement finishes
+                // 1. Shoot up quickly (FastOutSlowIn makes it naturally slow down at the peak)
+                riseY.animateTo(-250f, tween(300, easing = FastOutSlowInEasing)) 
+                
+                // 2. Fall back down (FastOutLinearIn mimics gravity pulling it down faster and faster)
+                riseY.animateTo(50f, tween(350, easing = FastOutLinearInEasing)) 
+                
+                // 3. Instantly disappear once it falls past the starting point
                 isVisible = false
             }
+
 
         }
     }
