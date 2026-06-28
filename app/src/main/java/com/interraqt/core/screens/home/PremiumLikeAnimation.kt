@@ -45,6 +45,8 @@ class PremiumLikeState {
     val scale = Animatable(0f)
     val alpha = Animatable(0f)
     val riseY = Animatable(0f)
+      val driftX = Animatable(0f)
+    
     val glowAlpha = Animatable(0f)
     val particleProgress = Animatable(0f)
     val rippleProgress = Animatable(0f)
@@ -58,6 +60,8 @@ class PremiumLikeState {
         scale.snapTo(0f)
         alpha.snapTo(1f)
         riseY.snapTo(0f)
+             driftX.snapTo(0f)
+             
         glowAlpha.snapTo(0f)
         particleProgress.snapTo(0f)
         rippleProgress.snapTo(0f)
@@ -99,18 +103,33 @@ class PremiumLikeState {
                 gradientShift.animateTo(1f, tween(600, easing = LinearEasing))
             }
 
-                                    // Floating Physics (Shoot Up & Fall Back)
+                                                // Floating Physics (Shoot up, Wave, Hang, and Drop)
             launch {
                 delay(200)
-                // 1. Shoot up quickly (FastOutSlowIn makes it naturally slow down at the peak)
-                riseY.animateTo(-250f, tween(300, easing = FastOutSlowInEasing)) 
-                
-                // 2. Fall back down (FastOutLinearIn mimics gravity pulling it down faster and faster)
-                riseY.animateTo(50f, tween(350, easing = FastOutLinearInEasing)) 
-                
-                // 3. Instantly disappear once it falls past the starting point
-                isVisible = false
+
+                // 1. The Y-Axis (Shoot up, hover, and drop)
+                launch {
+                    // Shoot up high and naturally slow down at the peak
+                    riseY.animateTo(-250f, tween(400, easing = FastOutSlowInEasing)) 
+                    // Micro-pause for the "hang time" hover effect
+                    delay(50) 
+                    // Gravity takes over: accelerate as it falls back down
+                    riseY.animateTo(100f, tween(350, easing = FastOutLinearInEasing)) 
+                    // Vanish instantly once it drops
+                    isVisible = false 
+                }
+
+                // 2. The X-Axis (The Wavy S-Curve)
+                launch {
+                    // Drift right
+                    driftX.animateTo(60f, tween(250, easing = FastOutSlowInEasing))
+                    // Drift left
+                    driftX.animateTo(-50f, tween(300, easing = FastOutSlowInEasing))
+                    // Drift back right slightly as it falls
+                    driftX.animateTo(20f, tween(250, easing = FastOutSlowInEasing))
+                }
             }
+
 
 
         }
