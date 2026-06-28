@@ -16,7 +16,12 @@ class HomeViewModel : ViewModel() {
     var lastFetchTime by mutableLongStateOf(0L)
 
         private val firestore = FirebaseFirestore.getInstance()
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+ 
+        // 👇 Adding "get()" forces the app to ask Firebase for the REAL user 
+    // every single time the screen draws, instead of memorizing the first one!
+    val currentUserId: String
+        get() = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
 
     init {
         loadPosts(isRefresh = true) // 🚨 FIX: Forces a fresh pull instantly on cold boot (app swipe-kill)
