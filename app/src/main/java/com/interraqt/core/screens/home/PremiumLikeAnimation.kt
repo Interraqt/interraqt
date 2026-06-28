@@ -1,5 +1,8 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.ui.res.painterResource
+import com.interraqt.R // Assuming this is your root package based on previous files
+
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -191,8 +194,10 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
         // 👇 MANUALLY CHANGE HEIGHT OFFSET HERE (70.dp pushes it above your thumb)
         val spawnAboveThumbPx = with(density) { 70.dp.toPx() } 
 
-        Icon(
-            imageVector = Icons.Filled.Favorite,
+                Icon(
+            painter = painterResource(id = R.drawable.ic_custom_heart),
+
+         
             contentDescription = null,
             tint = Color.White, 
             modifier = Modifier
