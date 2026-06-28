@@ -219,7 +219,11 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            HorizontalPager(state = tabPagerState, modifier = Modifier.fillMaxWidth()) { page ->
+            HorizontalPager(
+    state = tabPagerState, 
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.Top // 🚨 This stops the tabs from shifting down!
+) { page ->
                 when (page) {
                     0 -> CollectionsTab(isOwnProfile, postsCount, subTextColor, surfaceColor)
                     1 -> VideosTab(subTextColor)
