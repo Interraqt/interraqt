@@ -1,5 +1,8 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardCapitalization
+
 import android.text.format.DateUtils
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -157,15 +160,18 @@ fun CommentsBottomSheet(
                 HorizontalDivider(color = subTextColor.copy(alpha = 0.08f))
             }
         },
-        modifier = Modifier.fillMaxHeight(0.9f) // Allows room for interaction
+    
+        
+                // Removed fillMaxHeight so it dynamically wraps the content height
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        // Changed to Column to naturally stack content and allow keyboard to push up
+        Column(modifier = Modifier.fillMaxWidth()) {
             
             // --- Comments Feed ---
             val allComments = pendingComments + comments
             
             if (isLoading) {
-                LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                LazyColumn(modifier = Modifier.fillMaxWidth().height(250.dp).padding(horizontal = 16.dp)) {
                     items(5) { ShimmerCommentPlaceholder(glassColor) }
                 }
             } else if (allComments.isEmpty()) {
@@ -174,9 +180,10 @@ fun CommentsBottomSheet(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f, fill = false) // fill=false allows it to shrink when empty!
                         .padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp) // Leave room for composer
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp) // Removed huge 100dp bottom padding
                 ) {
                     items(allComments, key = { it.commentId }) { comment ->
                         CommentFeedItem(
@@ -199,17 +206,11 @@ fun CommentsBottomSheet(
             // --- Floating Comment Composer ---
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, bgColor, bgColor),
-                            startY = 0f
-                        )
-                    )
+                    .background(bgColor) // Solid background now
                     .padding(16.dp)
                     .navigationBarsPadding()
-                    .imePadding()
+                    .imePadding() // Perfectly pushes the composer up when keyboard opens
             ) {
                 PremiumCommentComposer(
                     glassColor = glassColor,
@@ -221,6 +222,9 @@ fun CommentsBottomSheet(
             }
         }
     }
+
+
+    
 }
 
 @Composable
@@ -351,12 +355,15 @@ fun PremiumCommentComposer(
             .background(glassColor)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        BasicTextField(
+                BasicTextField(
             value = text,
             onValueChange = { text = it },
             textStyle = TextStyle(color = textColor, fontSize = 15.sp),
             cursorBrush = SolidColor(primaryOrange),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), // <-- ADDED THIS LINE
             modifier = Modifier
+
+         
                 .weight(1f)
                 .padding(vertical = 8.dp),
             decorationBox = { innerTextField ->
@@ -398,7 +405,8 @@ fun PremiumCommentComposer(
 @Composable
 fun EmptyCommentsState(textColor: Color, subTextColor: Color) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth().height(250.dp), // <-- CHANGED THIS LINE
+
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
