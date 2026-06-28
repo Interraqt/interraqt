@@ -1,5 +1,8 @@
 package com.interraqt.core
 
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.core.tween
@@ -183,7 +186,9 @@ fun InterraqtApp(
         var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
     // 👇 ADDED: A trigger to tell the Home screen to scroll to the top
     var homeTabRetapTrigger by remember { mutableIntStateOf(0) } 
+    val haptic = LocalHapticFeedback.current
 
+    
     // 🚨 FIX 2: THE SILVER BULLET! This permanently memorizes your scroll position on every tab!
     val saveableStateHolder = rememberSaveableStateHolder()
 
@@ -213,6 +218,9 @@ fun InterraqtApp(
                 onTabSelected = { index ->
                     // 👇 If already on Home and tapped Home again, fire the trigger!
                     if (index == 0 && selectedTab == 0) {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+
+                        
                         homeTabRetapTrigger++ 
                     } else {
                         selectedTab = index // Normal switch
