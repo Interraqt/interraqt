@@ -218,37 +218,33 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
         // 👇 MANUALLY CHANGE HEIGHT OFFSET HERE (70.dp pushes it above your thumb)
         val spawnAboveThumbPx = with(density) { 70.dp.toPx() } 
 
-                Icon(
+                        Icon(
             painter = painterResource(id = R.drawable.ic_custom_heart),
-
-         
             contentDescription = null,
             tint = Color.White, 
             modifier = Modifier
                 .offset {
                     IntOffset(
-                        x = (state.tapPosition.x - (heartSizePx / 2)).roundToInt(),
-                        // 👇 Subtracting spawnAboveThumbPx pushes the start position higher
+                        // 👇 Added driftX so it physically sways left and right!
+                        x = (state.tapPosition.x - (heartSizePx / 2) + state.driftX.value).roundToInt(),
                         y = (state.tapPosition.y - (heartSizePx / 2) - spawnAboveThumbPx).roundToInt()
                     )
                 }
-
                 .size(heartSize)
-                                .graphicsLayer {
-                    // GPU Accelerated Transforms
+                .graphicsLayer {
                     scaleX = state.scale.value
                     scaleY = state.scale.value
                     translationY = state.riseY.value
                     alpha = state.alpha.value
-                    rotationZ = (state.scale.value - 1f) * 15f 
                     
-                    
+                    // 👇 Tilts the heart slightly left and right as it drifts, like a falling leaf!
+                    rotationZ = (state.driftX.value / 60f) * 15f 
 
-                    // 🚨 ADD THIS: Forces the GPU to perfectly mask the gradient to the vector path!
+                    // 👇 Crucial: Isolates the custom heart shape so the gradient only paints the inside!
                     compositingStrategy = CompositingStrategy.Offscreen
                 }
                 .drawWithCache {
-                    // Animated Gradient Flow
+                    // 👇 Animated Gradient Flow
                     val shift = state.gradientShift.value * size.height
                     val brush = Brush.linearGradient(
                         colors = colors,
@@ -257,11 +253,11 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
                     )
                     onDrawWithContent {
                         drawContent()
-                        // 🚨 UPDATE THIS: Change SrcAtop to SrcIn
+                        // 👇 SrcIn guarantees the gradient perfectly colors your custom vector
                         drawRect(brush, blendMode = BlendMode.SrcIn)
                     }
                 }
-
         )
+
     }
 }
