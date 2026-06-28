@@ -99,7 +99,7 @@ class PremiumLikeState {
             // Floating Physics & Fade Out (200-700ms)
             launch {
                 delay(200)
-                launch { riseY.animateTo(-120f, tween(500, easing = FastOutSlowInEasing)) }
+                launch { riseY.animateTo(-400f, tween(500, easing = FastOutSlowInEasing)) }
                 delay(200)
                 alpha.animateTo(0f, tween(300, easing = LinearEasing))
                 isVisible = false
@@ -156,24 +156,7 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
                     center = center
                 )
             }
-                 // 3. Premium Circular Glow (Replaces the square shadow!)
-            if (state.glowAlpha.value > 0f) {
-                val glowRadius = 250f // Creates a soft, wide bloom
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            colors[1].copy(alpha = state.glowAlpha.value * 0.6f), // Magenta center
-                            Color.Transparent // Fades smoothly to nothing
-                        ),
-                        center = center,
-                        radius = glowRadius
-                    ),
-                    radius = glowRadius,
-                    center = center
-                )
-            }
-
-
+                 
        
             // 2. Draw Particle Burst
             if (state.particleProgress.value > 0f) {
