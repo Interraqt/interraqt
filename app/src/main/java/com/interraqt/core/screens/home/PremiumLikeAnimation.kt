@@ -156,7 +156,25 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
                     center = center
                 )
             }
+                 // 3. Premium Circular Glow (Replaces the square shadow!)
+            if (state.glowAlpha.value > 0f) {
+                val glowRadius = 250f // Creates a soft, wide bloom
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            colors[1].copy(alpha = state.glowAlpha.value * 0.6f), // Magenta center
+                            Color.Transparent // Fades smoothly to nothing
+                        ),
+                        center = center,
+                        radius = glowRadius
+                    ),
+                    radius = glowRadius,
+                    center = center
+                )
+            }
 
+
+       
             // 2. Draw Particle Burst
             if (state.particleProgress.value > 0f) {
                 particles.forEach { particle ->
@@ -202,10 +220,7 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
                     alpha = state.alpha.value
                     rotationZ = (state.scale.value - 1f) * 15f 
                     
-                    // Bloom/Glow Effect
-                    shadowElevation = state.glowAlpha.value * 30f
-                    ambientShadowColor = colors[1]
-                    spotShadowColor = colors[0]
+                    
 
                     // 🚨 ADD THIS: Forces the GPU to perfectly mask the gradient to the vector path!
                     compositingStrategy = CompositingStrategy.Offscreen
