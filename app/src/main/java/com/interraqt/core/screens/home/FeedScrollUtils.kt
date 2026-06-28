@@ -103,6 +103,14 @@ fun rememberDirectionalScrollConnection(
                 
                 return Offset.Zero
             }
+
+                          // 🚨 ADD THIS RIGHT BELOW onPostScroll
+            override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                gestureState.reset() 
+                return androidx.compose.ui.unit.Velocity.Zero
+            }
+
+            
         }
     }
 }
