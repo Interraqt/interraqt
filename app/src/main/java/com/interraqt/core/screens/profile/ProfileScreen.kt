@@ -1,5 +1,14 @@
 package com.interraqt.core.screens.profile
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalViewConfiguration
+import com.interraqt.core.screens.home.GestureLockState
+import com.interraqt.core.screens.home.rememberDirectionalScrollConnection
+
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -138,9 +147,15 @@ fun ProfileScreen(
         context.startActivity(Intent.createChooser(sendIntent, "Share Profile"))
     }
 
-    val tabPagerState = rememberPagerState(pageCount = { 3 })
+        val tabPagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
+    
+    // 🚨 ADDED: Gesture Lock state for smooth Profile Tab swiping
+    val touchSlop = LocalViewConfiguration.current.touchSlop
+    val gestureLockState = remember { GestureLockState(touchSlop) }
+    val profileNestedScrollConnection = rememberDirectionalScrollConnection(gestureLockState)
 
+    
     val density = LocalDensity.current
     val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
     val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -219,11 +234,23 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            HorizontalPager(
-    state = tabPagerState, 
-    modifier = Modifier.fillMaxWidth(),
-    verticalAlignment = Alignment.Top // 🚨 This stops the tabs from shifting down!
-) { page ->
+                        HorizontalPager(
+                state = tabPagerState, 
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // 1. Resets the gesture lock when the user first touches the pager
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            gestureLockState.reset()
+                        }
+                    }
+                    // 2. Applies the custom directional lock connection
+                    .nestedScroll(profileNestedScrollConnection),
+                verticalAlignment = Alignment.Top // 🚨 This stops the tabs from shifting down!
+            ) { page ->
+
+                
                                 when (page) {
                     // 🚨 Passed targetUid and firestore to the tab
                     0 -> CollectionsTab(targetUid, firestore, isOwnProfile, postsCount, subTextColor, surfaceColor)
