@@ -107,10 +107,12 @@ fun HomeScreen(
         LaunchedEffect(true) { viewModel.loadPosts(isRefresh = true) { pullRefreshState.endRefresh() } }
     }
 
-    // 👇 FIX 1 (Continued): Only scroll/refresh if the trigger number actually INCREASED!
+        // 👇 FIX 1 (Continued): Only scroll/refresh if the trigger number actually INCREASED!
     LaunchedEffect(homeTabRetapTrigger) {
         if (homeTabRetapTrigger > previousTrigger) {
+            isTopBarVisible = true // 🚨 ADDED: Forces the top bar to drop back down!
             listState.animateScrollToItem(0) // Smooth scroll to the top
+
             viewModel.loadPosts(isRefresh = true) // Fetch fresh posts
             previousTrigger = homeTabRetapTrigger // Update the memory
         }
