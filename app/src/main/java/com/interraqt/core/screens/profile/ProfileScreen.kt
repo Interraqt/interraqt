@@ -224,9 +224,11 @@ fun ProfileScreen(
     modifier = Modifier.fillMaxWidth(),
     verticalAlignment = Alignment.Top // 🚨 This stops the tabs from shifting down!
 ) { page ->
-                when (page) {
-                    0 -> CollectionsTab(isOwnProfile, postsCount, subTextColor, surfaceColor)
+                                when (page) {
+                    // 🚨 Passed targetUid and firestore to the tab
+                    0 -> CollectionsTab(targetUid, firestore, isOwnProfile, postsCount, subTextColor, surfaceColor)
                     1 -> VideosTab(subTextColor)
+
                     2 -> PhotosTab(subTextColor)
                 }
             }
