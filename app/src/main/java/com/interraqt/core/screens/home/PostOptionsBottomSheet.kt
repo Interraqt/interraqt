@@ -34,6 +34,7 @@ fun PostOptionsBottomSheet(
         Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).padding(bottom = 40.dp)) {
             Surface(shape = RoundedCornerShape(16.dp), color = surfaceColor, modifier = Modifier.fillMaxWidth()) {
                 Column {
+                    // 1. OWNER ONLY ACTIONS
                     if (isOwnProfile) {
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { onDeleteRequest(); onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp),
@@ -46,31 +47,36 @@ fun PostOptionsBottomSheet(
                         HorizontalDivider(color = textColor.copy(alpha = 0.05f))
                     }
                     
+                    // 2. UNIVERSAL ACTIONS (Everyone sees this)
                     Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.ContentCopy, contentDescription = "Copy", tint = textColor, modifier = Modifier.size(26.dp))
                         Spacer(modifier = Modifier.width(16.dp))
                         Text("Copy link", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
-                    HorizontalDivider(color = textColor.copy(alpha = 0.05f))
                     
-                    Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(HomeScreenIcons.Interested, contentDescription = "Interested", tint = textColor, modifier = Modifier.size(26.dp))
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text("Interested", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
-                    HorizontalDivider(color = textColor.copy(alpha = 0.05f))
-                    
-                    Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(HomeScreenIcons.NotInterested, contentDescription = "Not interested", tint = textColor, modifier = Modifier.size(26.dp))
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text("Not interested", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
-                    HorizontalDivider(color = textColor.copy(alpha = 0.05f))
-                    
-                    Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Flag, contentDescription = "Report", tint = textColor, modifier = Modifier.size(26.dp))
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text("Report", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    // 3. VISITOR ONLY ACTIONS (Hidden from the post owner)
+                    if (!isOwnProfile) {
+                        HorizontalDivider(color = textColor.copy(alpha = 0.05f))
+                        
+                        Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(HomeScreenIcons.Interested, contentDescription = "Interested", tint = textColor, modifier = Modifier.size(26.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("Interested", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        }
+                        HorizontalDivider(color = textColor.copy(alpha = 0.05f))
+                        
+                        Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(HomeScreenIcons.NotInterested, contentDescription = "Not interested", tint = textColor, modifier = Modifier.size(26.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("Not interested", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        }
+                        HorizontalDivider(color = textColor.copy(alpha = 0.05f))
+                        
+                        Row(modifier = Modifier.fillMaxWidth().clickable { onDismiss() }.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Flag, contentDescription = "Report", tint = textColor, modifier = Modifier.size(26.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("Report", color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
             }
