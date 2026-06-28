@@ -100,7 +100,7 @@ class PremiumLikeState {
             launch {
                 delay(200)
                 // Move up without reducing opacity
-                riseY.animateTo(-400f, tween(500, easing = FastOutSlowInEasing)) 
+                riseY.animateTo(-300f, tween(500, easing = FastOutSlowInEasing)) 
                 // Instantly disappear at the exact moment the movement finishes
                 isVisible = false
             }
@@ -184,7 +184,7 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
 
                 // 3. Heart Renderer
         // 👇 MANUALLY CHANGE HEART SIZE HERE (e.g. 100.dp for smaller, 140.dp for larger)
-        val heartSize = 120.dp 
+        val heartSize = 100.dp 
         
         val heartSizePx = with(density) { heartSize.toPx() }
         
