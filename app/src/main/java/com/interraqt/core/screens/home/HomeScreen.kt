@@ -50,14 +50,24 @@ fun HomeScreen(
 
     val firestore = FirebaseFirestore.getInstance() // Passed to inner components
     val listState = rememberLazyListState()
-       // 👇 ADDED: Listens for the tab re-tap, scrolls to top, and refreshes the feed!
+     
+        // 👇 FIX: Remembers the last trigger value so we don't accidentally re-fire on tab switch!
+    var previousTrigger by rememberSaveable { mutableIntStateOf(homeTabRetapTrigger) }
+
+    // 👇 Only scroll/refresh if the trigger number actually INCREASED!
     LaunchedEffect(homeTabRetapTrigger) {
-        if (homeTabRetapTrigger > 0) {
-            listState.animateScrollToItem(0) // Smooth scroll to the top
-            viewModel.loadPosts(isRefresh = true) // Fetch fresh posts
+        if (homeTabRetapTrigger > previousTrigger) {
+            listState.animateScrollToItem(0)
+            viewModel.loadPosts(isRefresh = true)
+            previousTrigger = homeTabRetapTrigger
         }
     }
 
+    // 👇 FIX: A flag to prevent the app from thinking a tab switch is a fresh app launch
+    var isFirstResume by remember { mutableStateOf(true) }
+
+
+    
     val pullRefreshState = rememberPullToRefreshState()
 
     var showOptionsForPost by remember { mutableStateOf<FeedPost?>(null) }
@@ -84,12 +94,20 @@ fun HomeScreen(
         val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
+          
+                        if (event == Lifecycle.Event.ON_RESUME) {
                 isTopBarVisible = true 
                 
-                // 🚨 FIX: If posts are empty, ViewModel's init block is already fetching them. 
-                // Only do the 10-minute check if we are resuming from the background!
-                if (viewModel.posts.isNotEmpty()) {
+                if (isFirstResume) {
+                    isFirstResume = false // Ignore the instant "fake resume" on tab switch
+                } else if (viewModel.posts.isNotEmpty()) {
+                    if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000) {
+                        viewModel.loadPosts(isRefresh = true) 
+                    } else {
+                        viewModel.checkForNewPosts() 
+                    }
+                }
+
                     if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000) {
                         viewModel.loadPosts(isRefresh = true) 
                     } else {
