@@ -1,5 +1,10 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+
+
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -55,9 +60,16 @@ fun FeedPostCard(
     }
 
         // 🚨 Added ": () -> Unit" to explicitly tell Kotlin to ignore the Firebase return type
-    val toggleLike: () -> Unit = {
+        val toggleLike: () -> Unit = {
         isLiked = !isLiked
         localLikesCount += if (isLiked) 1 else -1
+        
+        // 🚨 ADDED: The bouncy pop animation!
+        coroutineScope.launch {
+            likeScale.animateTo(1.3f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+            likeScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium))
+        }
+
         val postRef = firestore.collection("posts").document(post.postId)
         if (isLiked) {
             postRef.collection("likes").document(currentUserId).set(mapOf("timestamp" to System.currentTimeMillis()))
@@ -70,9 +82,17 @@ fun FeedPostCard(
 
     val toggleSave: () -> Unit = {
         isSaved = !isSaved
+        
+        // 🚨 ADDED: The bouncy pop animation!
+        coroutineScope.launch {
+            saveScale.animateTo(1.3f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+            saveScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium))
+        }
+
         val saveRef = firestore.collection("users").document(currentUserId).collection("savedPosts").document(post.postId)
         if (isSaved) saveRef.set(mapOf("timestamp" to System.currentTimeMillis())) else saveRef.delete()
     }
+
     
     val toggleFollow: () -> Unit = {
         isFollowing = !isFollowing
@@ -87,8 +107,8 @@ fun FeedPostCard(
         }
     }
 
-    val likeScale by animateFloatAsState(targetValue = if (isLiked) 1.2f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "")
-    val saveScale by animateFloatAsState(targetValue = if (isSaved) 1.2f else 1f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "")
+        val likeScale = remember { Animatable(1f) }
+    val saveScale = remember { Animatable(1f) }
 
     Column(modifier = Modifier.fillMaxWidth().background(bgColor)) {
         
@@ -123,13 +143,14 @@ fun FeedPostCard(
         }
 
 
-        PostActionBar(
+                PostActionBar(
             isLiked = isLiked,
             localLikesCount = localLikesCount,
             isSaved = isSaved,
             commentsCount = post.commentsCount,
-            likeScale = likeScale,
-            saveScale = saveScale,
+            likeScale = likeScale.value, // 🚨 Added .value
+            saveScale = saveScale.value, // 🚨 Added .value
+
             textColor = textColor,
             primaryOrange = primaryOrange,
             glassColor = glassColor,
@@ -138,18 +159,23 @@ fun FeedPostCard(
             onCommentClick = onCommentClick
         )
 
-        if (post.caption.isNotBlank()) {
+                if (post.caption.isNotBlank()) {
+            var isExpanded by remember { mutableStateOf(false) }
+            
             Text(
-                text = buildAnnotatedString {
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append(userProfile.username) }
-                    append("  ")
-                    append(post.caption)
-                },
+                text = post.caption, // 🚨 Removed username, just shows caption
                 color = textColor,
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
-                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)
+                maxLines = if (isExpanded) Int.MAX_VALUE else 2, // 🚨 Hides extra text
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 12.dp)
+                    .animateContentSize()
+                    .clickable { isExpanded = !isExpanded } // 🚨 Tap to read more!
             )
         }
+
     }
 }
