@@ -180,8 +180,10 @@ fun InterraqtApp(
     onLogout: () -> Unit
 ) { 
     // 🚨 FIX 1: Replaced HorizontalPager with a direct, instant State tracker
-    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
-    
+        var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
+    // 👇 ADDED: A trigger to tell the Home screen to scroll to the top
+    var homeTabRetapTrigger by remember { mutableIntStateOf(0) } 
+
     // 🚨 FIX 2: THE SILVER BULLET! This permanently memorizes your scroll position on every tab!
     val saveableStateHolder = rememberSaveableStateHolder()
 
@@ -206,12 +208,19 @@ fun InterraqtApp(
     Scaffold(
         containerColor = bgColor, 
         bottomBar = { 
-            BottomNavigationBar(
+                        BottomNavigationBar(
                 selectedIndex = selectedTab,
                 onTabSelected = { index ->
-                    selectedTab = index // Instant tab switch!
+                    // 👇 If already on Home and tapped Home again, fire the trigger!
+                    if (index == 0 && selectedTab == 0) {
+                        homeTabRetapTrigger++ 
+                    } else {
+                        selectedTab = index // Normal switch
+                    }
                 }
             ) 
+
+            
         }
     ) { innerPadding ->
         
