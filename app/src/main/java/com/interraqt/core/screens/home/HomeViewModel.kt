@@ -101,12 +101,26 @@ class HomeViewModel : ViewModel() {
             .whereGreaterThan("timestamp", latestTimestamp)
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .get()
-            .addOnSuccessListener { snapshot ->
+         
+                        .addOnSuccessListener { snapshot ->
                 if (!snapshot.isEmpty) {
                     val newPosts = snapshot.documents.mapNotNull { it.toObject(FeedPost::class.java) }
+                    
+                    // 1. Drops the newly created post exactly at the top of the feed
                     posts = newPosts + posts 
+                    
+                    // 2. 👇 ADDED: Ensures your profile picture and username load instantly for the new post!
+                    val missingUsers = newPosts.map { it.userId }.distinct().filter { !usersMap.containsKey(it) }
+                    missingUsers.forEach { uid ->
+                        firestore.collection("users").document(uid).get().addOnSuccessListener { userDoc ->
+                            val username = userDoc.getString("username") ?: "Unknown"
+                            val profileImageUrl = userDoc.getString("profileImageUrl") ?: ""
+                            usersMap = usersMap + (uid to FeedUserProfile(username, profileImageUrl))
+                        }
+                    }
                 }
             }
+
     }
 
     fun deletePost(postId: String) {
