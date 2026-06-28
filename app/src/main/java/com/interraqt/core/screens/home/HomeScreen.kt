@@ -118,17 +118,16 @@ fun HomeScreen(
         }
     }
 
-    val shouldLoadMore = remember {
+        val shouldLoadMore = remember {
         derivedStateOf {
-            // 🚨 FIX: Replaced layoutInfo with firstVisibleItemIndex. 
-            // This stops the app from doing math 120 times a second. It now only recalculates 
-            // when a new post reaches the top of the screen!
             val totalItems = listState.layoutInfo.totalItemsCount
-            val currentItem = listState.firstVisibleItemIndex 
+            // 🚨 FIX: Checks the LAST visible item instead of the first, perfectly detecting the bottom of tall posts!
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 
             
-            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && currentItem >= totalItems - 8
+            viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && lastVisibleItem >= totalItems - 4
         }
     }
+
  
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) viewModel.loadPosts() }
 
