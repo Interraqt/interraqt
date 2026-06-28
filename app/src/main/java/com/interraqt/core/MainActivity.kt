@@ -34,7 +34,7 @@ import com.interraqt.core.navigation.BottomNavigationBar
 import com.interraqt.core.screens.*
 import kotlin.math.abs
 import com.interraqt.core.screens.createpost.CreatePostScreen
-
+import com.interraqt.core.screens.profile.ProfileScreen
 import com.interraqt.core.screens.home.HomeScreen
 
 enum class AppScreen {
