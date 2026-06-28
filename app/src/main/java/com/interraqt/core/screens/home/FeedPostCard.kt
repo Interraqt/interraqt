@@ -3,6 +3,7 @@ package com.interraqt.core.screens.home
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.clickable
 
 
 import kotlinx.coroutines.launch
@@ -59,6 +60,10 @@ fun FeedPostCard(
         }
     }
 
+        val likeScale = remember { Animatable(1f) }
+    val saveScale = remember { Animatable(1f) }
+
+    
         // 🚨 Added ": () -> Unit" to explicitly tell Kotlin to ignore the Firebase return type
         val toggleLike: () -> Unit = {
         isLiked = !isLiked
@@ -107,9 +112,7 @@ fun FeedPostCard(
         }
     }
 
-        val likeScale = remember { Animatable(1f) }
-    val saveScale = remember { Animatable(1f) }
-
+        
     Column(modifier = Modifier.fillMaxWidth().background(bgColor)) {
         
         PostHeader(
