@@ -83,7 +83,7 @@ fun CommentsBottomSheet(
         skipPartiallyExpanded = false,
     )
 
-    [span_2](start_span)// Real-time Firestore Listener[span_2](end_span)
+    // Real-time Firestore Listener
     DisposableEffect(post.postId) {
         val listener = firestore.collection("posts")
             .document(post.postId)
@@ -108,7 +108,7 @@ fun CommentsBottomSheet(
         onDispose { listener.remove() }
     }
 
-    [span_3](start_span)// Submit Action with Optimistic UI Update[span_3](end_span)
+    // Submit Action with Optimistic UI Update
     val submitComment = { text: String ->
         if (text.isNotBlank()) {
             val commentId = UUID.randomUUID().toString()
@@ -126,7 +126,7 @@ fun CommentsBottomSheet(
             // Scroll to top to see new comment
             coroutineScope.launch { listState.animateScrollToItem(0) }
 
-            [span_4](start_span)// 2. Background Sync[span_4](end_span)
+            // 2. Background Sync
             firestore.collection("posts").document(post.postId)
                 .collection("comments").document(commentId)
                 .set(newComment)
@@ -234,7 +234,7 @@ fun CommentFeedItem(
 ) {
     var userProfile by remember { mutableStateOf(UserCache.get(comment.userId)) }
 
-    [span_5](start_span)// Fetch user profile only if missing from cache[span_5](end_span)
+    // Fetch user profile only if missing from cache
     LaunchedEffect(comment.userId) {
         if (userProfile == null) {
             firestore.collection("users").document(comment.userId).get()
@@ -254,7 +254,7 @@ fun CommentFeedItem(
             .fillMaxWidth()
             .padding(vertical = 12.dp)
     ) {
-        [span_6](start_span)// Avatar[span_6](end_span)
+        // Avatar
         if (userProfile?.profileImageUrl?.isNotEmpty() == true) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -417,7 +417,7 @@ fun EmptyCommentsState(textColor: Color, subTextColor: Color) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            [span_7](start_span)text = "Be the first to start the conversation.", // Enhanced text flow[span_7](end_span)
+            text = "Be the first to start the conversation.", // Enhanced text flow
             color = subTextColor,
             fontSize = 14.sp
         )
