@@ -249,7 +249,11 @@ fun InterraqtApp(
             // 🚨 FIX 4: Wraps the screens so their LazyColumns never lose your scroll progress!
             saveableStateHolder.SaveableStateProvider(key = page) {
                 when (page) {
-                    0 -> HomeScreen(onNavigateToCreatePost = onNavigateToCreatePost) 
+                                        0 -> HomeScreen(
+                        onNavigateToCreatePost = onNavigateToCreatePost,
+                        homeTabRetapTrigger = homeTabRetapTrigger // 👇 Passed the trigger!
+                    ) 
+
                     1 -> ChatScreen()
                     2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) 
                     3 -> VideoScreen()
