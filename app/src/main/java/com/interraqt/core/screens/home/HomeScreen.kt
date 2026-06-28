@@ -51,6 +51,13 @@ fun HomeScreen(
     val firestore = FirebaseFirestore.getInstance() // Passed to inner components
     val listState = rememberLazyListState()
 
+        // 👇 ADDED: The exact second you return to the Home screen, this silently fetches 
+    // your new post and drops it at position 0!
+    LaunchedEffect(Unit) {
+        viewModel.checkForNewPosts()
+    }
+
+    
     val pullRefreshState = rememberPullToRefreshState()
 
     var showOptionsForPost by remember { mutableStateOf<FeedPost?>(null) }
