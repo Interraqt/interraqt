@@ -1,5 +1,6 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -193,19 +194,21 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
                     )
                 }
                 .size(heartSize)
-                .graphicsLayer {
+                                .graphicsLayer {
                     // GPU Accelerated Transforms
                     scaleX = state.scale.value
                     scaleY = state.scale.value
                     translationY = state.riseY.value
                     alpha = state.alpha.value
-                    // Organic slight rotation based on scale intensity
                     rotationZ = (state.scale.value - 1f) * 15f 
                     
                     // Bloom/Glow Effect
                     shadowElevation = state.glowAlpha.value * 30f
                     ambientShadowColor = colors[1]
                     spotShadowColor = colors[0]
+
+                    // 🚨 ADD THIS: Forces the GPU to perfectly mask the gradient to the vector path!
+                    compositingStrategy = CompositingStrategy.Offscreen
                 }
                 .drawWithCache {
                     // Animated Gradient Flow
@@ -217,9 +220,11 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
                     )
                     onDrawWithContent {
                         drawContent()
-                        drawRect(brush, blendMode = BlendMode.SrcAtop)
+                        // 🚨 UPDATE THIS: Change SrcAtop to SrcIn
+                        drawRect(brush, blendMode = BlendMode.SrcIn)
                     }
                 }
+
         )
     }
 }
