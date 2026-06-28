@@ -54,7 +54,11 @@ fun PostActionBar(
                     .animateContentSize(animationSpec = spring(stiffness = Spring.StiffnessLow))
                     .padding(horizontal = if (localLikesCount > 0) 12.dp else 0.dp)
             ) {
-                Icon(HomeScreenIcons.Like, contentDescription = "Like", tint = if (isLiked) primaryOrange else textColor, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = likeScale; scaleY = likeScale })
+              
+                                // 🚨 Changed to Color.Red
+                Icon(HomeScreenIcons.Like, contentDescription = "Like", tint = if (isLiked) Color.Red else textColor, modifier = Modifier.size(24.dp).graphicsLayer { scaleX = likeScale; scaleY = likeScale })
+
+                
                 if (localLikesCount > 0) Text(text = "$localLikesCount", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp))
             }
             
@@ -86,12 +90,13 @@ fun PostActionBar(
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onToggleSave() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
+                        Icon(
                 painter = if (isSaved) HomeScreenIcons.BookmarkFilled else HomeScreenIcons.BookmarkOutline, 
                 contentDescription = "Save", 
-                tint = if (isSaved) primaryOrange else textColor, 
+                tint = textColor, // 🚨 Removed orange. It is now just the default filled color!
                 modifier = Modifier.size(24.dp).graphicsLayer { scaleX = saveScale; scaleY = saveScale }
             )
+
         }
     }
 }
