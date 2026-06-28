@@ -1,5 +1,8 @@
 package com.interraqt.core.screens.home
 
+import androidx.compose.ui.platform.LocalConfiguration
+
+
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.graphicsLayer
@@ -46,7 +49,11 @@ fun PostMediaCarousel(mediaUrls: List<String>,
     if (mediaUrls.isEmpty()) return
     
     val context = LocalContext.current
-    val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
+  
+         val pagerState = rememberPagerState(pageCount = { mediaUrls.size })
+    val configuration = LocalConfiguration.current
+    val maxPostHeight = configuration.screenWidthDp.dp * (5f / 4f) // 🚨 Calculates 4:5 limit
+
     
     // Acquire native touch slop configuration
     val touchSlop = LocalViewConfiguration.current.touchSlop
@@ -74,15 +81,18 @@ fun PostMediaCarousel(mediaUrls: List<String>,
                 )
             }
     ) {
-        HorizontalPager(
+       
+                 HorizontalPager(
             state = pagerState,
-            // Native scrolling enabled at all times. Interruptions are handled seamlessly by Foundation.
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(4f / 5f)
+                .heightIn(max = maxPostHeight) // 🚨 Locks max height so it doesn't get too tall
+                .wrapContentHeight(align = Alignment.Top) // 🚨 Pulls the bars tight against square/small images!
                 .background(Color.Black)
                 .nestedScroll(nestedScrollConnection),
-            beyondBoundsPageCount = 1,
+
+             
+             beyondBoundsPageCount = 1,
             flingBehavior = PagerDefaults.flingBehavior(
                 state = pagerState,
                 // Highly responsive flick recognition
@@ -108,10 +118,13 @@ fun PostMediaCarousel(mediaUrls: List<String>,
                     .build(),
                 contentDescription = "Post Media",
              
-                modifier = Modifier
-    .fillMaxSize()
+                                modifier = Modifier
+    .fillMaxWidth()
+    .wrapContentHeight() // 🚨 Lets the image dictate its own natural height
     .graphicsLayer {
-        val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+
+     
+         val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
         val absOffset = pageOffset.absoluteValue.coerceIn(0f, 1f)
         
         // 1. Shrink by exactly 8% to match the Fullscreen Viewer
@@ -125,7 +138,8 @@ fun PostMediaCarousel(mediaUrls: List<String>,
 
 
               
-                contentScale = ContentScale.Fit,
+                                contentScale = ContentScale.FillWidth, // 🚨 Perfect edge-to-edge fitting
+
                 placeholder = ColorPainter(skeletonColor) 
             )
         }
