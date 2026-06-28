@@ -35,8 +35,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 @Composable
 fun HomeScreen(
     onNavigateToCreatePost: () -> Unit,
+    homeTabRetapTrigger: Int = 0, // 👇 ADDED: Listens for the tab tap
     viewModel: HomeViewModel = viewModel()
 ) {
+
     val isDark = isSystemInDarkTheme()
     val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
     val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
@@ -47,6 +49,14 @@ fun HomeScreen(
 
     val firestore = FirebaseFirestore.getInstance() // Passed to inner components
     val listState = rememberLazyListState()
+       // 👇 ADDED: Listens for the tab re-tap, scrolls to top, and refreshes the feed!
+    LaunchedEffect(homeTabRetapTrigger) {
+        if (homeTabRetapTrigger > 0) {
+            listState.animateScrollToItem(0) // Smooth scroll to the top
+            viewModel.loadPosts(isRefresh = true) // Fetch fresh posts
+        }
+    }
+
     val pullRefreshState = rememberPullToRefreshState()
 
     var showOptionsForPost by remember { mutableStateOf<FeedPost?>(null) }
