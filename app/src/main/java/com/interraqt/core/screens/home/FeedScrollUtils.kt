@@ -34,8 +34,23 @@ class GestureLockState(private val touchSlop: Float) {
     /**
      * Evaluates accumulated movement to determine user intention.
      */
-    fun evaluate(dx: Float, dy: Float) {
-        if (currentLock == Lock.HORIZONTAL || currentLock == Lock.VERTICAL) return
+  
+        fun evaluate(dx: Float, dy: Float) {
+        // 🚨 ADDED: Dynamic Lock Breaking for instant mid-swipe interruptibility
+        if (currentLock == Lock.HORIZONTAL) {
+            // If dragging horizontally, but suddenly yanked vertically
+            if (kotlin.math.abs(dy) > kotlin.math.abs(dx) * 2.5f && kotlin.math.abs(dy) > 10f) {
+                currentLock = Lock.VERTICAL
+            }
+            return
+        }
+        if (currentLock == Lock.VERTICAL) {
+            // If dragging vertically, but suddenly yanked horizontally
+            if (kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2.5f && kotlin.math.abs(dx) > 10f) {
+                currentLock = Lock.HORIZONTAL
+            }
+            return
+        }
         
         if (currentLock == Lock.IDLE) {
             currentLock = Lock.EVALUATING
@@ -44,16 +59,15 @@ class GestureLockState(private val touchSlop: Float) {
         accX += dx
         accY += dy
 
-        val absX = abs(accX)
-        val absY = abs(accY)
+        val absX = kotlin.math.abs(accX)
+        val absY = kotlin.math.abs(accY)
 
-        // Once the user exceeds the physical touch slop, lock the intention.
+        // Initial lock when starting a gesture
         if (absX > touchSlop || absY > touchSlop) {
-            // Social Media Bias: Users scrolling a feed often have sloppy vertical swipes.
-            // We apply a 0.85 multiplier to X to strongly bias ownership toward the vertical feed.
             currentLock = if (absY > absX * 0.85f) Lock.VERTICAL else Lock.HORIZONTAL
         }
     }
+
 }
 
 /**
