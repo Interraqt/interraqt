@@ -50,24 +50,7 @@ fun HomeScreen(
 
     val firestore = FirebaseFirestore.getInstance() // Passed to inner components
     val listState = rememberLazyListState()
-     
-        // 👇 FIX: Remembers the last trigger value so we don't accidentally re-fire on tab switch!
-    var previousTrigger by rememberSaveable { mutableIntStateOf(homeTabRetapTrigger) }
 
-    // 👇 Only scroll/refresh if the trigger number actually INCREASED!
-    LaunchedEffect(homeTabRetapTrigger) {
-        if (homeTabRetapTrigger > previousTrigger) {
-            listState.animateScrollToItem(0)
-            viewModel.loadPosts(isRefresh = true)
-            previousTrigger = homeTabRetapTrigger
-        }
-    }
-
-    // 👇 FIX: A flag to prevent the app from thinking a tab switch is a fresh app launch
-    var isFirstResume by remember { mutableStateOf(true) }
-
-
-    
     val pullRefreshState = rememberPullToRefreshState()
 
     var showOptionsForPost by remember { mutableStateOf<FeedPost?>(null) }
@@ -86,32 +69,32 @@ fun HomeScreen(
         }
     }
 
-    
-
     val topBarOffset by animateDpAsState(if (isTopBarVisible) 0.dp else (-100).dp, spring(stiffness = Spring.StiffnessMediumLow), label = "")
     val topBarAlpha by animateFloatAsState(if (isTopBarVisible) 1f else 0f, tween(300), label = "")
 
-        val lifecycleOwner = LocalLifecycleOwner.current
+    // 👇 FIX 1: Remembers the last trigger value so we don't accidentally re-fire it on a tab switch!
+    var previousTrigger by rememberSaveable { mutableIntStateOf(homeTabRetapTrigger) }
+    
+    // 👇 FIX 2: A flag to prevent the app from thinking a tab switch is a fresh app launch
+    var isFirstResume by remember { mutableStateOf(true) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-          
-                        if (event == Lifecycle.Event.ON_RESUME) {
+            if (event == Lifecycle.Event.ON_RESUME) {
                 isTopBarVisible = true 
                 
                 if (isFirstResume) {
-                    isFirstResume = false // Ignore the instant "fake resume" on tab switch
-                } else if (viewModel.posts.isNotEmpty()) {
-                    if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000) {
-                        viewModel.loadPosts(isRefresh = true) 
-                    } else {
-                        viewModel.checkForNewPosts() 
-                    }
-                }
-
-                    if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000) {
-                        viewModel.loadPosts(isRefresh = true) 
-                    } else {
-                        viewModel.checkForNewPosts() 
+                    // Ignore the instant "fake resume" that happens when switching tabs
+                    isFirstResume = false 
+                } else {
+                    // Real app resume (coming from background)
+                    if (viewModel.posts.isNotEmpty()) {
+                        if (System.currentTimeMillis() - viewModel.lastFetchTime > 600_000) {
+                            viewModel.loadPosts(isRefresh = true) 
+                        } else {
+                            viewModel.checkForNewPosts() 
+                        }
                     }
                 }
             }
@@ -120,12 +103,20 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-
     if (pullRefreshState.isRefreshing) {
         LaunchedEffect(true) { viewModel.loadPosts(isRefresh = true) { pullRefreshState.endRefresh() } }
     }
 
-            val shouldLoadMore = remember {
+    // 👇 FIX 1 (Continued): Only scroll/refresh if the trigger number actually INCREASED!
+    LaunchedEffect(homeTabRetapTrigger) {
+        if (homeTabRetapTrigger > previousTrigger) {
+            listState.animateScrollToItem(0) // Smooth scroll to the top
+            viewModel.loadPosts(isRefresh = true) // Fetch fresh posts
+            previousTrigger = homeTabRetapTrigger // Update the memory
+        }
+    }
+
+    val shouldLoadMore = remember {
         derivedStateOf {
             // 🚨 FIX: Replaced layoutInfo with firstVisibleItemIndex. 
             // This stops the app from doing math 120 times a second. It now only recalculates 
@@ -136,8 +127,6 @@ fun HomeScreen(
             viewModel.hasMore && !viewModel.isLoadingMore && totalItems > 0 && currentItem >= totalItems - 8
         }
     }
-
-
  
     LaunchedEffect(shouldLoadMore.value) { if (shouldLoadMore.value) viewModel.loadPosts() }
 
@@ -145,15 +134,13 @@ fun HomeScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor).nestedScroll(topBarScrollConnection).nestedScroll(pullRefreshState.nestedScrollConnection)) {
       
-                        LazyColumn(
+        LazyColumn(
             state = listState, 
             modifier = Modifier.fillMaxSize(), 
             contentPadding = PaddingValues(top = statusBarHeightDp + 64.dp, bottom = 100.dp),
             // Utilizes the newly tuned physics engine for natural inertia
             flingBehavior = rememberBoostedFlingBehavior(velocityMultiplier = 1.4f) 
         ) {
-
-
             
             item {
                 MomentsTray(textColor = textColor, subTextColor = subTextColor, primaryOrange = primaryOrange)
@@ -186,7 +173,7 @@ fun HomeScreen(
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
                 
-                                // 🚨 FIX: If they rapid-scroll to the bottom before the background fetch finishes,
+                // 🚨 FIX: If they rapid-scroll to the bottom before the background fetch finishes,
                 // this displays a classic Instagram-style circular spinner!
                 if (viewModel.isLoadingMore && viewModel.posts.isNotEmpty()) {
                     item {
@@ -206,14 +193,10 @@ fun HomeScreen(
             }
         }
 
-
-                        PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), containerColor = Color.Transparent, contentColor = primaryOrange)
+        PullToRefreshContainer(state = pullRefreshState, modifier = Modifier.align(Alignment.TopCenter).padding(top = statusBarHeightDp), containerColor = Color.Transparent, contentColor = primaryOrange)
 
         HomeTopBar(
-
-
-        
-                    topBarOffsetProvider = { topBarOffset }, 
+            topBarOffsetProvider = { topBarOffset }, 
             topBarAlphaProvider = { topBarAlpha },   
             statusBarHeightDp = statusBarHeightDp,
             bgColor = bgColor,
@@ -221,7 +204,6 @@ fun HomeScreen(
             textColor = textColor,
             onNavigateToCreatePost = onNavigateToCreatePost
         )
-
         
         if (showOptionsForPost != null) {
             PostOptionsBottomSheet(
