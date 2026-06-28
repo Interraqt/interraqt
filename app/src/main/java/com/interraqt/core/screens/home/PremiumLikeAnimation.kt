@@ -96,14 +96,15 @@ class PremiumLikeState {
                 gradientShift.animateTo(1f, tween(600, easing = LinearEasing))
             }
 
-            // Floating Physics & Fade Out (200-700ms)
+                        // Floating Physics & Instant Disappear
             launch {
                 delay(200)
-                launch { riseY.animateTo(-400f, tween(500, easing = FastOutSlowInEasing)) }
-                delay(200)
-                alpha.animateTo(0f, tween(300, easing = LinearEasing))
+                // Move up without reducing opacity
+                riseY.animateTo(-400f, tween(500, easing = FastOutSlowInEasing)) 
+                // Instantly disappear at the exact moment the movement finishes
                 isVisible = false
             }
+
         }
     }
 }
@@ -142,11 +143,14 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
 
     Box(modifier = modifier.fillMaxSize()) {
         
-        // Canvas for Ripple & Particles
+                // Canvas for Ripple & Particles
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = state.tapPosition
+            // 👇 Shift the explosion center 70dp up so it perfectly matches the heart!
+            val spawnAboveThumbPx = 70.dp.toPx()
+            val center = Offset(state.tapPosition.x, state.tapPosition.y - spawnAboveThumbPx)
             
             // 1. Draw Ripple
+
             if (state.rippleProgress.value in 0.01f..0.99f) {
                 val rippleRadius = state.rippleProgress.value * 250f
                 val rippleAlpha = 1f - state.rippleProgress.value
@@ -178,22 +182,28 @@ fun PremiumLikeOverlay(state: PremiumLikeState, modifier: Modifier = Modifier) {
             }
         }
 
-        // 3. Heart & Glow Renderer
-        val heartSize = 120.dp
+                // 3. Heart Renderer
+        // 👇 MANUALLY CHANGE HEART SIZE HERE (e.g. 100.dp for smaller, 140.dp for larger)
+        val heartSize = 120.dp 
+        
         val heartSizePx = with(density) { heartSize.toPx() }
+        
+        // 👇 MANUALLY CHANGE HEIGHT OFFSET HERE (70.dp pushes it above your thumb)
+        val spawnAboveThumbPx = with(density) { 70.dp.toPx() } 
 
         Icon(
             imageVector = Icons.Filled.Favorite,
             contentDescription = null,
-            tint = Color.White, // Base color before gradient blending
+            tint = Color.White, 
             modifier = Modifier
-                // Position exactly at the tap, centered
                 .offset {
                     IntOffset(
                         x = (state.tapPosition.x - (heartSizePx / 2)).roundToInt(),
-                        y = (state.tapPosition.y - (heartSizePx / 2)).roundToInt()
+                        // 👇 Subtracting spawnAboveThumbPx pushes the start position higher
+                        y = (state.tapPosition.y - (heartSizePx / 2) - spawnAboveThumbPx).roundToInt()
                     )
                 }
+
                 .size(heartSize)
                                 .graphicsLayer {
                     // GPU Accelerated Transforms
