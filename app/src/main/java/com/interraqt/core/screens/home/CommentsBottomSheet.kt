@@ -58,7 +58,7 @@ object UserCache {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun PremiumCommentsBottomSheet(
+fun CommentsBottomSheet(
     post: FeedPost,
     currentUserId: String,
     firestore: FirebaseFirestore,
