@@ -80,7 +80,11 @@ fun ProfileScreen(
     var followingCount by remember { mutableIntStateOf(0) }
     var isFollowing by remember { mutableStateOf(false) }
 
-    BackHandler { if (!isOwnProfile) onNavigateBack?.invoke() }
+        // 🚨 FIX: Now it completely turns off if it's your own profile, 
+    // letting MainActivity catch the swipe and take you to Home!
+    BackHandler(enabled = !isOwnProfile) { 
+        onNavigateBack?.invoke() 
+    }
 
     var refreshKey by remember { mutableIntStateOf(0) }
     val pullRefreshState = rememberPullToRefreshState()
