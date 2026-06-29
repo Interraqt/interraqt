@@ -6,6 +6,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.core.tween
+import androidx.activity.compose.BackHandler
 
 
 import android.view.WindowManager
@@ -192,6 +193,7 @@ fun InterraqtApp(
     // 🚨 FIX 2: THE SILVER BULLET! This permanently memorizes your scroll position on every tab!
     val saveableStateHolder = rememberSaveableStateHolder()
 
+    
     LaunchedEffect(selectedTab) {
         onTabChange(selectedTab)
     }
