@@ -38,7 +38,8 @@ fun FeedPostCard(
     glassColor: Color,
     firestore: FirebaseFirestore,
     onOptionsClick: () -> Unit,
-    onCommentClick: () -> Unit
+    onCommentClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     val isOwnProfile = post.userId == currentUserId
 
@@ -125,7 +126,8 @@ fun FeedPostCard(
             primaryOrange = primaryOrange,
             glassColor = glassColor,
             onToggleFollow = toggleFollow,
-            onOptionsClick = onOptionsClick
+            onOptionsClick = onOptionsClick,
+            onProfileClick = onProfileClick
         )
 
                 // 🚨 ADDED: Box to hold the carousel and the animation overlay
