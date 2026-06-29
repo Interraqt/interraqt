@@ -54,11 +54,11 @@ fun PostHeader(
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .build(),
                     contentDescription = "Profile",
-                    modifier = Modifier.size(40.dp).clip(CircleShape),
+                    modifier = Modifier.size(36.dp).clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(glassColor), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.Person, contentDescription = "Default", tint = subTextColor)
                 }
             }
