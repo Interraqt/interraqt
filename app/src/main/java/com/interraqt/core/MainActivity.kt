@@ -259,7 +259,8 @@ fun InterraqtApp(
                 when (page) {
                                         0 -> HomeScreen(
                         onNavigateToCreatePost = onNavigateToCreatePost,
-                        homeTabRetapTrigger = homeTabRetapTrigger // 👇 Passed the trigger!
+                       onNavigateToProfile = onNavigateToUserProfile,
+                                            homeTabRetapTrigger = homeTabRetapTrigger // 👇 Passed the trigger!
                     ) 
 
                     1 -> ChatScreen()
