@@ -193,6 +193,11 @@ fun InterraqtApp(
     // 🚨 FIX 2: THE SILVER BULLET! This permanently memorizes your scroll position on every tab!
     val saveableStateHolder = rememberSaveableStateHolder()
 
+        // 🚨 Intercepts back swipe on ALL tabs except Home (0), and sends you to Home
+    BackHandler(enabled = selectedTab != 0) {
+        selectedTab = 0 
+    }
+
     
     LaunchedEffect(selectedTab) {
         onTabChange(selectedTab)
