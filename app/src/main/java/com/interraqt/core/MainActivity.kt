@@ -78,7 +78,9 @@ fun RootNavigation() {
     var savedTab by remember { mutableIntStateOf(0) }
     var viewedUserId by remember { mutableStateOf("") } 
     var globalUsername by remember { mutableStateOf("...") }
+    val rootStateHolder = rememberSaveableStateHolder()
 
+    
     DisposableEffect(auth.currentUser) {
         val uid = auth.currentUser?.uid
         val listener = if (uid != null) {
@@ -116,7 +118,11 @@ fun RootNavigation() {
                 onNavigateToLogin = { currentScreen = AppScreen.Login },
                 onSignupSuccess = { savedTab = 0; currentScreen = AppScreen.Main }
             )
-            AppScreen.Main -> InterraqtApp(
+          
+                        AppScreen.Main -> rootStateHolder.SaveableStateProvider("main_app_shell") {
+                InterraqtApp(
+
+               
                 initialTab = savedTab, 
                 onTabChange = { savedTab = it }, 
                 onNavigateToSettings = { 
@@ -138,7 +144,7 @@ fun RootNavigation() {
                     currentScreen = AppScreen.OtherProfile 
                 }, 
                 onLogout = { savedTab = 0; currentScreen = AppScreen.Login }
-            )
+            ) }
             AppScreen.Settings -> SettingsScreen(
                 username = globalUsername, 
                 onNavigateToEditProfile = { 
