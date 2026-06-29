@@ -176,7 +176,8 @@ fun HomeScreen(
                         glassColor = glassColor,
                         firestore = firestore,
                         onOptionsClick = { showOptionsForPost = post },
-                        onCommentClick = { showCommentsForPost = post }
+                        onCommentClick = { showCommentsForPost = post },
+                         onProfileClick = { onNavigateToProfile(post.userId) }
                     )
                     HorizontalDivider(color = subTextColor.copy(alpha = 0.15f), thickness = 0.5.dp)
                 }
@@ -210,7 +211,8 @@ fun HomeScreen(
             bgColor = bgColor,
             glassColor = glassColor,
             textColor = textColor,
-            onNavigateToCreatePost = onNavigateToCreatePost
+            onNavigateToCreatePost = onNavigateToCreatePost,
+            onNavigateToProfile: (String) -> Unit
         )
         
         if (showOptionsForPost != null) {
