@@ -40,7 +40,7 @@ fun PostHeader(
 ) {
     val context = LocalContext.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -54,11 +54,11 @@ fun PostHeader(
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .build(),
                     contentDescription = "Profile",
-                    modifier = Modifier.size(42.dp).clip(CircleShape),
+                    modifier = Modifier.size(40.dp).clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
             } else {
-                Box(modifier = Modifier.size(42.dp).clip(CircleShape).background(glassColor), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(glassColor), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.Person, contentDescription = "Default", tint = subTextColor)
                 }
             }
@@ -66,7 +66,7 @@ fun PostHeader(
             Spacer(modifier = Modifier.width(12.dp))
             
             Column {
-                Text(text = userProfile.username, fontWeight = FontWeight.Bold, color = textColor, fontSize = 15.sp)
+                Text(text = userProfile.username, fontWeight = FontWeight.SemiBold, color = textColor, fontSize = 15.sp)
                 if (shortTime.isNotEmpty()) Text(text = shortTime, color = subTextColor, fontSize = 12.sp)
             }
         }
@@ -87,8 +87,8 @@ fun PostHeader(
                 Spacer(modifier = Modifier.width(12.dp))
             }
             
-            IconButton(onClick = onOptionsClick, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More", tint = textColor, modifier = Modifier.size(28.dp))
+            IconButton(onClick = onOptionsClick, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More", tint = textColor, modifier = Modifier.size(30.dp))
             }
         }
     }
