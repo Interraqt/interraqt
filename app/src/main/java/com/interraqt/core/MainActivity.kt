@@ -257,11 +257,21 @@ fun InterraqtApp(
             // 🚨 FIX 4: Wraps the screens so their LazyColumns never lose your scroll progress!
             saveableStateHolder.SaveableStateProvider(key = page) {
                 when (page) {
-                                        0 -> HomeScreen(
-                        onNavigateToCreatePost = onNavigateToCreatePost,
-                       onNavigateToProfile = onNavigateToUserProfile,
-                                            homeTabRetapTrigger = homeTabRetapTrigger // 👇 Passed the trigger!
-                    ) 
+                                           0 -> HomeScreen(
+                    onNavigateToCreatePost = onNavigateToCreatePost,
+                    onNavigateToProfile = { targetUserId ->
+                        // 🚨 SMART ROUTING: Check if the clicked avatar is your own
+                        if (targetUserId == FirebaseAuth.getInstance().currentUser?.uid) {
+                            // It's you! Just switch the Bottom Nav to Tab 4 (Profile)
+                            selectedTab = 4 
+                        } else {
+                            // It's someone else! Open the OtherProfile overlay
+                            onNavigateToUserProfile(targetUserId)
+                        }
+                    },
+                    homeTabRetapTrigger = homeTabRetapTrigger 
+                ) 
+
 
                     1 -> ChatScreen()
                     2 -> ExploreScreen(onNavigateToUserProfile = onNavigateToUserProfile) 
