@@ -36,7 +36,8 @@ fun PostHeader(
     primaryOrange: Color,
     glassColor: Color,
     onToggleFollow: () -> Unit,
-    onOptionsClick: () -> Unit
+    onOptionsClick: () -> Unit,
+    onProfileClick: () -> Unit
 ) {
     val context = LocalContext.current
     Row(
@@ -44,7 +45,11 @@ fun PostHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+    verticalAlignment = Alignment.CenterVertically,
+    modifier = Modifier.clickable { onProfileClick() }
+) {
+
             if (userProfile.profileImageUrl.isNotEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
