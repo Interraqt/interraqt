@@ -36,6 +36,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 @Composable
 fun HomeScreen(
     onNavigateToCreatePost: () -> Unit,
+  onNavigateToProfile: (String) -> Unit,
     homeTabRetapTrigger: Int = 0, // 👇 ADDED: Listens for the tab tap
     viewModel: HomeViewModel = viewModel()
 ) {
@@ -211,8 +212,8 @@ fun HomeScreen(
             bgColor = bgColor,
             glassColor = glassColor,
             textColor = textColor,
-            onNavigateToCreatePost = onNavigateToCreatePost,
-            onNavigateToProfile: (String) -> Unit
+            onNavigateToCreatePost = onNavigateToCreatePost
+            
         )
         
         if (showOptionsForPost != null) {
