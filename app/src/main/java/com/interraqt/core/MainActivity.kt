@@ -41,6 +41,8 @@ import com.interraqt.core.screens.createpost.CreatePostScreen
 import com.interraqt.core.screens.profile.ProfileScreen
 import com.interraqt.core.screens.home.HomeScreen
 
+import com.interraqt.core.screens.editprofile.EditProfileScreen
+
 enum class AppScreen {
     Login, Signup, Main, Settings, EditProfile, OtherProfile, CreatePost
 }
