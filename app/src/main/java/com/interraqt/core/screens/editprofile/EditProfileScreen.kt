@@ -57,8 +57,7 @@ import coil.request.ImageRequest
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.interraqt.core.network.CloudflareManager
-import com.interraqt.core.viewmodels.EditProfileViewModel
-import com.interraqt.core.viewmodels.UsernameState
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
