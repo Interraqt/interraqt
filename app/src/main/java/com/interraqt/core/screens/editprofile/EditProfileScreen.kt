@@ -1,0 +1,514 @@
+package com.interraqt.core.screens
+
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage 
+import coil.request.ImageRequest
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.interraqt.core.network.CloudflareManager
+import com.interraqt.core.viewmodels.EditProfileViewModel
+import com.interraqt.core.viewmodels.UsernameState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun EditProfileScreen(
+    onNavigateBack: () -> Unit,
+    viewModel: EditProfileViewModel = viewModel() // Inject the ViewModel here
+) {
+    val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val firestore = FirebaseFirestore.getInstance()
+    val currentUser = auth.currentUser
+
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val coroutineScope = rememberCoroutineScope()
+    
+    val scrollState = rememberScrollState()
+
+    val isDark = isSystemInDarkTheme()
+    
+    val bgColor = if (isDark) Color(0xFF0A0F16) else Color(0xFFF5F5F5)
+    val surfaceColor = if (isDark) Color(0xFF161C24) else Color.White
+    val textColor = if (isDark) Color.White else Color.Black
+    val subTextColor = if (isDark) Color(0xFFA0AAB4) else Color.DarkGray
+    
+    val primaryOrange = Color(0xFFFF6328)
+    val successGreen = Color(0xFF10B981)
+    val errorRed = Color(0xFFEF4444)
+
+    var displayName by remember { mutableStateOf(TextFieldValue("")) }
+    var username by remember { mutableStateOf(TextFieldValue("")) }
+    var bio by remember { mutableStateOf(TextFieldValue("")) }
+    
+    var profileImageUrl by remember { mutableStateOf("") }
+    var bannerImageUrl by remember { mutableStateOf("") } 
+    var isUploadingImage by remember { mutableStateOf(false) }
+    var isUploadingBanner by remember { mutableStateOf(false) } 
+    
+    var isLoading by remember { mutableStateOf(true) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    val usernameState by viewModel.usernameState.collectAsState()
+
+    val density = LocalDensity.current
+    val statusBarHeightPx = with(density) { WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx() }
+    val statusBarHeightDp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val fadeEndPx = statusBarHeightPx + with(density) { 90.dp.toPx() }
+
+    val isImeVisible = WindowInsets.isImeVisible
+    
+    LaunchedEffect(isImeVisible) {
+        if (!isImeVisible) {
+            focusManager.clearFocus()
+            coroutineScope.launch {
+                delay(100)
+                scrollState.animateScrollTo(0, animationSpec = tween(durationMillis = 300))
+            }
+        }
+    }
+
+    BackHandler { onNavigateBack() }
+
+    LaunchedEffect(Unit) {
+        currentUser?.uid?.let { uid ->
+            firestore.collection("users").document(uid).get().addOnSuccessListener { doc ->
+                displayName = TextFieldValue(doc.getString("name")?.takeIf { it.isNotBlank() } ?: "Update your name")
+                
+                val loadedUsername = doc.getString("username") ?: ""
+                username = TextFieldValue(loadedUsername)
+                viewModel.setInitialUsername(loadedUsername) // Initialize ViewModel with current username
+                
+                bio = TextFieldValue(doc.getString("bio")?.takeIf { it.isNotBlank() } ?: "Welcome to Interraqt!")
+                profileImageUrl = doc.getString("profileImageUrl") ?: ""
+                bannerImageUrl = doc.getString("bannerImageUrl") ?: "" 
+        
+                isLoading = false
+            }.addOnFailureListener {
+                isLoading = false
+                Toast.makeText(context, "Failed to load profile", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                isUploadingImage = true
+                coroutineScope.launch {
+                    val url = CloudflareManager.uploadImage(context, uri, isBanner = false)
+                    if (url != null) {
+                        profileImageUrl = url
+                        currentUser?.uid?.let { uid -> firestore.collection("users").document(uid).update("profileImageUrl", url) }
+                        Toast.makeText(context, "Profile picture updated!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Upload failed", Toast.LENGTH_SHORT).show()
+                    }
+                    isUploadingImage = false
+                }
+            }
+        }
+    )
+
+    val bannerPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                isUploadingBanner = true
+                coroutineScope.launch {
+                    val url = CloudflareManager.uploadImage(context, uri, isBanner = true)
+                    if (url != null) {
+                        bannerImageUrl = url
+                        currentUser?.uid?.let { uid -> firestore.collection("users").document(uid).update("bannerImageUrl", url) }
+                        Toast.makeText(context, "Banner updated!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Upload failed", Toast.LENGTH_SHORT).show()
+                    }
+                    isUploadingBanner = false
+                }
+            }
+        }
+    )
+
+    val saveProfile: () -> Unit = {
+        if (displayName.text.length > 24) {
+            Toast.makeText(context, "Name cannot exceed 24 characters", Toast.LENGTH_SHORT).show()
+        } else if (bio.text.length > 100) {
+            Toast.makeText(context, "Bio cannot exceed 100 characters", Toast.LENGTH_SHORT).show()
+        } else if (username.text.isEmpty()) {
+            Toast.makeText(context, "Username cannot be empty", Toast.LENGTH_SHORT).show()
+        } else if (usernameState == UsernameState.UNAVAILABLE) {
+            Toast.makeText(context, "Please choose an available username", Toast.LENGTH_SHORT).show()
+        } else if (usernameState == UsernameState.INVALID_FORMAT) {
+            Toast.makeText(context, "Invalid username format", Toast.LENGTH_SHORT).show()
+        } else {
+            isSaving = true
+            
+            currentUser?.uid?.let { uid ->
+                val newUsername = username.text.trim().lowercase()
+                val batch = firestore.batch()
+                
+                // 1. Update the User document
+                val userRef = firestore.collection("users").document(uid)
+                val updates = hashMapOf<String, Any>(
+                    "name" to displayName.text.trim(),
+                    "username" to newUsername,
+                    "bio" to bio.text.trim(),
+                    "profileImageUrl" to profileImageUrl,
+                    "bannerImageUrl" to bannerImageUrl 
+                )
+                batch.update(userRef, updates)
+                
+                // 2. Handle Username Collection Updates if the username changed
+                if (newUsername != viewModel.originalUsername.lowercase()) {
+                    // Claim the new username
+                    val newUsernameRef = firestore.collection("usernames").document(newUsername)
+                    batch.set(newUsernameRef, hashMapOf("uid" to uid))
+                    
+                    // Release the old username
+                    if (viewModel.originalUsername.isNotEmpty()) {
+                        val oldUsernameRef = firestore.collection("usernames").document(viewModel.originalUsername.lowercase())
+                        batch.delete(oldUsernameRef)
+                    }
+                }
+                
+                // Execute Batch
+                batch.commit()
+                    .addOnSuccessListener {
+                        isSaving = false
+                        Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
+                        onNavigateBack() 
+                    }
+                    .addOnFailureListener {
+                        isSaving = false
+                        Toast.makeText(context, "Update Failed", Toast.LENGTH_SHORT).show()
+                    }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgColor)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                })
+            }
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(color = primaryOrange, modifier = Modifier.align(Alignment.Center))
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .imePadding() 
+                    .graphicsLayer { alpha = 0.99f } 
+                    .drawWithContent {
+                        val gradient = Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black), startY = 0f, endY = fadeEndPx)
+                        drawContent()
+                        drawRect(brush = gradient, blendMode = BlendMode.DstIn)
+                    }
+                    .verticalScroll(scrollState) 
+                    .padding(horizontal = 24.dp)
+            ) {
+                Spacer(modifier = Modifier.height(statusBarHeightDp + 60.dp))
+
+                Box(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+                    // --- BANNER BACKGROUND ---
+                    Box(modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(16.dp)).background(surfaceColor)) {
+                        if (bannerImageUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(bannerImageUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Banner Picture",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop 
+                            )
+                        }
+                        
+                        if (isUploadingBanner) {
+                            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(30.dp))
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier.align(Alignment.TopEnd).padding(16.dp).size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.6f))
+                                .clickable { bannerPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Change Banner", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    // --- AVATAR OVERLAY ---
+                    Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                        Box(modifier = Modifier.size(104.dp).clip(CircleShape).background(bgColor), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.size(96.dp).clip(CircleShape).background(surfaceColor), contentAlignment = Alignment.Center) {
+                                if (profileImageUrl.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current).data(profileImageUrl).crossfade(true).build(), 
+                                        contentDescription = "Profile Picture", 
+                                        modifier = Modifier.fillMaxSize(), 
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Person, contentDescription = "Profile", modifier = Modifier.size(50.dp), tint = subTextColor)
+                                }
+
+                                if (isUploadingImage) {
+                                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(color = primaryOrange, modifier = Modifier.size(30.dp))
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Box(
+                            modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape).background(primaryOrange)
+                                .clickable { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Change Photo", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                Text("Name", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                SmartCursorTextField(
+                    value = displayName, onValueChange = { displayName = it }, maxLength = 24, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    primaryColor = primaryOrange, surfaceColor = surfaceColor, textColor = textColor, subTextColor = subTextColor
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // --- USERNAME IMPLEMENTATION ---
+                Text("Username", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                
+                val usernameBorderColor = when (usernameState) {
+                    UsernameState.AVAILABLE -> successGreen
+                    UsernameState.UNAVAILABLE, UsernameState.INVALID_FORMAT -> errorRed
+                    else -> null
+                }
+                
+                SmartCursorTextField(
+                    value = username, 
+                    onValueChange = { 
+                        username = it
+                        viewModel.checkUsernameAvailability(it.text)
+                    }, 
+                    maxLength = 18, 
+                    modifier = Modifier.fillMaxWidth(), 
+                    singleLine = true,
+                    primaryColor = primaryOrange, 
+                    surfaceColor = surfaceColor, 
+                    textColor = textColor, 
+                    subTextColor = subTextColor,
+                    customBorderColor = usernameBorderColor,
+                    trailingIcon = {
+                        when (usernameState) {
+                            UsernameState.LOADING -> CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = primaryOrange)
+                            UsernameState.AVAILABLE -> Icon(Icons.Default.CheckCircle, contentDescription = "Available", tint = successGreen)
+                            UsernameState.UNAVAILABLE, UsernameState.INVALID_FORMAT -> Icon(Icons.Default.Warning, contentDescription = "Error", tint = errorRed)
+                            else -> {}
+                        }
+                    }
+                )
+                
+                // UI Feedback Text Below Field
+                when (usernameState) {
+                    UsernameState.AVAILABLE -> Text("This username is available.", color = successGreen, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, start = 8.dp))
+                    UsernameState.UNAVAILABLE -> Text("This username is not available.", color = errorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, start = 8.dp))
+                    UsernameState.INVALID_FORMAT -> Text("Only A-Z, a-z, 0-9, _, and . are allowed.", color = errorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, start = 8.dp))
+                    else -> {}
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text("Bio", color = subTextColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                SmartCursorTextField(
+                    value = bio, onValueChange = { bio = it }, maxLength = 100, modifier = Modifier.fillMaxWidth().height(120.dp), singleLine = false,
+                    primaryColor = primaryOrange, surfaceColor = surfaceColor, textColor = textColor, subTextColor = subTextColor
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+            }
+            
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+            ) {
+                IconButton(
+                    onClick = onNavigateBack, 
+                    modifier = Modifier.align(Alignment.CenterStart).offset(x = (-12).dp) 
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = textColor)
+                }
+                
+                Text(
+                    text = "Edit Profile", 
+                    fontSize = 20.sp, 
+                    fontWeight = FontWeight.Bold, 
+                    color = textColor, 
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                
+                Box(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TextButton(
+                        onClick = { 
+                            if (!isSaving) { 
+                                keyboardController?.hide(); focusManager.clearFocus(); saveProfile() 
+                            } 
+                        }
+                    ) {
+                        Text(
+                            text = "Save", 
+                            color = if (isSaving) Color.Transparent else primaryOrange, 
+                            fontWeight = FontWeight.Bold, 
+                            fontSize = 16.sp
+                        )
+                    }
+                    
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            color = primaryOrange, 
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.5.dp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SmartCursorTextField(
+    value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, maxLength: Int, modifier: Modifier = Modifier,
+    singleLine: Boolean = false, primaryColor: Color, surfaceColor: Color, textColor: Color, subTextColor: Color,
+    customBorderColor: Color? = null,
+    trailingIcon: @Composable (() -> Unit)? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    var showHandle by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
+    var forceCursorToEnd by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isPressed) { if (isPressed && isFocused && !forceCursorToEnd) showHandle = true }
+    LaunchedEffect(showHandle, value.selection) { if (showHandle) { delay(10000); showHandle = false } }
+
+    val customSelectionColors = TextSelectionColors(
+        handleColor = if (showHandle || !value.selection.collapsed) primaryColor else Color.Transparent,
+        backgroundColor = primaryColor.copy(alpha = 0.4f)
+    )
+
+    // Override logic for border colors based on state
+    val finalUnfocusedBorder = customBorderColor ?: Color.Transparent
+    val finalFocusedBorder = customBorderColor ?: primaryColor
+
+    CompositionLocalProvider(LocalTextSelectionColors provides customSelectionColors) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { newValue ->
+                if (newValue.text.length <= maxLength) {
+                    var finalValue = newValue
+                    if (forceCursorToEnd) {
+                        finalValue = finalValue.copy(selection = TextRange(finalValue.text.length))
+                        forceCursorToEnd = false 
+                    }
+                    if (finalValue.text != value.text) showHandle = false 
+                    onValueChange(finalValue)
+                }
+            },
+            interactionSource = interactionSource,
+            modifier = modifier.onFocusChanged { state ->
+                if (state.isFocused && !isFocused) { forceCursorToEnd = true; showHandle = false }
+                if (!state.isFocused) { showHandle = false; forceCursorToEnd = false }
+                isFocused = state.isFocused
+            },
+            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, lineHeight = 24.sp, color = textColor),
+            shape = RoundedCornerShape(16.dp),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                containerColor = surfaceColor, 
+                focusedBorderColor = finalFocusedBorder, 
+                unfocusedBorderColor = finalUnfocusedBorder,
+                focusedTextColor = textColor, 
+                unfocusedTextColor = textColor, 
+                cursorColor = primaryColor
+            ),
+            singleLine = singleLine,
+            trailingIcon = trailingIcon,
+            supportingText = { Text("${value.text.length}/$maxLength", color = subTextColor, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End) }
+        )
+    }
+}
