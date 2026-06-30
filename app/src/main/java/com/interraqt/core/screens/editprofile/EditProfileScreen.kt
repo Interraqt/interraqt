@@ -1,4 +1,4 @@
-package com.interraqt.core.screens
+package com.interraqt.core.screens.editprofile
 
 import android.net.Uri
 import android.widget.Toast
