@@ -1,4 +1,4 @@
-package com.interraqt.core.viewmodels // Update to match your package structure
+package com.interraqt.core.screens.editprofile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
